@@ -1,2 +1,2 @@
 -- +migrate Down
-DROP TABLE users IF EXISTS;
+DROP TABLE IF EXISTS tasks;

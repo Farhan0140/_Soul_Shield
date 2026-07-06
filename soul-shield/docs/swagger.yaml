@@ -27,6 +27,161 @@ definitions:
       otp:
         type: string
     type: object
+  task.CompleteTaskRequest:
+    properties:
+      date:
+        description: 'না দিলে আজকের তারিখ ধরা হবে; format: YYYY-MM-DD'
+        example: "2026-07-04"
+        type: string
+    type: object
+  task.CompletionResponse:
+    properties:
+      completed_at:
+        type: string
+      date:
+        example: "2026-07-04"
+        type: string
+      id:
+        example: 10
+        type: integer
+      status:
+        example: completed
+        type: string
+      task_id:
+        example: 1
+        type: integer
+      task_title:
+        example: Read Quran
+        type: string
+    type: object
+  task.CreateTaskRequest:
+    properties:
+      description:
+        example: Read at least 1 page daily
+        type: string
+      is_global:
+        description: IsGlobal শুধু admin ব্যবহার করবে, user request এ ignore করা হবে
+          (handler এ role check হবে)
+        example: false
+        type: boolean
+      recurrence_days:
+        description: 0=Sunday...6=Saturday, daily/weekly হলে optional
+        example:
+        - 1
+        - 3
+        - 5
+        items:
+          type: integer
+        type: array
+      recurrence_type:
+        description: daily | weekly | custom
+        example: custom
+        type: string
+      title:
+        example: Read Quran
+        type: string
+    type: object
+  task.ErrorResponse:
+    properties:
+      error:
+        example: invalid request
+        type: string
+    type: object
+  task.SuccessResponse:
+    properties:
+      message:
+        example: Task created successfully
+        type: string
+    type: object
+  task.TaskResponse:
+    properties:
+      created_at:
+        type: string
+      created_by:
+        example: 1
+        type: integer
+      description:
+        example: Read at least 1 page daily
+        type: string
+      id:
+        example: 1
+        type: integer
+      is_active:
+        example: true
+        type: boolean
+      is_global:
+        example: false
+        type: boolean
+      owner_id:
+        example: 3
+        type: integer
+      recurrence_days:
+        example:
+        - 1
+        - 3
+        - 5
+        items:
+          type: integer
+        type: array
+      recurrence_type:
+        example: custom
+        type: string
+      title:
+        example: Read Quran
+        type: string
+      updated_at:
+        type: string
+    type: object
+  task.TaskWithStatusResponse:
+    properties:
+      completed_at:
+        type: string
+      date:
+        example: "2026-07-04"
+        type: string
+      description:
+        example: Read at least 1 page daily
+        type: string
+      is_global:
+        example: false
+        type: boolean
+      recurrence_type:
+        example: custom
+        type: string
+      status:
+        description: pending | completed | missed
+        example: pending
+        type: string
+      task_id:
+        example: 1
+        type: integer
+      title:
+        example: Read Quran
+        type: string
+    type: object
+  task.UpdateTaskRequest:
+    properties:
+      description:
+        example: Read at least 2 pages daily
+        type: string
+      is_active:
+        example: true
+        type: boolean
+      recurrence_days:
+        example:
+        - 1
+        - 3
+        - 5
+        items:
+          type: integer
+        type: array
+      recurrence_type:
+        example: custom
+        type: string
+      title:
+        example: Read Quran
+        type: string
+    type: object
   user.ErrorResponse:
     properties:
       error:
@@ -43,7 +198,7 @@ definitions:
     properties:
       email:
         type: string
-      name:
+      full_name:
         type: string
       password:
         type: string
@@ -104,6 +259,206 @@ paths:
       summary: Send OTP
       tags:
       - OTP
+  /tasks:
+    get:
+      description: date না দিলে আজকের তারিখ ধরা হবে। যেই দিনে recurrence_days ম্যাচ
+        করবে সেই task গুলোই দেখাবে।
+      parameters:
+      - description: 'YYYY-MM-DD, default: today'
+        in: query
+        name: date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/task.TaskWithStatusResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List today's (or given date's) tasks
+      tags:
+      - Tasks
+    post:
+      consumes:
+      - application/json
+      description: User বা Admin task তৈরি করতে পারবে। is_global=true শুধু admin ব্যবহার
+        করতে পারবে।
+      parameters:
+      - description: Task Info
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/task.CreateTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/task.TaskResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create task
+      tags:
+      - Tasks
+  /tasks/{id}:
+    delete:
+      description: Hard delete করে, কিন্তু completion history অক্ষত থাকে (snapshot
+        হিসেবে)
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/task.SuccessResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete task
+      tags:
+      - Tasks
+    patch:
+      consumes:
+      - application/json
+      description: Owner (personal task) অথবা Admin (global task) আপডেট করতে পারবে
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/task.UpdateTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/task.TaskResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update task
+      tags:
+      - Tasks
+  /tasks/{id}/complete:
+    post:
+      consumes:
+      - application/json
+      description: date না দিলে আজকের তারিখ ধরা হবে। ঐ তারিখে task টা scheduled না
+        থাকলে error দিবে।
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Optional date
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/task.CompleteTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/task.CompletionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Mark a task as completed for a given date
+      tags:
+      - Tasks
+  /tasks/history:
+    get:
+      description: from/to না দিলে গত ৭ দিন default হিসেবে দেখাবে (আজসহ)
+      parameters:
+      - description: YYYY-MM-DD
+        in: query
+        name: from
+        type: string
+      - description: YYYY-MM-DD
+        in: query
+        name: to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/task.TaskWithStatusResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get task history for a date range
+      tags:
+      - Tasks
   /users/login:
     post:
       consumes:

@@ -68,6 +68,316 @@ const docTemplate = `{
                 }
             }
         },
+        "/tasks": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "date না দিলে আজকের তারিখ ধরা হবে। যেই দিনে recurrence_days ম্যাচ করবে সেই task গুলোই দেখাবে।",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "List today's (or given date's) tasks",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "YYYY-MM-DD, default: today",
+                        "name": "date",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/task.TaskWithStatusResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "User বা Admin task তৈরি করতে পারবে। is_global=true শুধু admin ব্যবহার করতে পারবে।",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Create task",
+                "parameters": [
+                    {
+                        "description": "Task Info",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/task.CreateTaskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/task.TaskResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/history": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "from/to না দিলে গত ৭ দিন default হিসেবে দেখাবে (আজসহ)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Get task history for a date range",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "YYYY-MM-DD",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "YYYY-MM-DD",
+                        "name": "to",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/task.TaskWithStatusResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Hard delete করে, কিন্তু completion history অক্ষত থাকে (snapshot হিসেবে)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Delete task",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Task ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/task.SuccessResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Owner (personal task) অথবা Admin (global task) আপডেট করতে পারবে",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Update task",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Task ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/task.UpdateTaskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/task.TaskResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/{id}/complete": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "date না দিলে আজকের তারিখ ধরা হবে। ঐ তারিখে task টা scheduled না থাকলে error দিবে।",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Mark a task as completed for a given date",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Task ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Optional date",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/task.CompleteTaskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/task.CompletionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/users/login": {
             "post": {
                 "description": "Login using email and password",
@@ -325,6 +635,220 @@ const docTemplate = `{
                 }
             }
         },
+        "task.CompleteTaskRequest": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "description": "না দিলে আজকের তারিখ ধরা হবে; format: YYYY-MM-DD",
+                    "type": "string",
+                    "example": "2026-07-04"
+                }
+            }
+        },
+        "task.CompletionResponse": {
+            "type": "object",
+            "properties": {
+                "completed_at": {
+                    "type": "string"
+                },
+                "date": {
+                    "type": "string",
+                    "example": "2026-07-04"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "status": {
+                    "type": "string",
+                    "example": "completed"
+                },
+                "task_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "task_title": {
+                    "type": "string",
+                    "example": "Read Quran"
+                }
+            }
+        },
+        "task.CreateTaskRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "example": "Read at least 1 page daily"
+                },
+                "is_global": {
+                    "description": "IsGlobal শুধু admin ব্যবহার করবে, user request এ ignore করা হবে (handler এ role check হবে)",
+                    "type": "boolean",
+                    "example": false
+                },
+                "recurrence_days": {
+                    "description": "0=Sunday...6=Saturday, daily/weekly হলে optional",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        1,
+                        3,
+                        5
+                    ]
+                },
+                "recurrence_type": {
+                    "description": "daily | weekly | custom",
+                    "type": "string",
+                    "example": "custom"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Read Quran"
+                }
+            }
+        },
+        "task.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "invalid request"
+                }
+            }
+        },
+        "task.SuccessResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Task created successfully"
+                }
+            }
+        },
+        "task.TaskResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Read at least 1 page daily"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "is_active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "is_global": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "owner_id": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "recurrence_days": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        1,
+                        3,
+                        5
+                    ]
+                },
+                "recurrence_type": {
+                    "type": "string",
+                    "example": "custom"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Read Quran"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "task.TaskWithStatusResponse": {
+            "type": "object",
+            "properties": {
+                "completed_at": {
+                    "type": "string"
+                },
+                "date": {
+                    "type": "string",
+                    "example": "2026-07-04"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Read at least 1 page daily"
+                },
+                "is_global": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "recurrence_type": {
+                    "type": "string",
+                    "example": "custom"
+                },
+                "status": {
+                    "description": "pending | completed | missed",
+                    "type": "string",
+                    "example": "pending"
+                },
+                "task_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Read Quran"
+                }
+            }
+        },
+        "task.UpdateTaskRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "example": "Read at least 2 pages daily"
+                },
+                "is_active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "recurrence_days": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        1,
+                        3,
+                        5
+                    ]
+                },
+                "recurrence_type": {
+                    "type": "string",
+                    "example": "custom"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Read Quran"
+                }
+            }
+        },
         "user.ErrorResponse": {
             "type": "object",
             "properties": {
@@ -350,7 +874,7 @@ const docTemplate = `{
                 "email": {
                     "type": "string"
                 },
-                "name": {
+                "full_name": {
                     "type": "string"
                 },
                 "password": {
