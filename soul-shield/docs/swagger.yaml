@@ -1,0 +1,252 @@
+basePath: /
+definitions:
+  otp.ErrorResponse:
+    properties:
+      error:
+        example: invalid request
+        type: string
+    type: object
+  otp.SendOTPRequest:
+    properties:
+      email:
+        type: string
+    type: object
+  otp.SuccessResponse:
+    properties:
+      message:
+        example: OTP sent successfully
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  otp.VerifyOTPRequest:
+    properties:
+      email:
+        type: string
+      otp:
+        type: string
+    type: object
+  user.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  user.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  user.RegisterRequest:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+    type: object
+  user.ResetPasswordRequest:
+    properties:
+      email:
+        example: user@gmail.com
+        type: string
+      new_password:
+        example: Password@123
+        type: string
+    type: object
+  user.SuccessResponse:
+    properties:
+      message:
+        type: string
+    type: object
+host: localhost:3000
+info:
+  contact:
+    email: farhannadim0000@gmail.com
+    name: Farhan
+  description: Your Daily Steps Towards Jannah
+  license:
+    name: MIT
+  termsOfService: http://swagger.io/terms/
+  title: Soul Shield
+  version: "1.0"
+paths:
+  /send-otp:
+    post:
+      consumes:
+      - application/json
+      description: Send verification OTP to user email address
+      parameters:
+      - description: Email Information
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/otp.SendOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/otp.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/otp.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/otp.ErrorResponse'
+      summary: Send OTP
+      tags:
+      - OTP
+  /users/login:
+    post:
+      consumes:
+      - application/json
+      description: Login using email and password
+      parameters:
+      - description: Login Credentials
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/user.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+      summary: Login User
+      tags:
+      - Auth
+  /users/me:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.SuccessResponse'
+      security:
+      - BearerAuth: []
+      summary: Current User
+      tags:
+      - Users
+  /users/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user
+      parameters:
+      - description: User Info
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/user.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/user.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+      summary: Create user
+      tags:
+      - Users
+  /users/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Reset user password after successful OTP verification
+      parameters:
+      - description: Password Reset Information
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/user.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+      summary: Reset Password
+      tags:
+      - Users
+  /verify-otp:
+    post:
+      consumes:
+      - application/json
+      description: Verify user email using OTP code
+      parameters:
+      - description: OTP Verification Information
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/otp.VerifyOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/otp.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/otp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/otp.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/otp.ErrorResponse'
+      summary: Verify OTP
+      tags:
+      - OTP
+schemes:
+- http
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

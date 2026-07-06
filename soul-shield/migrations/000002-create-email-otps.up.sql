@@ -1,0 +1,9 @@
+-- +migrate Up
+CREATE TABLE email_otps (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    otp VARCHAR(255) NOT NULL,
+    verified BOOLEAN DEFAULT FALSE,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
