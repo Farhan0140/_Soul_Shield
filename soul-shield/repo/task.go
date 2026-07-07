@@ -10,68 +10,6 @@ import (
 	"github.com/lib/pq"
 )
 
-// ---- Constants ----
-
-const (
-	RecurrenceDaily  = "daily"
-	RecurrenceWeekly = "weekly"
-	RecurrenceCustom = "custom"
-)
-
-const (
-	StatusPending   = "pending"
-	StatusCompleted = "completed"
-	StatusMissed    = "missed"
-)
-
-// ---- Models ----
-
-type Task struct {
-	ID             int64          `db:"id" json:"id"`
-	Title          string         `db:"title" json:"title"`
-	Description    sql.NullString `db:"description" json:"description"`
-	IsGlobal       bool           `db:"is_global" json:"is_global"`
-	OwnerID        sql.NullInt64  `db:"owner_id" json:"owner_id,omitempty"`
-	RecurrenceType string         `db:"recurrence_type" json:"recurrence_type"`
-	RecurrenceDays pq.Int64Array  `db:"recurrence_days" json:"recurrence_days"`
-	IsActive       bool           `db:"is_active" json:"is_active"`
-	CreatedBy      int64          `db:"created_by" json:"created_by"`
-	CreatedAt      time.Time      `db:"created_at" json:"created_at"`
-	UpdatedAt      time.Time      `db:"updated_at" json:"updated_at"`
-}
-
-// TaskUpdate - সব ফিল্ড pointer, যাতে partial update করা যায় (nil মানে ঐ ফিল্ড change হবে না)
-type TaskUpdate struct {
-	Title          *string
-	Description    *string
-	RecurrenceType *string
-	RecurrenceDays *[]int64
-	IsActive       *bool
-}
-
-type TaskCompletion struct {
-	ID                int64         `db:"id" json:"id"`
-	TaskID            sql.NullInt64 `db:"task_id" json:"task_id,omitempty"`
-	UserID            int64         `db:"user_id" json:"user_id"`
-	TaskTitleSnapshot string        `db:"task_title_snapshot" json:"task_title"`
-	TaskDate          time.Time     `db:"task_date" json:"task_date"`
-	Status            string        `db:"status" json:"status"`
-	CompletedAt       sql.NullTime  `db:"completed_at" json:"completed_at,omitempty"`
-	CreatedAt         time.Time     `db:"created_at" json:"created_at"`
-}
-
-// TaskWithStatus - handler কে যা রিটার্ন করা হবে (task + একটা নির্দিষ্ট দিনের status একসাথে)
-type TaskWithStatus struct {
-	TaskID         int64      `json:"task_id"`
-	Title          string     `json:"title"`
-	Description    string     `json:"description"`
-	IsGlobal       bool       `json:"is_global"`
-	RecurrenceType string     `json:"recurrence_type"`
-	Date           string     `json:"date"`
-	Status         string     `json:"status"`
-	CompletedAt    *time.Time `json:"completed_at,omitempty"`
-}
-
 // ---- Interface ----
 
 type TaskRepo interface {
@@ -93,9 +31,8 @@ func NewTaskRepo(db *sqlx.DB) TaskRepo {
 }
 
 // ---- Create ----
-
 func (r *taskRepo) Create(task Task) (*Task, error) {
-	if task.RecurrenceType == RecurrenceDaily {
+	if task.RecurrenceType == util.RecurrenceDaily {
 		task.RecurrenceDays = pq.Int64Array{0, 1, 2, 3, 4, 5, 6}
 	}
 
@@ -132,7 +69,6 @@ func (r *taskRepo) Create(task Task) (*Task, error) {
 }
 
 // ---- Update ----
-
 func (r *taskRepo) Update(id int64, updates TaskUpdate, requestingUserID int64, role string) (*Task, error) {
 	existing, err := r.GetByID(id)
 	if err != nil {
@@ -155,7 +91,7 @@ func (r *taskRepo) Update(id int64, updates TaskUpdate, requestingUserID int64, 
 	if updates.RecurrenceDays != nil {
 		existing.RecurrenceDays = pq.Int64Array(*updates.RecurrenceDays)
 	}
-	if existing.RecurrenceType == RecurrenceDaily {
+	if existing.RecurrenceType == util.RecurrenceDaily {
 		existing.RecurrenceDays = pq.Int64Array{0, 1, 2, 3, 4, 5, 6}
 	}
 	if len(existing.RecurrenceDays) == 0 {
@@ -195,7 +131,6 @@ func (r *taskRepo) Update(id int64, updates TaskUpdate, requestingUserID int64, 
 }
 
 // ---- Delete (hard delete, history অক্ষত থাকবে কারণ task_completions এ ON DELETE SET NULL) ----
-
 func (r *taskRepo) Delete(id int64, requestingUserID int64, role string) error {
 	existing, err := r.GetByID(id)
 	if err != nil {
@@ -211,7 +146,6 @@ func (r *taskRepo) Delete(id int64, requestingUserID int64, role string) error {
 }
 
 // ---- GetByID ----
-
 func (r *taskRepo) GetByID(id int64) (*Task, error) {
 	var task Task
 
@@ -227,7 +161,6 @@ func (r *taskRepo) GetByID(id int64) (*Task, error) {
 }
 
 // ---- ListForDate: একটা নির্দিষ্ট দিনের জন্য user এর দেখা task + status ----
-
 func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, error) {
 	query := `
 		SELECT
@@ -273,9 +206,9 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 		if status.Valid {
 			item.Status = status.String
 		} else if dateStr < today {
-			item.Status = StatusMissed
+			item.Status = util.StatusMissed
 		} else {
-			item.Status = StatusPending
+			item.Status = util.StatusPending
 		}
 
 		if completedAt.Valid {
@@ -290,7 +223,6 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 }
 
 // ---- ListForRange: history এর জন্য, একাধিক দিন একসাথে ----
-
 func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithStatus, error) {
 	query := `
 		SELECT
@@ -337,9 +269,9 @@ func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithSta
 		if status.Valid {
 			item.Status = status.String
 		} else if item.Date < today {
-			item.Status = StatusMissed
+			item.Status = util.StatusMissed
 		} else {
-			item.Status = StatusPending
+			item.Status = util.StatusPending
 		}
 
 		if completedAt.Valid {
@@ -354,7 +286,6 @@ func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithSta
 }
 
 // ---- Complete: upsert করে completion record ----
-
 func (r *taskRepo) Complete(taskID int64, userID int64, date time.Time) (*TaskCompletion, error) {
 	task, err := r.GetByID(taskID)
 	if err != nil {
@@ -410,7 +341,6 @@ func (r *taskRepo) Complete(taskID int64, userID int64, date time.Time) (*TaskCo
 }
 
 // ---- Helper ----
-
 func checkOwnership(task *Task, requestingUserID int64, role string) error {
 	if role == "admin" {
 		return nil

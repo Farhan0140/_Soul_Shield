@@ -7,7 +7,7 @@ import (
 )
 
 type CustomClaims struct {
-	ID        int    `json:"id"`
+	ID        int64  `json:"id"`
 	Full_Name string `json:"full_name"`
 	Email     string `json:"email"`
 	Role      string `json:"role"`
