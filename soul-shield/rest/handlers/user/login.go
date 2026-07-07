@@ -55,6 +55,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		ID:        usr.ID,
 		Full_Name: usr.Full_Name,
 		Email:     usr.Email,
+		Role:      usr.Role,
 	})
 	if err != nil {
 		util.SendError(w, map[string]string{

@@ -16,6 +16,7 @@ type User struct {
 	Full_Name string `json:"full_name" db:"full_name"`
 	Email     string `json:"email" db:"email"`
 	Password  string `json:"password" db:"password"`
+	Role      string `json:"role" db:"role"`
 }
 
 type UserRepo interface {
@@ -37,7 +38,7 @@ func NewUserRepo(db *sqlx.DB) UserRepo {
 func (r *userRepo) Create(user User) (*User, error) {
 	tx, err := r.db.Beginx()
 	if err != nil {
-		return nil, err 
+		return nil, err
 	}
 
 	defer tx.Rollback()
@@ -115,7 +116,7 @@ func (r *userRepo) Create(user User) (*User, error) {
 func (r *userRepo) Find(email, password string) (*User, error) {
 	var user User
 	query := `
-		SELECT id, full_name, email, password
+		SELECT id, full_name, email, password, role
 		FROM users
 		WHERE email = $1
 		LIMIT 1
@@ -145,7 +146,7 @@ func (r *userRepo) Update(email string, password string) error {
 
 	tx, err := r.db.Beginx()
 	if err != nil {
-		return err 
+		return err
 	}
 
 	defer tx.Rollback()
