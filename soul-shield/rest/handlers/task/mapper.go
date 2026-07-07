@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// repo.Task -> TaskResponse (একটা task এর পূর্ণ তথ্য, Create/Update এর response এ ব্যবহার হয়)
 func toTaskResponse(t *repo.Task) TaskResponse {
 	var ownerID *int64
 	if t.OwnerID.Valid {
@@ -30,6 +31,7 @@ func toTaskResponse(t *repo.Task) TaskResponse {
 	}
 }
 
+// repo.TaskWithStatus -> TaskWithStatusResponse (List/History endpoint এর জন্য, প্রতিটা item এ status+category+counter তথ্য থাকে)
 func toTaskWithStatusResponse(t repo.TaskWithStatus) TaskWithStatusResponse {
 	return TaskWithStatusResponse{
 		TaskID:         t.TaskID,
@@ -40,9 +42,20 @@ func toTaskWithStatusResponse(t repo.TaskWithStatus) TaskWithStatusResponse {
 		Date:           t.Date,
 		Status:         t.Status,
 		CompletedAt:    t.CompletedAt,
+
+		CategoryID:    t.CategoryID,
+		CategoryName:  t.CategoryName,
+		CategoryColor: t.CategoryColor,
+
+		RewardText: t.RewardText,
+
+		TaskType:      t.TaskType,
+		TargetCount:   t.TargetCount,
+		ProgressCount: t.ProgressCount,
 	}
 }
 
+// repo.TaskCompletion -> CompletionResponse (Complete/Increment endpoint এর response)
 func toCompletionResponse(c *repo.TaskCompletion) CompletionResponse {
 	var taskID *int64
 	if c.TaskID.Valid {

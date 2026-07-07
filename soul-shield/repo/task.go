@@ -20,6 +20,7 @@ type TaskRepo interface {
 	ListForDate(userID int64, date time.Time) ([]TaskWithStatus, error)
 	ListForRange(userID int64, from, to time.Time) ([]TaskWithStatus, error)
 	Complete(taskID int64, userID int64, date time.Time) (*TaskCompletion, error)
+	Increment(taskID int64, userID int64, date time.Time, amount int32) (*TaskCompletion, error) // নতুন
 }
 
 type taskRepo struct {
@@ -35,29 +36,47 @@ func (r *taskRepo) Create(task Task) (*Task, error) {
 	if task.RecurrenceType == util.RecurrenceDaily {
 		task.RecurrenceDays = pq.Int64Array{0, 1, 2, 3, 4, 5, 6}
 	}
-
 	if len(task.RecurrenceDays) == 0 {
 		return nil, util.ErrInvalidRecurrence
+	}
+
+	if task.TaskType == "" {
+		task.TaskType = "normal"
+	}
+	if task.TaskType == "counter" {
+		if !task.TargetCount.Valid || task.TargetCount.Int32 <= 0 {
+			return nil, util.ErrInvalidCounterTarget
+		}
+	} else {
+		task.TargetCount = sql.NullInt32{}
+	}
+
+	if task.CategoryID.Valid {
+		cat, err := r.getCategoryForValidation(task.CategoryID.Int64)
+		if err != nil {
+			return nil, err
+		}
+		// personal task হলে category owner ম্যাচ করতে হবে; global task হলে admin এর category হতে হবে
+		if !task.IsGlobal && (!task.OwnerID.Valid || cat.OwnerID != task.OwnerID.Int64) {
+			return nil, util.ErrForbidden
+		}
 	}
 
 	query := `
 		INSERT INTO tasks (
 			title, description, is_global, owner_id,
-			recurrence_type, recurrence_days, created_by
+			recurrence_type, recurrence_days, created_by,
+			category_id, reward_text, task_type, target_count
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 		RETURNING id, is_active, created_at, updated_at
 	`
 
 	row := r.db.QueryRow(
 		query,
-		task.Title,
-		task.Description,
-		task.IsGlobal,
-		task.OwnerID,
-		task.RecurrenceType,
-		task.RecurrenceDays,
-		task.CreatedBy,
+		task.Title, task.Description, task.IsGlobal, task.OwnerID,
+		task.RecurrenceType, task.RecurrenceDays, task.CreatedBy,
+		task.CategoryID, task.RewardText, task.TaskType, task.TargetCount,
 	)
 
 	err := row.Scan(&task.ID, &task.IsActive, &task.CreatedAt, &task.UpdatedAt)
@@ -67,6 +86,43 @@ func (r *taskRepo) Create(task Task) (*Task, error) {
 
 	return &task, nil
 }
+
+// func (r *taskRepo) Create(task Task) (*Task, error) {
+// 	if task.RecurrenceType == util.RecurrenceDaily {
+// 		task.RecurrenceDays = pq.Int64Array{0, 1, 2, 3, 4, 5, 6}
+// 	}
+
+// 	if len(task.RecurrenceDays) == 0 {
+// 		return nil, util.ErrInvalidRecurrence
+// 	}
+
+// 	query := `
+// 		INSERT INTO tasks (
+// 			title, description, is_global, owner_id,
+// 			recurrence_type, recurrence_days, created_by
+// 		)
+// 		VALUES ($1, $2, $3, $4, $5, $6, $7)
+// 		RETURNING id, is_active, created_at, updated_at
+// 	`
+
+// 	row := r.db.QueryRow(
+// 		query,
+// 		task.Title,
+// 		task.Description,
+// 		task.IsGlobal,
+// 		task.OwnerID,
+// 		task.RecurrenceType,
+// 		task.RecurrenceDays,
+// 		task.CreatedBy,
+// 	)
+
+// 	err := row.Scan(&task.ID, &task.IsActive, &task.CreatedAt, &task.UpdatedAt)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	return &task, nil
+// }
 
 // ---- Update ----
 func (r *taskRepo) Update(id int64, updates TaskUpdate, requestingUserID int64, role string) (*Task, error) {
@@ -162,13 +218,17 @@ func (r *taskRepo) GetByID(id int64) (*Task, error) {
 
 // ---- ListForDate: একটা নির্দিষ্ট দিনের জন্য user এর দেখা task + status ----
 func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, error) {
-	dateStr := date.Format("2026-07-07")
-	
+	dateStr := date.Format("2006-01-02")
+
 	query := `
 		SELECT
 			t.id, t.title, t.description, t.is_global, t.recurrence_type,
-			tc.status, tc.completed_at
+			t.task_type, t.target_count,
+			c.id AS cat_id, c.name AS cat_name, c.color_hex AS cat_color,
+			t.reward_text,
+			tc.status, tc.completed_at, tc.progress_count
 		FROM tasks t
+		LEFT JOIN categories c ON c.id = t.category_id
 		LEFT JOIN task_completions tc
 			ON tc.task_id = t.id AND tc.user_id = $1 AND tc.task_date = $2::date
 		WHERE t.is_active = true
@@ -176,7 +236,6 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 			AND (t.is_global = true OR t.owner_id = $1)
 		ORDER BY t.is_global, t.created_at
 	`
-	
 
 	rows, err := r.db.Query(query, userID, dateStr)
 	if err != nil {
@@ -185,18 +244,24 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 	defer rows.Close()
 
 	today := time.Now().Format("2006-01-02")
-
 	var results []TaskWithStatus
 
 	for rows.Next() {
 		var item TaskWithStatus
-		var desc sql.NullString
+		var desc, rewardText sql.NullString
 		var status sql.NullString
 		var completedAt sql.NullTime
+		var catID sql.NullInt64
+		var catName, catColor sql.NullString
+		var targetCount sql.NullInt32
+		var progressCount sql.NullInt32
 
 		err := rows.Scan(
-			&item.TaskID, &item.Title, &desc, &item.IsGlobal,
-			&item.RecurrenceType, &status, &completedAt,
+			&item.TaskID, &item.Title, &desc, &item.IsGlobal, &item.RecurrenceType,
+			&item.TaskType, &targetCount,
+			&catID, &catName, &catColor,
+			&rewardText,
+			&status, &completedAt, &progressCount,
 		)
 		if err != nil {
 			return nil, err
@@ -217,6 +282,26 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 			t := completedAt.Time
 			item.CompletedAt = &t
 		}
+		if progressCount.Valid {
+			item.ProgressCount = progressCount.Int32
+		}
+		if targetCount.Valid {
+			v := targetCount.Int32
+			item.TargetCount = &v
+		}
+		if catID.Valid {
+			id := catID.Int64
+			name := catName.String
+			color := catColor.String
+			item.CategoryID = &id
+			item.CategoryName = &name
+			item.CategoryColor = &color
+		}
+		// reward text শুধু completed হলেই দেখাবো - motivation এর জন্য
+		if item.Status == util.StatusCompleted && rewardText.Valid {
+			rt := rewardText.String
+			item.RewardText = &rt
+		}
 
 		results = append(results, item)
 	}
@@ -224,42 +309,118 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 	return results, rows.Err()
 }
 
+// func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, error) {
+// 	dateStr := date.Format("2006-01-02")
+
+// 	query := `
+// 		SELECT
+// 			t.id, t.title, t.description, t.is_global, t.recurrence_type,
+// 			tc.status, tc.completed_at
+// 		FROM tasks t
+// 		LEFT JOIN task_completions tc
+// 			ON tc.task_id = t.id AND tc.user_id = $1 AND tc.task_date = $2::date
+// 		WHERE t.is_active = true
+// 			AND EXTRACT(DOW FROM $2::date)::int = ANY(t.recurrence_days)
+// 			AND (t.is_global = true OR t.owner_id = $1)
+// 		ORDER BY t.is_global, t.created_at
+// 	`
+
+// 	rows, err := r.db.Query(query, userID, dateStr)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer rows.Close()
+
+// 	today := time.Now().Format("2006-01-02")
+
+// 	var results []TaskWithStatus
+
+// 	for rows.Next() {
+// 		var item TaskWithStatus
+// 		var desc sql.NullString
+// 		var status sql.NullString
+// 		var completedAt sql.NullTime
+
+// 		err := rows.Scan(
+// 			&item.TaskID, &item.Title, &desc, &item.IsGlobal,
+// 			&item.RecurrenceType, &status, &completedAt,
+// 		)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+
+// 		item.Description = desc.String
+// 		item.Date = dateStr
+
+// 		if status.Valid {
+// 			item.Status = status.String
+// 		} else if dateStr < today {
+// 			item.Status = util.StatusMissed
+// 		} else {
+// 			item.Status = util.StatusPending
+// 		}
+
+// 		if completedAt.Valid {
+// 			t := completedAt.Time
+// 			item.CompletedAt = &t
+// 		}
+
+// 		results = append(results, item)
+// 	}
+
+// 	return results, rows.Err()
+// }
+
 // ---- ListForRange: history এর জন্য, একাধিক দিন একসাথে ----
+
 func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithStatus, error) {
+	fromStr := from.Format("2006-01-02")
+	toStr := to.Format("2006-01-02")
+
 	query := `
 		SELECT
 			d.day, t.id, t.title, t.description, t.is_global, t.recurrence_type,
-			tc.status, tc.completed_at
+			t.task_type, t.target_count,
+			c.id AS cat_id, c.name AS cat_name, c.color_hex AS cat_color,
+			t.reward_text,
+			tc.status, tc.completed_at, tc.progress_count
 		FROM generate_series($1::date, $2::date, interval '1 day') AS d(day)
 		JOIN tasks t
 			ON t.is_active = true
 			AND EXTRACT(DOW FROM d.day)::int = ANY(t.recurrence_days)
 			AND (t.is_global = true OR t.owner_id = $3)
+		LEFT JOIN categories c ON c.id = t.category_id
 		LEFT JOIN task_completions tc
 			ON tc.task_id = t.id AND tc.user_id = $3 AND tc.task_date = d.day
 		ORDER BY d.day, t.is_global, t.created_at
 	`
 
-	rows, err := r.db.Query(query, from, to, userID)
+	rows, err := r.db.Query(query, fromStr, toStr, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	today := time.Now().Format("2006-01-02")
-
 	var results []TaskWithStatus
 
 	for rows.Next() {
 		var item TaskWithStatus
 		var day time.Time
-		var desc sql.NullString
+		var desc, rewardText sql.NullString
 		var status sql.NullString
 		var completedAt sql.NullTime
+		var catID sql.NullInt64
+		var catName, catColor sql.NullString
+		var targetCount sql.NullInt32
+		var progressCount sql.NullInt32
 
 		err := rows.Scan(
-			&day, &item.TaskID, &item.Title, &desc, &item.IsGlobal,
-			&item.RecurrenceType, &status, &completedAt,
+			&day, &item.TaskID, &item.Title, &desc, &item.IsGlobal, &item.RecurrenceType,
+			&item.TaskType, &targetCount,
+			&catID, &catName, &catColor,
+			&rewardText,
+			&status, &completedAt, &progressCount,
 		)
 		if err != nil {
 			return nil, err
@@ -268,6 +429,8 @@ func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithSta
 		item.Description = desc.String
 		item.Date = day.Format("2006-01-02")
 
+		// status না থাকলে (মানে কোনো completion row নাই): তারিখটা আজকের আগে হলে "missed",
+		// আজকে বা ভবিষ্যতে হলে "pending"
 		if status.Valid {
 			item.Status = status.String
 		} else if item.Date < today {
@@ -280,6 +443,26 @@ func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithSta
 			t := completedAt.Time
 			item.CompletedAt = &t
 		}
+		if progressCount.Valid {
+			item.ProgressCount = progressCount.Int32
+		}
+		if targetCount.Valid {
+			v := targetCount.Int32
+			item.TargetCount = &v
+		}
+		if catID.Valid {
+			id := catID.Int64
+			name := catName.String
+			color := catColor.String
+			item.CategoryID = &id
+			item.CategoryName = &name
+			item.CategoryColor = &color
+		}
+		// reward text শুধু completed অবস্থাতেই response এ দেখাবো
+		if item.Status == util.StatusCompleted && rewardText.Valid {
+			rt := rewardText.String
+			item.RewardText = &rt
+		}
 
 		results = append(results, item)
 	}
@@ -287,23 +470,86 @@ func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithSta
 	return results, rows.Err()
 }
 
+// func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithStatus, error) {
+// 	query := `
+// 		SELECT
+// 			d.day, t.id, t.title, t.description, t.is_global, t.recurrence_type,
+// 			tc.status, tc.completed_at
+// 		FROM generate_series($1::date, $2::date, interval '1 day') AS d(day)
+// 		JOIN tasks t
+// 			ON t.is_active = true
+// 			AND EXTRACT(DOW FROM d.day)::int = ANY(t.recurrence_days)
+// 			AND (t.is_global = true OR t.owner_id = $3)
+// 		LEFT JOIN task_completions tc
+// 			ON tc.task_id = t.id AND tc.user_id = $3 AND tc.task_date = d.day
+// 		ORDER BY d.day, t.is_global, t.created_at
+// 	`
+
+// 	rows, err := r.db.Query(query, from, to, userID)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer rows.Close()
+
+// 	today := time.Now().Format("2006-01-02")
+
+// 	var results []TaskWithStatus
+
+// 	for rows.Next() {
+// 		var item TaskWithStatus
+// 		var day time.Time
+// 		var desc sql.NullString
+// 		var status sql.NullString
+// 		var completedAt sql.NullTime
+
+// 		err := rows.Scan(
+// 			&day, &item.TaskID, &item.Title, &desc, &item.IsGlobal,
+// 			&item.RecurrenceType, &status, &completedAt,
+// 		)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+
+// 		item.Description = desc.String
+// 		item.Date = day.Format("2006-01-02")
+
+// 		if status.Valid {
+// 			item.Status = status.String
+// 		} else if item.Date < today {
+// 			item.Status = util.StatusMissed
+// 		} else {
+// 			item.Status = util.StatusPending
+// 		}
+
+// 		if completedAt.Valid {
+// 			t := completedAt.Time
+// 			item.CompletedAt = &t
+// 		}
+
+// 		results = append(results, item)
+// 	}
+
+// 	return results, rows.Err()
+// }
+
 // ---- Complete: upsert করে completion record ----
+
 func (r *taskRepo) Complete(taskID int64, userID int64, date time.Time) (*TaskCompletion, error) {
 	task, err := r.GetByID(taskID)
 	if err != nil {
 		return nil, err
 	}
-
 	if !task.IsActive {
 		return nil, util.ErrTaskNotFound
 	}
-
-	// Access check: personal task হলে owner হতে হবে, নাহলে global হতে হবে
+	if task.TaskType == "counter" {
+		return nil, util.ErrNotCounterTask // ভুল endpoint, Increment ব্যবহার করতে হবে
+	}
 	if !task.IsGlobal && (!task.OwnerID.Valid || task.OwnerID.Int64 != userID) {
 		return nil, util.ErrForbidden
 	}
 
-	weekday := int64(date.Weekday()) // Go: Sunday=0...Saturday=6, আমাদের DB স্কিমার সাথে ম্যাচ করে
+	weekday := int64(date.Weekday())
 	scheduled := false
 	for _, d := range task.RecurrenceDays {
 		if d == weekday {
@@ -315,8 +561,8 @@ func (r *taskRepo) Complete(taskID int64, userID int64, date time.Time) (*TaskCo
 		return nil, util.ErrTaskNotScheduled
 	}
 
+	dateStr := date.Format("2006-01-02")
 	var completion TaskCompletion
-	dateStr := date.Format("2026-07-07")
 
 	query := `
 		INSERT INTO task_completions (
@@ -326,20 +572,143 @@ func (r *taskRepo) Complete(taskID int64, userID int64, date time.Time) (*TaskCo
 		VALUES ($1, $2, $3, $4, $5::date, 'completed', CURRENT_TIMESTAMP)
 		ON CONFLICT (task_id, user_id, task_date)
 		DO UPDATE SET status = 'completed', completed_at = CURRENT_TIMESTAMP
-		RETURNING id, task_id, user_id, task_title_snapshot, task_date, status, completed_at, created_at
+		RETURNING id, task_id, user_id, task_title_snapshot, task_date, status, progress_count, completed_at, created_at
 	`
 
-	err = r.db.QueryRow(
-		query, task.ID, userID, task.Title, task.IsGlobal, dateStr,
-	).Scan(
-		&completion.ID, &completion.TaskID, &completion.UserID,
-		&completion.TaskTitleSnapshot, &completion.TaskDate,
-		&completion.Status, &completion.CompletedAt, &completion.CreatedAt,
-	)
+	err = r.db.QueryRow(query, task.ID, userID, task.Title, task.IsGlobal, dateStr).
+		Scan(&completion.ID, &completion.TaskID, &completion.UserID,
+			&completion.TaskTitleSnapshot, &completion.TaskDate,
+			&completion.Status, &completion.ProgressCount, &completion.CompletedAt, &completion.CreatedAt)
+
 	if err != nil {
 		return nil, err
 	}
+	return &completion, nil
+}
 
+// func (r *taskRepo) Complete(taskID int64, userID int64, date time.Time) (*TaskCompletion, error) {
+// 	task, err := r.GetByID(taskID)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	if !task.IsActive {
+// 		return nil, util.ErrTaskNotFound
+// 	}
+
+// 	// Access check: personal task হলে owner হতে হবে, নাহলে global হতে হবে
+// 	if !task.IsGlobal && (!task.OwnerID.Valid || task.OwnerID.Int64 != userID) {
+// 		return nil, util.ErrForbidden
+// 	}
+
+// 	weekday := int64(date.Weekday()) // Go: Sunday=0...Saturday=6, আমাদের DB স্কিমার সাথে ম্যাচ করে
+// 	scheduled := false
+// 	for _, d := range task.RecurrenceDays {
+// 		if d == weekday {
+// 			scheduled = true
+// 			break
+// 		}
+// 	}
+// 	if !scheduled {
+// 		return nil, util.ErrTaskNotScheduled
+// 	}
+
+// 	var completion TaskCompletion
+// 	dateStr := date.Format("2006-01-02")
+
+// 	query := `
+// 		INSERT INTO task_completions (
+// 			task_id, user_id, task_title_snapshot, was_global_snapshot,
+// 			task_date, status, completed_at
+// 		)
+// 		VALUES ($1, $2, $3, $4, $5::date, 'completed', CURRENT_TIMESTAMP)
+// 		ON CONFLICT (task_id, user_id, task_date)
+// 		DO UPDATE SET status = 'completed', completed_at = CURRENT_TIMESTAMP
+// 		RETURNING id, task_id, user_id, task_title_snapshot, task_date, status, completed_at, created_at
+// 	`
+
+// 	err = r.db.QueryRow(
+// 		query, task.ID, userID, task.Title, task.IsGlobal, dateStr,
+// 	).Scan(
+// 		&completion.ID, &completion.TaskID, &completion.UserID,
+// 		&completion.TaskTitleSnapshot, &completion.TaskDate,
+// 		&completion.Status, &completion.CompletedAt, &completion.CreatedAt,
+// 	)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	return &completion, nil
+// }
+
+func (r *taskRepo) Increment(taskID int64, userID int64, date time.Time, amount int32) (*TaskCompletion, error) {
+	if amount <= 0 {
+		return nil, util.ErrInvalidIncrementAmount
+	}
+
+	task, err := r.GetByID(taskID)
+	if err != nil {
+		return nil, err
+	}
+	if !task.IsActive {
+		return nil, util.ErrTaskNotFound
+	}
+	if task.TaskType != "counter" {
+		return nil, util.ErrNotCounterTask
+	}
+	if !task.IsGlobal && (!task.OwnerID.Valid || task.OwnerID.Int64 != userID) {
+		return nil, util.ErrForbidden
+	}
+
+	weekday := int64(date.Weekday())
+	scheduled := false
+	for _, d := range task.RecurrenceDays {
+		if d == weekday {
+			scheduled = true
+			break
+		}
+	}
+	if !scheduled {
+		return nil, util.ErrTaskNotScheduled
+	}
+
+	dateStr := date.Format("2006-01-02")
+	target := task.TargetCount.Int32
+
+	// একটাই atomic query: upsert progress + auto-complete check, একটা round-trip এ
+	query := `
+		WITH upsert AS (
+			INSERT INTO task_completions (
+				task_id, user_id, task_title_snapshot, was_global_snapshot,
+				task_date, status, progress_count
+			)
+			VALUES ($1, $2, $3, $4, $5::date, 'pending', $6)
+			ON CONFLICT (task_id, user_id, task_date)
+			DO UPDATE SET progress_count = task_completions.progress_count + $6
+			RETURNING id, progress_count
+		)
+		UPDATE task_completions tc
+		SET
+			status = CASE WHEN upsert.progress_count >= $7 THEN 'completed' ELSE 'pending' END,
+			completed_at = CASE
+				WHEN upsert.progress_count >= $7 AND tc.completed_at IS NULL THEN CURRENT_TIMESTAMP
+				ELSE tc.completed_at
+			END
+		FROM upsert
+		WHERE tc.id = upsert.id
+		RETURNING tc.id, tc.task_id, tc.user_id, tc.task_title_snapshot, tc.task_date,
+			tc.status, tc.progress_count, tc.completed_at, tc.created_at
+	`
+
+	var completion TaskCompletion
+	err = r.db.QueryRow(query, task.ID, userID, task.Title, task.IsGlobal, dateStr, amount, target).
+		Scan(&completion.ID, &completion.TaskID, &completion.UserID,
+			&completion.TaskTitleSnapshot, &completion.TaskDate,
+			&completion.Status, &completion.ProgressCount, &completion.CompletedAt, &completion.CreatedAt)
+
+	if err != nil {
+		return nil, err
+	}
 	return &completion, nil
 }
 
@@ -359,4 +728,17 @@ func checkOwnership(task *Task, requestingUserID int64, role string) error {
 	}
 
 	return nil
+}
+
+// ছোট হেল্পার - শুধু category exist করে কিনা আর owner_id বের করার জন্য
+func (r *taskRepo) getCategoryForValidation(id int64) (*Category, error) {
+	var cat Category
+	err := r.db.Get(&cat, `SELECT * FROM categories WHERE id = $1`, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, util.ErrCategoryNotFound
+		}
+		return nil, err
+	}
+	return &cat, nil
 }

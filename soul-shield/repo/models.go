@@ -7,6 +7,20 @@ import (
 	"github.com/lib/pq"
 )
 
+// type Task struct {
+// 	ID             int64          `db:"id" json:"id"`
+// 	Title          string         `db:"title" json:"title"`
+// 	Description    sql.NullString `db:"description" json:"description"`
+// 	IsGlobal       bool           `db:"is_global" json:"is_global"`
+// 	OwnerID        sql.NullInt64  `db:"owner_id" json:"owner_id,omitempty"`
+// 	RecurrenceType string         `db:"recurrence_type" json:"recurrence_type"`
+// 	RecurrenceDays pq.Int64Array  `db:"recurrence_days" json:"recurrence_days"`
+// 	IsActive       bool           `db:"is_active" json:"is_active"`
+// 	CreatedBy      int64          `db:"created_by" json:"created_by"`
+// 	CreatedAt      time.Time      `db:"created_at" json:"created_at"`
+// 	UpdatedAt      time.Time      `db:"updated_at" json:"updated_at"`
+// }
+
 type Task struct {
 	ID             int64          `db:"id" json:"id"`
 	Title          string         `db:"title" json:"title"`
@@ -17,18 +31,44 @@ type Task struct {
 	RecurrenceDays pq.Int64Array  `db:"recurrence_days" json:"recurrence_days"`
 	IsActive       bool           `db:"is_active" json:"is_active"`
 	CreatedBy      int64          `db:"created_by" json:"created_by"`
+	CategoryID     sql.NullInt64  `db:"category_id" json:"category_id,omitempty"`
+	RewardText     sql.NullString `db:"reward_text" json:"reward_text,omitempty"`
+	TaskType       string         `db:"task_type" json:"task_type"`
+	TargetCount    sql.NullInt32  `db:"target_count" json:"target_count,omitempty"`
 	CreatedAt      time.Time      `db:"created_at" json:"created_at"`
 	UpdatedAt      time.Time      `db:"updated_at" json:"updated_at"`
 }
 
 // TaskUpdate - সব ফিল্ড pointer, যাতে partial update করা যায় (nil মানে ঐ ফিল্ড change হবে না)
+// type TaskUpdate struct {
+// 	Title          *string
+// 	Description    *string
+// 	RecurrenceType *string
+// 	RecurrenceDays *[]int64
+// 	IsActive       *bool
+// }
+
 type TaskUpdate struct {
 	Title          *string
 	Description    *string
 	RecurrenceType *string
 	RecurrenceDays *[]int64
 	IsActive       *bool
+	CategoryID     *int64 // 0 দিলে uncategorize করা হবে বলে ধরবো (handler এ চেক করবো)
+	RewardText     *string
+	TargetCount    *int32
 }
+
+// type TaskCompletion struct {
+// 	ID                int64         `db:"id" json:"id"`
+// 	TaskID            sql.NullInt64 `db:"task_id" json:"task_id,omitempty"`
+// 	UserID            int64         `db:"user_id" json:"user_id"`
+// 	TaskTitleSnapshot string        `db:"task_title_snapshot" json:"task_title"`
+// 	TaskDate          time.Time     `db:"task_date" json:"task_date"`
+// 	Status            string        `db:"status" json:"status"`
+// 	CompletedAt       sql.NullTime  `db:"completed_at" json:"completed_at,omitempty"`
+// 	CreatedAt         time.Time     `db:"created_at" json:"created_at"`
+// }
 
 type TaskCompletion struct {
 	ID                int64         `db:"id" json:"id"`
@@ -37,11 +77,23 @@ type TaskCompletion struct {
 	TaskTitleSnapshot string        `db:"task_title_snapshot" json:"task_title"`
 	TaskDate          time.Time     `db:"task_date" json:"task_date"`
 	Status            string        `db:"status" json:"status"`
+	ProgressCount     int32         `db:"progress_count" json:"progress_count"`
 	CompletedAt       sql.NullTime  `db:"completed_at" json:"completed_at,omitempty"`
 	CreatedAt         time.Time     `db:"created_at" json:"created_at"`
 }
 
 // TaskWithStatus - handler কে যা রিটার্ন করা হবে (task + একটা নির্দিষ্ট দিনের status একসাথে)
+// type TaskWithStatus struct {
+// 	TaskID         int64      `json:"task_id"`
+// 	Title          string     `json:"title"`
+// 	Description    string     `json:"description"`
+// 	IsGlobal       bool       `json:"is_global"`
+// 	RecurrenceType string     `json:"recurrence_type"`
+// 	Date           string     `json:"date"`
+// 	Status         string     `json:"status"`
+// 	CompletedAt    *time.Time `json:"completed_at,omitempty"`
+// }
+
 type TaskWithStatus struct {
 	TaskID         int64      `json:"task_id"`
 	Title          string     `json:"title"`
@@ -51,6 +103,16 @@ type TaskWithStatus struct {
 	Date           string     `json:"date"`
 	Status         string     `json:"status"`
 	CompletedAt    *time.Time `json:"completed_at,omitempty"`
+
+	CategoryID    *int64  `json:"category_id,omitempty"`
+	CategoryName  *string `json:"category_name,omitempty"`
+	CategoryColor *string `json:"category_color,omitempty"`
+
+	RewardText *string `json:"reward_text,omitempty"` // completed হলেই শুধু response এ দেখাবো (handler এ)
+
+	TaskType      string `json:"task_type"`
+	TargetCount   *int32 `json:"target_count,omitempty"`
+	ProgressCount int32  `json:"progress_count"`
 }
 
 // User Model

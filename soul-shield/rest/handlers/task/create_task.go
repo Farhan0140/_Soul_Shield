@@ -34,6 +34,7 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// ---- বেসিক ভ্যালিডেশন ----
 	if req.Title == "" {
 		util.SendError(w, map[string]string{"error": "Title is required"}, http.StatusBadRequest)
 		return
@@ -44,31 +45,77 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// task_type খালি থাকলে ডিফল্ট "normal" ধরা হবে
+	taskType := req.TaskType
+	if taskType == "" {
+		taskType = "normal"
+	}
+	if taskType != "normal" && taskType != "counter" {
+		util.SendError(w, map[string]string{"error": "task_type must be 'normal' or 'counter'"}, http.StatusBadRequest)
+		return
+	}
+
+	// counter টাইপ হলে target_count অবশ্যই থাকতে হবে এবং ০ এর চেয়ে বড় হতে হবে
+	if taskType == "counter" && (req.TargetCount == nil || *req.TargetCount <= 0) {
+		util.SendError(w, map[string]string{"error": "target_count is required and must be > 0 for counter tasks"}, http.StatusBadRequest)
+		return
+	}
+
+	// ---- repo.Task বানানো ----
 	newTask := repo.Task{
 		Title:          req.Title,
 		RecurrenceType: req.RecurrenceType,
 		CreatedBy:      userID,
 		IsGlobal:       req.IsGlobal,
+		TaskType:       taskType,
 	}
+
+	// Description optional, তাই NullString দিয়ে হ্যান্ডেল করছি
 	newTask.Description.String = req.Description
 	newTask.Description.Valid = req.Description != ""
 
+	// RewardText ও optional
+	newTask.RewardText.String = req.RewardText
+	newTask.RewardText.Valid = req.RewardText != ""
+
+	// personal task হলে (is_global=false) owner_id বসবে যেই লগিন করা আছে তার id
 	if !req.IsGlobal {
 		newTask.OwnerID.Int64 = userID
 		newTask.OwnerID.Valid = true
 	}
 
+	// category_id optional
+	if req.CategoryID != nil {
+		newTask.CategoryID.Int64 = *req.CategoryID
+		newTask.CategoryID.Valid = true
+	}
+
+	// target_count শুধু counter টাইপে থাকবে
+	if req.TargetCount != nil {
+		newTask.TargetCount.Int32 = *req.TargetCount
+		newTask.TargetCount.Valid = true
+	}
+
+	// recurrence_days slice কপি করছি (nil হলেও ঠিকমতো কাজ করবে)
 	days := make([]int64, len(req.RecurrenceDays))
 	copy(days, req.RecurrenceDays)
 	newTask.RecurrenceDays = days
 
+	// ---- Database এ insert ----
 	created, err := h.taskRepo.Create(newTask)
 	if err != nil {
-		if err == util.ErrInvalidRecurrence {
+		switch err {
+		case util.ErrInvalidRecurrence:
 			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
-			return
+		case util.ErrInvalidCounterTarget:
+			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
+		case util.ErrCategoryNotFound:
+			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
+		case util.ErrForbidden:
+			util.SendError(w, map[string]string{"error": "You cannot use this category"}, http.StatusForbidden)
+		default:
+			util.SendError(w, map[string]string{"error": "Failed to create task"}, http.StatusInternalServerError)
 		}
-		util.SendError(w, map[string]string{"error": "Failed to create task"}, http.StatusInternalServerError)
 		return
 	}
 

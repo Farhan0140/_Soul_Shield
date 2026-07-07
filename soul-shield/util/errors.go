@@ -9,7 +9,15 @@ var (
 	ErrUserNotFound     = errors.New("User Not Found with this email")
 	ErrTaskNotFound     = errors.New("Task not found")
 
-	ErrForbidden          = errors.New("You do not have permission to perform this action")
-	ErrInvalidRecurrence  = errors.New("recurrence_days cannot be empty for this recurrence_type")
-	ErrTaskNotScheduled   = errors.New("this task is not scheduled for the given date")
+	ErrForbidden         = errors.New("You do not have permission to perform this action")
+	ErrInvalidRecurrence = errors.New("recurrence_days cannot be empty for this recurrence_type")
+	ErrTaskNotScheduled  = errors.New("this task is not scheduled for the given date")
+
+	ErrCategoryExists   = errors.New("Category with this name already exists")
+	ErrCategoryNotFound = errors.New("Category not found")
+
+	ErrInvalidCounterTarget = errors.New("counter task requires target_count > 0")
+	ErrNotCounterTask       = errors.New("this endpoint is only for counter type tasks")
+
+	ErrInvalidIncrementAmount = errors.New("increment amount must be greater than 0")
 )

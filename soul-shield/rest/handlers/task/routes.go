@@ -53,4 +53,12 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, manager *middlewares.Manage
 			mw.AuthenticateJWT,
 		),
 	)
+
+	mux.Handle(
+		"POST /tasks/{id}/increment",
+		manager.With(
+			http.HandlerFunc(h.IncrementTask),
+			mw.AuthenticateJWT,
+		),
+	)
 }
