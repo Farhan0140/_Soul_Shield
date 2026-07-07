@@ -162,6 +162,8 @@ func (r *taskRepo) GetByID(id int64) (*Task, error) {
 
 // ---- ListForDate: একটা নির্দিষ্ট দিনের জন্য user এর দেখা task + status ----
 func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, error) {
+	dateStr := date.Format("2026-07-07")
+	
 	query := `
 		SELECT
 			t.id, t.title, t.description, t.is_global, t.recurrence_type,
@@ -174,14 +176,14 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 			AND (t.is_global = true OR t.owner_id = $1)
 		ORDER BY t.is_global, t.created_at
 	`
+	
 
-	rows, err := r.db.Query(query, userID, date)
+	rows, err := r.db.Query(query, userID, dateStr)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	dateStr := date.Format("2006-01-02")
 	today := time.Now().Format("2006-01-02")
 
 	var results []TaskWithStatus
@@ -314,6 +316,7 @@ func (r *taskRepo) Complete(taskID int64, userID int64, date time.Time) (*TaskCo
 	}
 
 	var completion TaskCompletion
+	dateStr := date.Format("2026-07-07")
 
 	query := `
 		INSERT INTO task_completions (
@@ -327,7 +330,7 @@ func (r *taskRepo) Complete(taskID int64, userID int64, date time.Time) (*TaskCo
 	`
 
 	err = r.db.QueryRow(
-		query, task.ID, userID, task.Title, task.IsGlobal, date,
+		query, task.ID, userID, task.Title, task.IsGlobal, dateStr,
 	).Scan(
 		&completion.ID, &completion.TaskID, &completion.UserID,
 		&completion.TaskTitleSnapshot, &completion.TaskDate,

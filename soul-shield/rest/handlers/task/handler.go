@@ -20,7 +20,7 @@ func NewHandler(taskRepo repo.TaskRepo) *Handler {
 
 func getUserID(r *http.Request) (int64, bool) {
 	val := r.Context().Value("userID")
-	id, ok := val.(int)
+	id, ok := val.(int64)
 	if !ok {
 		return 0, false
 	}
