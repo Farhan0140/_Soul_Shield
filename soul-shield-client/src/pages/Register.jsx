@@ -1,0 +1,273 @@
+import { useState, useRef, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Mail, Lock, User, ArrowRight, ArrowLeft, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../components/Toast';
+import AuthLayout from './AuthLayout';
+import Input from '../components/ui/Input';
+import Button from '../components/ui/Button';
+
+const STEPS = [
+  { key: 'email',    title: "Let's start with your email",  subtitle: "We'll send a verification code to make sure it's really you." },
+  { key: 'otp',      title: 'Check your inbox',              subtitle: "We sent a 6-digit code. It expires in 5 minutes." },
+  { key: 'account',  title: 'Create your account',           subtitle: "Pick a name and a strong password — you're almost there!" },
+];
+
+export default function Register() {
+  const navigate = useNavigate();
+  const toast = useToast();
+  const { login } = useAuth();
+
+  const [step, setStep] = useState(0);
+  const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [cooldown, setCooldown] = useState(0); // resend timer
+  const otpRefs = useRef([]);
+
+  // Resend cooldown timer
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
+  // ---------- STEP 1: Send OTP ----------
+  const handleSendOtp = async (e) => {
+    e?.preventDefault?.();
+    if (!email) return setErrors({ email: "We need your email to continue." });
+    if (!/\S+@\S+\.\S+/.test(email)) return setErrors({ email: "That doesn't look like a valid email." });
+    setErrors({});
+    setLoading(true);
+    try {
+      await api.post('/send-otp', { email }, { auth: false });
+      toast.success("Code sent! Check your inbox 📬");
+      setStep(1);
+      setCooldown(60);
+      setTimeout(() => otpRefs.current[0]?.focus(), 100);
+    } catch (err) {
+      setErrors({ email: err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ---------- STEP 2: Verify OTP ----------
+  const handleOtpChange = (i, val) => {
+    if (!/^\d?$/.test(val)) return;
+    const next = [...otp];
+    next[i] = val;
+    setOtp(next);
+    if (val && i < 5) otpRefs.current[i + 1]?.focus();
+  };
+  const handleOtpKeyDown = (i, e) => {
+    if (e.key === 'Backspace' && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
+  };
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    const next = [...otp];
+    pasted.split('').forEach((ch, i) => (next[i] = ch));
+    setOtp(next);
+    otpRefs.current[Math.min(pasted.length, 5)]?.focus();
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e?.preventDefault?.();
+    const code = otp.join('');
+    if (code.length !== 6) return setErrors({ otp: "Please enter all 6 digits." });
+    setErrors({});
+    setLoading(true);
+    try {
+      await api.post('/verify-otp', { email, otp: code }, { auth: false });
+      toast.success("Email verified! 🎉");
+      setStep(2);
+    } catch (err) {
+      setErrors({ otp: err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (cooldown > 0) return;
+    try {
+      await api.post('/send-otp', { email }, { auth: false });
+      toast.success("New code sent!");
+      setCooldown(60);
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  // ---------- STEP 3: Create Account ----------
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    const errs = {};
+    if (!name.trim()) errs.name = "What should we call you?";
+    if (!password) errs.password = "Please choose a password.";
+    else if (password.length < 6) errs.password = "At least 6 characters — keep it safe.";
+    setErrors(errs);
+    if (Object.keys(errs).length) return;
+
+    setLoading(true);
+    try {
+      await api.post('/users/register', { name, email, password }, { auth: false });
+      await login(email, password);
+      toast.success("Account created! Welcome to SoulShield 🌟");
+      navigate('/', { replace: true });
+    } catch (err) {
+      // Most likely "email already exists" — show on password field as a generic form error
+      setErrors({ form: err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ---------- Step indicator ----------
+  const StepIndicator = () => (
+    <div className="flex items-center justify-center gap-2 mb-6">
+      {STEPS.map((s, i) => (
+        <div key={s.key} className="flex items-center gap-2">
+          <motion.div
+            animate={{ scale: i === step ? 1.1 : 1 }}
+            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-colors
+              ${i < step ? 'bg-emerald-500 text-white' : i === step ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}
+          >
+            {i < step ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
+          </motion.div>
+          {i < STEPS.length - 1 && (
+            <div className={`w-8 h-0.5 ${i < step ? 'bg-emerald-400' : 'bg-slate-200'}`} />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <AuthLayout title={STEPS[step].title} subtitle={STEPS[step].subtitle}>
+      <StepIndicator />
+
+      <AnimatePresence mode="wait">
+        {/* ===== STEP 1: Email ===== */}
+        {step === 0 && (
+          <motion.form
+            key="email"
+            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+            onSubmit={handleSendOtp} className="space-y-4"
+          >
+            <Input
+              label="Email address" type="email" icon={Mail}
+              value={email} error={errors.email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+            />
+            <Button type="submit" loading={loading} className="w-full">
+              Send verification code <ArrowRight className="w-4 h-4" />
+            </Button>
+          </motion.form>
+        )}
+
+        {/* ===== STEP 2: OTP ===== */}
+        {step === 1 && (
+          <motion.form
+            key="otp"
+            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+            onSubmit={handleVerifyOtp} className="space-y-5"
+          >
+            <div className="flex justify-center gap-2" onPaste={handlePaste}>
+              {otp.map((d, i) => (
+                <input
+                  key={i}
+                  ref={(el) => (otpRefs.current[i] = el)}
+                  type="text" inputMode="numeric" maxLength={1}
+                  value={d}
+                  onChange={(e) => handleOtpChange(i, e.target.value)}
+                  onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                  className={`w-12 h-14 text-center text-xl font-bold rounded-xl border-2 outline-none transition-all
+                    ${errors.otp ? 'border-rose-400' : 'border-slate-200 focus:border-indigo-500'}
+                    focus:shadow-sm focus:shadow-indigo-100`}
+                />
+              ))}
+            </div>
+            {errors.otp && (
+              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center text-sm text-rose-500">
+                {errors.otp}
+              </motion.p>
+            )}
+
+            <div className="text-center text-sm text-slate-500">
+              Didn't get it?{' '}
+              {cooldown > 0 ? (
+                <span className="text-slate-400">Resend in {cooldown}s</span>
+              ) : (
+                <button type="button" onClick={handleResend} className="text-indigo-600 font-semibold hover:text-indigo-700">
+                  Resend code
+                </button>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <Button type="button" variant="secondary" onClick={() => setStep(0)} className="flex-1">
+                <ArrowLeft className="w-4 h-4" /> Back
+              </Button>
+              <Button type="submit" loading={loading} className="flex-1">
+                Verify <ArrowRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </motion.form>
+        )}
+
+        {/* ===== STEP 3: Account ===== */}
+        {step === 2 && (
+          <motion.form
+            key="account"
+            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+            onSubmit={handleCreate} className="space-y-4"
+          >
+            {errors.form && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-600 flex items-center gap-2"
+              >
+                <ShieldCheck className="w-4 h-4 flex-shrink-0" /> {errors.form}
+              </motion.div>
+            )}
+            <Input
+              label="Full name" icon={User}
+              value={name} error={errors.name}
+              onChange={(e) => setName(e.target.value)}
+              autoComplete="name"
+            />
+            <Input
+              label="Password" type="password" icon={Lock}
+              value={password} error={errors.password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+            <div className="flex gap-2">
+              <Button type="button" variant="secondary" onClick={() => setStep(1)} className="flex-1">
+                <ArrowLeft className="w-4 h-4" /> Back
+              </Button>
+              <Button type="submit" loading={loading} className="flex-1">
+                Create account <ArrowRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </motion.form>
+        )}
+      </AnimatePresence>
+
+      <p className="text-center text-sm text-slate-500 mt-6">
+        Already have an account?{' '}
+        <Link to="/login" className="text-indigo-600 hover:text-indigo-700 font-semibold">
+          Sign in
+        </Link>
+      </p>
+    </AuthLayout>
+  );
+}
