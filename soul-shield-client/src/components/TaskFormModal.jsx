@@ -1,0 +1,280 @@
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Loader2 } from 'lucide-react';
+import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from './Toast';
+import Input from './ui/Input';
+import Button from './ui/Button';
+
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+export default function TaskFormModal({ open, onClose, task, categories, onSaved }) {
+  const { isAdmin } = useAuth();
+  const toast = useToast();
+  const isEdit = !!task;
+
+  const [form, setForm] = useState({
+    title: '',
+    description: '',
+    category_id: '',
+    recurrence_type: 'daily',
+    recurrence_days: [0, 1, 2, 3, 4, 5, 6],
+    task_type: 'normal',
+    target_count: 100,
+    reward_text: '',
+    is_global: false,
+  });
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      if (task) {
+        setForm({
+          title: task.title || '',
+          description: task.description || '',
+          category_id: task.category_id || '',
+          recurrence_type: task.recurrence_type || 'daily',
+          recurrence_days: task.recurrence_days || [0,1,2,3,4,5,6],
+          task_type: task.task_type || 'normal',
+          target_count: task.target_count || 100,
+          reward_text: task.reward_text || '',
+          is_global: !!task.is_global,
+        });
+      } else {
+        setForm({
+          title: '', description: '', category_id: '',
+          recurrence_type: 'daily', recurrence_days: [0,1,2,3,4,5,6],
+          task_type: 'normal', target_count: 100, reward_text: '', is_global: false,
+        });
+      }
+      setErrors({});
+    }
+  }, [open, task]);
+
+  const toggleDay = (d) => {
+    setForm(f => {
+      const has = f.recurrence_days.includes(d);
+      const next = has ? f.recurrence_days.filter(x => x !== d) : [...f.recurrence_days, d];
+      return { ...f, recurrence_days: next };
+    });
+  };
+
+  const validate = () => {
+    const e = {};
+    if (!form.title.trim()) e.title = "What's this task called?";
+    if (form.task_type === 'counter' && (!form.target_count || form.target_count < 1))
+      e.target_count = "How many times should it be done?";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const handleSubmit = async (ev) => {
+    ev.preventDefault();
+    if (!validate()) return;
+    setLoading(true);
+
+    const payload = {
+      title: form.title.trim(),
+      description: form.description.trim() || undefined,
+      category_id: form.category_id ? Number(form.category_id) : undefined,
+      recurrence_type: form.recurrence_type,
+      recurrence_days: form.recurrence_type === 'daily' ? [0,1,2,3,4,5,6] : form.recurrence_days,
+      task_type: form.task_type,
+      reward_text: form.reward_text.trim() || undefined,
+      is_global: isAdmin ? form.is_global : false,
+    };
+    if (form.task_type === 'counter') payload.target_count = Number(form.target_count);
+
+    try {
+      let saved;
+      if (isEdit) {
+        saved = await api.patch(`/tasks/${task.task_id}`, payload);
+        toast.success('Task updated ✨');
+      } else {
+        saved = await api.post('/tasks', payload);
+        toast.success('Task created 🎉');
+      }
+      onSaved(saved);
+      onClose();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ scale: 0.95, y: 20, opacity: 0 }}
+            animate={{ scale: 1, y: 0, opacity: 1 }}
+            exit={{ scale: 0.95, y: 20, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg bg-white rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
+          >
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-800">
+                {isEdit ? 'Edit task' : 'New task'}
+              </h2>
+              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <Input
+                label="Title"
+                value={form.title}
+                error={errors.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+              />
+
+              <div className="relative">
+                <textarea
+                  rows={2}
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder="Description (optional)"
+                  className="w-full px-3 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 outline-none text-sm resize-none transition-colors"
+                />
+              </div>
+
+              {/* Category */}
+              <div>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Category</label>
+                <select
+                  value={form.category_id}
+                  onChange={(e) => setForm({ ...form, category_id: e.target.value })}
+                  className="w-full px-3 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 outline-none text-sm bg-white"
+                >
+                  <option value="">No category</option>
+                  {categories.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Recurrence type */}
+              <div>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Recurrence</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {['daily', 'weekly', 'custom'].map(type => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setForm({ ...form, recurrence_type: type })}
+                      className={`py-2 rounded-xl text-sm font-medium border-2 transition-all capitalize
+                        ${form.recurrence_type === type
+                          ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                          : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Day picker (weekly/custom only) */}
+              {form.recurrence_type !== 'daily' && (
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Days</label>
+                  <div className="grid grid-cols-7 gap-1.5">
+                    {DAYS.map((d, i) => {
+                      const active = form.recurrence_days.includes(i);
+                      return (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => toggleDay(i)}
+                          className={`py-2 rounded-lg text-xs font-semibold transition-all
+                            ${active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        >
+                          {d}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Task type toggle */}
+              <div>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Task type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, task_type: 'normal' })}
+                    className={`py-2.5 rounded-xl text-sm font-medium border-2 transition-all
+                      ${form.task_type === 'normal' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600'}`}
+                  >
+                    ✓ Normal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, task_type: 'counter' })}
+                    className={`py-2.5 rounded-xl text-sm font-medium border-2 transition-all
+                      ${form.task_type === 'counter' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-slate-200 text-slate-600'}`}
+                  >
+                    🔢 Counter
+                  </button>
+                </div>
+              </div>
+
+              {/* Target count (counter only) */}
+              {form.task_type === 'counter' && (
+                <Input
+                  label="Target count"
+                  type="number"
+                  value={form.target_count}
+                  error={errors.target_count}
+                  onChange={(e) => setForm({ ...form, target_count: e.target.value })}
+                />
+              )}
+
+              <Input
+                label="Reward message (shown on completion)"
+                value={form.reward_text}
+                onChange={(e) => setForm({ ...form, reward_text: e.target.value })}
+              />
+
+              {/* Admin: global toggle */}
+              {isAdmin && (
+                <label className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.is_global}
+                    onChange={(e) => setForm({ ...form, is_global: e.target.checked })}
+                    className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-800">Make this a Fixed Task</p>
+                    <p className="text-xs text-amber-700">Visible to every user — admin-managed</p>
+                  </div>
+                </label>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <Button type="button" variant="secondary" onClick={onClose} className="flex-1">
+                  Cancel
+                </Button>
+                <Button type="submit" loading={loading} className="flex-1">
+                  {isEdit ? 'Save changes' : 'Create task'}
+                </Button>
+              </div>
+            </form>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
