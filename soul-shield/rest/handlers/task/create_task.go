@@ -11,6 +11,11 @@ import (
 //
 // @Summary Create task
 // @Description User বা Admin task তৈরি করতে পারবে। is_global=true শুধু admin ব্যবহার করতে পারবে।
+// @Description ▹ for recurrence_days: 0=Sunday ... 6=Saturday. 
+// @Description ▹ recurrence_type: 'daily', 'weekly', 'custom'. 'daily' হলে সব দিন auto বসিয়ে দেওয়া হবে insert time এ 
+// @Description ▹ category_id: এই field না দিলে global task হিসেবে create হবে, category_id রাখতে চাইলে category id must দিতে হবে
+// @Description ▹ task_type "normal" হলে target_count optional, আর "counter" হলে target_count must দিতে হবে 
+// @Description ▹ "counter" type task for dhikr
 // @Tags Tasks
 // @Security BearerAuth
 // @Accept json

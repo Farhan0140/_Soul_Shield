@@ -2,6 +2,7 @@ package task
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"soulsheld/util"
 	"strconv"
@@ -56,6 +57,7 @@ func (h *Handler) IncrementTask(w http.ResponseWriter, r *http.Request) {
 
 	completion, err := h.taskRepo.Increment(id, userID, date, req.Amount)
 	if err != nil {
+		fmt.Println(err)
 		switch err {
 		case util.ErrTaskNotFound:
 			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusNotFound)

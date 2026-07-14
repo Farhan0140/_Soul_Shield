@@ -477,8 +477,13 @@ paths:
     post:
       consumes:
       - application/json
-      description: User বা Admin task তৈরি করতে পারবে। is_global=true শুধু admin ব্যবহার
-        করতে পারবে।
+      description: |-
+        User বা Admin task তৈরি করতে পারবে। is_global=true শুধু admin ব্যবহার করতে পারবে।
+        ▹ for recurrence_days: 0=Sunday ... 6=Saturday.
+        ▹ recurrence_type: 'daily', 'weekly', 'custom'. 'daily' হলে সব দিন auto বসিয়ে দেওয়া হবে insert time এ
+        ▹ category_id: এই field না দিলে global task হিসেবে create হবে, category_id রাখতে চাইলে category id must দিতে হবে
+        ▹ task_type "normal" হলে target_count optional, আর "counter" হলে target_count must দিতে হবে
+        ▹ "counter" type task for dhikr
       parameters:
       - description: Task Info
         in: body

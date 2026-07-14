@@ -87,43 +87,6 @@ func (r *taskRepo) Create(task Task) (*Task, error) {
 	return &task, nil
 }
 
-// func (r *taskRepo) Create(task Task) (*Task, error) {
-// 	if task.RecurrenceType == util.RecurrenceDaily {
-// 		task.RecurrenceDays = pq.Int64Array{0, 1, 2, 3, 4, 5, 6}
-// 	}
-
-// 	if len(task.RecurrenceDays) == 0 {
-// 		return nil, util.ErrInvalidRecurrence
-// 	}
-
-// 	query := `
-// 		INSERT INTO tasks (
-// 			title, description, is_global, owner_id,
-// 			recurrence_type, recurrence_days, created_by
-// 		)
-// 		VALUES ($1, $2, $3, $4, $5, $6, $7)
-// 		RETURNING id, is_active, created_at, updated_at
-// 	`
-
-// 	row := r.db.QueryRow(
-// 		query,
-// 		task.Title,
-// 		task.Description,
-// 		task.IsGlobal,
-// 		task.OwnerID,
-// 		task.RecurrenceType,
-// 		task.RecurrenceDays,
-// 		task.CreatedBy,
-// 	)
-
-// 	err := row.Scan(&task.ID, &task.IsActive, &task.CreatedAt, &task.UpdatedAt)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return &task, nil
-// }
-
 // ---- Update ----
 func (r *taskRepo) Update(id int64, updates TaskUpdate, requestingUserID int64, role string) (*Task, error) {
 	existing, err := r.GetByID(id)
@@ -309,70 +272,7 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 	return results, rows.Err()
 }
 
-// func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, error) {
-// 	dateStr := date.Format("2006-01-02")
-
-// 	query := `
-// 		SELECT
-// 			t.id, t.title, t.description, t.is_global, t.recurrence_type,
-// 			tc.status, tc.completed_at
-// 		FROM tasks t
-// 		LEFT JOIN task_completions tc
-// 			ON tc.task_id = t.id AND tc.user_id = $1 AND tc.task_date = $2::date
-// 		WHERE t.is_active = true
-// 			AND EXTRACT(DOW FROM $2::date)::int = ANY(t.recurrence_days)
-// 			AND (t.is_global = true OR t.owner_id = $1)
-// 		ORDER BY t.is_global, t.created_at
-// 	`
-
-// 	rows, err := r.db.Query(query, userID, dateStr)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer rows.Close()
-
-// 	today := time.Now().Format("2006-01-02")
-
-// 	var results []TaskWithStatus
-
-// 	for rows.Next() {
-// 		var item TaskWithStatus
-// 		var desc sql.NullString
-// 		var status sql.NullString
-// 		var completedAt sql.NullTime
-
-// 		err := rows.Scan(
-// 			&item.TaskID, &item.Title, &desc, &item.IsGlobal,
-// 			&item.RecurrenceType, &status, &completedAt,
-// 		)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-
-// 		item.Description = desc.String
-// 		item.Date = dateStr
-
-// 		if status.Valid {
-// 			item.Status = status.String
-// 		} else if dateStr < today {
-// 			item.Status = util.StatusMissed
-// 		} else {
-// 			item.Status = util.StatusPending
-// 		}
-
-// 		if completedAt.Valid {
-// 			t := completedAt.Time
-// 			item.CompletedAt = &t
-// 		}
-
-// 		results = append(results, item)
-// 	}
-
-// 	return results, rows.Err()
-// }
-
 // ---- ListForRange: history এর জন্য, একাধিক দিন একসাথে ----
-
 func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithStatus, error) {
 	fromStr := from.Format("2006-01-02")
 	toStr := to.Format("2006-01-02")
@@ -470,70 +370,7 @@ func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithSta
 	return results, rows.Err()
 }
 
-// func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithStatus, error) {
-// 	query := `
-// 		SELECT
-// 			d.day, t.id, t.title, t.description, t.is_global, t.recurrence_type,
-// 			tc.status, tc.completed_at
-// 		FROM generate_series($1::date, $2::date, interval '1 day') AS d(day)
-// 		JOIN tasks t
-// 			ON t.is_active = true
-// 			AND EXTRACT(DOW FROM d.day)::int = ANY(t.recurrence_days)
-// 			AND (t.is_global = true OR t.owner_id = $3)
-// 		LEFT JOIN task_completions tc
-// 			ON tc.task_id = t.id AND tc.user_id = $3 AND tc.task_date = d.day
-// 		ORDER BY d.day, t.is_global, t.created_at
-// 	`
-
-// 	rows, err := r.db.Query(query, from, to, userID)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer rows.Close()
-
-// 	today := time.Now().Format("2006-01-02")
-
-// 	var results []TaskWithStatus
-
-// 	for rows.Next() {
-// 		var item TaskWithStatus
-// 		var day time.Time
-// 		var desc sql.NullString
-// 		var status sql.NullString
-// 		var completedAt sql.NullTime
-
-// 		err := rows.Scan(
-// 			&day, &item.TaskID, &item.Title, &desc, &item.IsGlobal,
-// 			&item.RecurrenceType, &status, &completedAt,
-// 		)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-
-// 		item.Description = desc.String
-// 		item.Date = day.Format("2006-01-02")
-
-// 		if status.Valid {
-// 			item.Status = status.String
-// 		} else if item.Date < today {
-// 			item.Status = util.StatusMissed
-// 		} else {
-// 			item.Status = util.StatusPending
-// 		}
-
-// 		if completedAt.Valid {
-// 			t := completedAt.Time
-// 			item.CompletedAt = &t
-// 		}
-
-// 		results = append(results, item)
-// 	}
-
-// 	return results, rows.Err()
-// }
-
 // ---- Complete: upsert করে completion record ----
-
 func (r *taskRepo) Complete(taskID int64, userID int64, date time.Time) (*TaskCompletion, error) {
 	task, err := r.GetByID(taskID)
 	if err != nil {
@@ -586,61 +423,6 @@ func (r *taskRepo) Complete(taskID int64, userID int64, date time.Time) (*TaskCo
 	return &completion, nil
 }
 
-// func (r *taskRepo) Complete(taskID int64, userID int64, date time.Time) (*TaskCompletion, error) {
-// 	task, err := r.GetByID(taskID)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	if !task.IsActive {
-// 		return nil, util.ErrTaskNotFound
-// 	}
-
-// 	// Access check: personal task হলে owner হতে হবে, নাহলে global হতে হবে
-// 	if !task.IsGlobal && (!task.OwnerID.Valid || task.OwnerID.Int64 != userID) {
-// 		return nil, util.ErrForbidden
-// 	}
-
-// 	weekday := int64(date.Weekday()) // Go: Sunday=0...Saturday=6, আমাদের DB স্কিমার সাথে ম্যাচ করে
-// 	scheduled := false
-// 	for _, d := range task.RecurrenceDays {
-// 		if d == weekday {
-// 			scheduled = true
-// 			break
-// 		}
-// 	}
-// 	if !scheduled {
-// 		return nil, util.ErrTaskNotScheduled
-// 	}
-
-// 	var completion TaskCompletion
-// 	dateStr := date.Format("2006-01-02")
-
-// 	query := `
-// 		INSERT INTO task_completions (
-// 			task_id, user_id, task_title_snapshot, was_global_snapshot,
-// 			task_date, status, completed_at
-// 		)
-// 		VALUES ($1, $2, $3, $4, $5::date, 'completed', CURRENT_TIMESTAMP)
-// 		ON CONFLICT (task_id, user_id, task_date)
-// 		DO UPDATE SET status = 'completed', completed_at = CURRENT_TIMESTAMP
-// 		RETURNING id, task_id, user_id, task_title_snapshot, task_date, status, completed_at, created_at
-// 	`
-
-// 	err = r.db.QueryRow(
-// 		query, task.ID, userID, task.Title, task.IsGlobal, dateStr,
-// 	).Scan(
-// 		&completion.ID, &completion.TaskID, &completion.UserID,
-// 		&completion.TaskTitleSnapshot, &completion.TaskDate,
-// 		&completion.Status, &completion.CompletedAt, &completion.CreatedAt,
-// 	)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return &completion, nil
-// }
-
 func (r *taskRepo) Increment(taskID int64, userID int64, date time.Time, amount int32) (*TaskCompletion, error) {
 	if amount <= 0 {
 		return nil, util.ErrInvalidIncrementAmount
@@ -674,41 +456,48 @@ func (r *taskRepo) Increment(taskID int64, userID int64, date time.Time, amount 
 
 	dateStr := date.Format("2006-01-02")
 	target := task.TargetCount.Int32
-
-	// একটাই atomic query: upsert progress + auto-complete check, একটা round-trip এ
-	query := `
-		WITH upsert AS (
-			INSERT INTO task_completions (
-				task_id, user_id, task_title_snapshot, was_global_snapshot,
-				task_date, status, progress_count
-			)
-			VALUES ($1, $2, $3, $4, $5::date, 'pending', $6)
-			ON CONFLICT (task_id, user_id, task_date)
-			DO UPDATE SET progress_count = task_completions.progress_count + $6
-			RETURNING id, progress_count
-		)
-		UPDATE task_completions tc
-		SET
-			status = CASE WHEN upsert.progress_count >= $7 THEN 'completed' ELSE 'pending' END,
-			completed_at = CASE
-				WHEN upsert.progress_count >= $7 AND tc.completed_at IS NULL THEN CURRENT_TIMESTAMP
-				ELSE tc.completed_at
-			END
-		FROM upsert
-		WHERE tc.id = upsert.id
-		RETURNING tc.id, tc.task_id, tc.user_id, tc.task_title_snapshot, tc.task_date,
-			tc.status, tc.progress_count, tc.completed_at, tc.created_at
-	`
-
-	var completion TaskCompletion
-	err = r.db.QueryRow(query, task.ID, userID, task.Title, task.IsGlobal, dateStr, amount, target).
-		Scan(&completion.ID, &completion.TaskID, &completion.UserID,
-			&completion.TaskTitleSnapshot, &completion.TaskDate,
-			&completion.Status, &completion.ProgressCount, &completion.CompletedAt, &completion.CreatedAt)
-
+	
+	tx, err := r.db.Beginx()
 	if err != nil {
 		return nil, err
 	}
+	defer tx.Rollback()
+
+	var completion TaskCompletion
+	err = tx.QueryRow(`
+		INSERT INTO task_completions (
+			task_id, user_id, task_title_snapshot, was_global_snapshot,
+			task_date, status, progress_count
+		)
+		VALUES ($1, $2, $3, $4, $5::date, 'pending', $6)
+		ON CONFLICT (task_id, user_id, task_date)
+		DO UPDATE SET progress_count = task_completions.progress_count + $6
+		RETURNING id, task_id, user_id, task_title_snapshot, task_date, status, progress_count, completed_at, created_at
+	`, task.ID, userID, task.Title, task.IsGlobal, dateStr, amount).Scan(
+		&completion.ID, &completion.TaskID, &completion.UserID,
+		&completion.TaskTitleSnapshot, &completion.TaskDate,
+		&completion.Status, &completion.ProgressCount, &completion.CompletedAt, &completion.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if completion.ProgressCount >= target && completion.Status != util.StatusCompleted {
+		err = tx.QueryRow(`
+			UPDATE task_completions
+			SET status = 'completed', completed_at = CURRENT_TIMESTAMP
+			WHERE id = $1
+			RETURNING status, completed_at
+		`, completion.ID).Scan(&completion.Status, &completion.CompletedAt)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
 	return &completion, nil
 }
 

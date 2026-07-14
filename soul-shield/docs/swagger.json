@@ -296,7 +296,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "User বা Admin task তৈরি করতে পারবে। is_global=true শুধু admin ব্যবহার করতে পারবে।",
+                "description": "User বা Admin task তৈরি করতে পারবে। is_global=true শুধু admin ব্যবহার করতে পারবে।\n▹ for recurrence_days: 0=Sunday ... 6=Saturday.\n▹ recurrence_type: 'daily', 'weekly', 'custom'. 'daily' হলে সব দিন auto বসিয়ে দেওয়া হবে insert time এ\n▹ category_id: এই field না দিলে global task হিসেবে create হবে, category_id রাখতে চাইলে category id must দিতে হবে\n▹ task_type \"normal\" হলে target_count optional, আর \"counter\" হলে target_count must দিতে হবে\n▹ \"counter\" type task for dhikr",
                 "consumes": [
                     "application/json"
                 ],
