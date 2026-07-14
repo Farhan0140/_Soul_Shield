@@ -12,6 +12,8 @@ import Categories from './pages/Categories';
 import Profile from './pages/Profile';
 import AdminTasks from './pages/AdminTasks';
 import AppLayout from './components/AppLayout';
+import NotFound from './pages/NotFound';
+import OnboardingTooltip from './components/OnboardingTooltip';
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -19,22 +21,27 @@ export default function App() {
   if (loading) return null; // AuthProvider handles its own loader
 
   return (
-    <Routes>
-      {/* Public routes — redirect to home if already logged in */}
-      <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
-      <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
+    <>
+      <Routes>
+        {/* Public routes — redirect to home if already logged in */}
+        <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+        <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
-      {/* Protected routes — wrapped in shared layout */}
-      <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-        <Route index element={<Dashboard />} />
-        <Route path="history" element={<History />} />
-        <Route path="categories" element={<Categories />} />
-        <Route path="profile" element={<Profile />} />
-        <Route path="admin/tasks" element={<ProtectedRoute adminOnly><AdminTasks /></ProtectedRoute>} />
-      </Route>
+        {/* Protected routes — wrapped in shared layout */}
+        <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+          <Route index element={<Dashboard />} />
+          <Route path="history" element={<History />} />
+          <Route path="categories" element={<Categories />} />
+          <Route path="profile" element={<Profile />} />
+          <Route path="admin/tasks" element={<ProtectedRoute adminOnly><AdminTasks /></ProtectedRoute>} />
+        </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+      
+      <OnboardingTooltip />
+    </>
   );
 }

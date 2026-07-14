@@ -9,7 +9,7 @@ import Button from './ui/Button';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export default function TaskFormModal({ open, onClose, task, categories, onSaved }) {
+export default function TaskFormModal({ open, onClose, task, categories, onSaved, forceGlobal = false }) {
   const { isAdmin } = useAuth();
   const toast = useToast();
   const isEdit = !!task;
@@ -23,7 +23,7 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
     task_type: 'normal',
     target_count: 100,
     reward_text: '',
-    is_global: false,
+    is_global: forceGlobal ? true : false,
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -249,16 +249,27 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
 
               {/* Admin: global toggle */}
               {isAdmin && (
-                <label className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200 cursor-pointer">
+                <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer
+                  ${forceGlobal
+                    ? 'bg-amber-100 border-amber-300'
+                    : 'bg-amber-50 border-amber-200'}`}
+                >
                   <input
                     type="checkbox"
                     checked={form.is_global}
                     onChange={(e) => setForm({ ...form, is_global: e.target.checked })}
+                    disabled={forceGlobal}
                     className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
                   />
                   <div>
-                    <p className="text-sm font-semibold text-amber-800">Make this a Fixed Task</p>
-                    <p className="text-xs text-amber-700">Visible to every user — admin-managed</p>
+                    <p className="text-sm font-semibold text-amber-800">
+                      {forceGlobal ? 'Fixed Task (required)' : 'Make this a Fixed Task'}
+                    </p>
+                    <p className="text-xs text-amber-700">
+                      {forceGlobal
+                        ? 'Admin panel tasks are always visible to every user.'
+                        : 'Visible to every user — admin-managed'}
+                    </p>
                   </div>
                 </label>
               )}
