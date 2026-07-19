@@ -22,15 +22,23 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (email, password) => {
-    const { token } = await api.post('/users/login', { email, password }, { auth: false });
+    const token = await api.post('/users/login', {
+      email:email,
+      password:password,
+    });
+
     localStorage.setItem('soulshield_token', token);
     const me = await api.get('/users/me');
     setUser(me);
     return me;
   };
 
-  const register = async (name, email, password) => {
-    await api.post('/users/register', { name, email, password }, { auth: false });
+  const register = async (full_name, email, password) => {
+    await api.post('/users/register', { 
+      email:email,
+      full_name:full_name,
+      password:password,
+    });
   };
 
   const logout = () => {

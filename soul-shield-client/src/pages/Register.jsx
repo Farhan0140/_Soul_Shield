@@ -23,7 +23,7 @@ export default function Register() {
   const [step, setStep] = useState(0);
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [name, setName] = useState('');
+  const [full_name, setFullName] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -109,7 +109,7 @@ export default function Register() {
   const handleCreate = async (e) => {
     e.preventDefault();
     const errs = {};
-    if (!name.trim()) errs.name = "What should we call you?";
+    if (!full_name.trim()) errs.name = "What should we call you?";
     if (!password) errs.password = "Please choose a password.";
     else if (password.length < 6) errs.password = "At least 6 characters — keep it safe.";
     setErrors(errs);
@@ -117,7 +117,7 @@ export default function Register() {
 
     setLoading(true);
     try {
-      await api.post('/users/register', { name, email, password }, { auth: false });
+      await api.post('/users/register', { full_name, email, password }, { auth: false });
       await login(email, password);
       toast.success("Account created! Welcome to SoulShield 🌟");
       navigate('/', { replace: true });
@@ -240,8 +240,8 @@ export default function Register() {
             )}
             <Input
               label="Full name" icon={User}
-              value={name} error={errors.name}
-              onChange={(e) => setName(e.target.value)}
+              value={full_name} error={errors.name}
+              onChange={(e) => setFullName(e.target.value)}
               autoComplete="name"
             />
             <Input
