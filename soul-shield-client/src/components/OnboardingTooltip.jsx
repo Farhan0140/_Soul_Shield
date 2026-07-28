@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Sparkles, X, ArrowRight } from 'lucide-react';
 
 const TIPS = [
@@ -56,14 +56,14 @@ export default function OnboardingTooltip() {
   return (
     <AnimatePresence>
       {show && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 bg-slate-900/30 backdrop-blur-sm"
           onClick={() => dismiss()}
         >
-          <motion.div
+          <m.div
             initial={{ y: 40, scale: 0.95, opacity: 0 }}
             animate={{ y: 0, scale: 1, opacity: 1 }}
             exit={{ y: 40, scale: 0.95, opacity: 0 }}
@@ -94,14 +94,14 @@ export default function OnboardingTooltip() {
 
             {/* Content */}
             <div className="p-6 text-center">
-              <motion.div
+              <m.div
                 key={step}
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 className="text-5xl mb-3"
               >
                 {tip.emoji}
-              </motion.div>
+              </m.div>
               <h3 className="text-lg font-bold text-slate-800 mb-1.5">{tip.title}</h3>
               <p className="text-sm text-slate-600 leading-relaxed">{tip.body}</p>
             </div>
@@ -123,17 +123,17 @@ export default function OnboardingTooltip() {
               >
                 Skip
               </button>
-              <motion.button
+              <m.button
                 whileTap={{ scale: 0.95 }}
                 onClick={next}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-indigo-200 transition-shadow"
               >
                 {step === TIPS.length - 1 ? "Let's go!" : 'Next'}
                 <ArrowRight className="w-4 h-4" />
-              </motion.button>
+              </m.button>
             </div>
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

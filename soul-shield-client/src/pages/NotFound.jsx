@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Home, Search, Sparkles } from 'lucide-react';
 import Button from '../components/ui/Button';
 
@@ -7,25 +7,25 @@ export default function NotFound() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-50 via-white to-purple-50 relative overflow-hidden">
       {/* Animated blobs */}
-      <motion.div
+      <m.div
         animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
         transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
         className="absolute -top-20 -left-20 w-96 h-96 bg-indigo-200 rounded-full mix-blend-multiply filter blur-3xl opacity-40"
       />
-      <motion.div
+      <m.div
         animate={{ x: [0, -30, 0], y: [0, 20, 0] }}
         transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
         className="absolute -bottom-20 -right-20 w-96 h-96 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-40"
       />
 
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
         className="relative text-center max-w-md"
       >
         {/* Big animated 404 */}
-        <motion.div
+        <m.div
           initial={{ scale: 0.5, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.1 }}
@@ -35,30 +35,30 @@ export default function NotFound() {
             404
           </h1>
           {/* Floating sparkles around the number */}
-          <motion.div
+          <m.div
             animate={{ y: [0, -10, 0], rotate: [0, 15, 0] }}
             transition={{ duration: 2, repeat: Infinity }}
             className="absolute top-4 -right-4"
           >
             <Sparkles className="w-6 h-6 text-amber-400" fill="currentColor" />
-          </motion.div>
-          <motion.div
+          </m.div>
+          <m.div
             animate={{ y: [0, 10, 0], rotate: [0, -15, 0] }}
             transition={{ duration: 2.5, repeat: Infinity, delay: 0.5 }}
             className="absolute bottom-8 -left-4"
           >
             <Sparkles className="w-5 h-5 text-indigo-400" fill="currentColor" />
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
 
         {/* Lost compass icon */}
-        <motion.div
+        <m.div
           animate={{ rotate: [0, 360] }}
           transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
           className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 mb-6"
         >
           <Search className="w-10 h-10 text-indigo-600" />
-        </motion.div>
+        </m.div>
 
         <h2 className="text-2xl font-bold text-slate-800 mb-2">
           Oops — you've wandered off the path
@@ -79,7 +79,7 @@ export default function NotFound() {
             </Button>
           </Link>
         </div>
-      </motion.div>
+      </m.div>
     </div>
   );
 }

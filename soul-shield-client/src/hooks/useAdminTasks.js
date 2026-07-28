@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api } from '../services/api';
+import { useApi } from '../context/ApiContext';
 import { fmtDate } from './useTasks';
 
 export function useAdminTasks() {
@@ -7,6 +7,7 @@ export function useAdminTasks() {
   const [usage, setUsage] = useState({}); // { taskId: { users: N, completions: N } }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { getTasks, getTasksHistory } = useApi();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -15,7 +16,7 @@ export function useAdminTasks() {
       // Fetch all tasks (we'll filter client-side to is_global)
       // Alternative: backend could expose /tasks?is_global=true — we use client filter for now
       const today = new Date();
-      const data = await api.get(`/tasks?date=${fmtDate(today)}`);
+      const data = await getTasks(fmtDate(today));
       const globalTasks = (Array.isArray(data) ? data : []).filter(t => t.is_global);
       setTasks(globalTasks);
 
@@ -24,7 +25,7 @@ export function useAdminTasks() {
         const to = new Date();
         const from = new Date();
         from.setDate(to.getDate() - 30);
-        const history = await api.get(`/tasks/history?from=${fmtDate(from)}&to=${fmtDate(to)}`);
+        const history = await getTasksHistory(fmtDate(from), fmtDate(to));
         const items = Array.isArray(history) ? history : [];
 
         const usageMap = {};
@@ -59,7 +60,7 @@ export function useAdminTasks() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getTasks, getTasksHistory]);
 
   useEffect(() => { load(); }, [load]);
 

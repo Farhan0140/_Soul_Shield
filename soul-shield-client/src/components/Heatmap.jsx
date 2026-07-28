@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { fmtDate, prettyDate } from '../hooks/useTasks';
 
 // 5 intensity levels based on completion %
@@ -120,7 +120,7 @@ export default function Heatmap({ byDate, range, onDateClick }) {
               const isToday = fmtDate(date) === fmtDate(new Date());
 
               return (
-                <motion.button
+                <m.button
                   key={key}
                   onMouseEnter={(e) => handleMouseEnter(e, date)}
                   onMouseLeave={handleMouseLeave}
@@ -142,7 +142,7 @@ export default function Heatmap({ byDate, range, onDateClick }) {
       {/* Tooltip */}
       <AnimatePresence>
         {tooltip.show && tooltip.data && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
@@ -159,7 +159,7 @@ export default function Heatmap({ byDate, range, onDateClick }) {
               {tooltip.data.completed}/{tooltip.data.total} completed
               {tooltip.data.total > 0 && ` (${tooltip.data.pct}%)`}
             </p>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

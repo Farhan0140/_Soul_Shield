@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api } from '../services/api';
+import { useApi } from '../context/ApiContext';
 import { fmtDate } from './useTasks';
 
 // Default range: last 7 days
@@ -15,14 +15,13 @@ export function useHistory() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { getTasksHistory } = useApi();
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.get(
-        `/tasks/history?from=${fmtDate(range.from)}&to=${fmtDate(range.to)}`
-      );
+      const data = await getTasksHistory(fmtDate(range.from), fmtDate(range.to));
       setItems(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message);
@@ -30,7 +29,7 @@ export function useHistory() {
     } finally {
       setLoading(false);
     }
-  }, [range]);
+  }, [range, getTasksHistory]);
 
   useEffect(() => { load(); }, [load]);
 

@@ -1,5 +1,5 @@
 import { useState, forwardRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 const Input = forwardRef(function Input(
@@ -62,7 +62,7 @@ const Input = forwardRef(function Input(
       {/* Error message with slide-in */}
       <AnimatePresence>
         {error && (
-          <motion.p
+          <m.p
             initial={{ opacity: 0, y: -4, height: 0 }}
             animate={{ opacity: 1, y: 0, height: 'auto' }}
             exit={{ opacity: 0, y: -4, height: 0 }}
@@ -70,7 +70,7 @@ const Input = forwardRef(function Input(
           >
             <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
             <span>{error}</span>
-          </motion.p>
+          </m.p>
         )}
       </AnimatePresence>
     </div>

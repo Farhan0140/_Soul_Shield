@@ -1,11 +1,12 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { api } from '../services/api';
+import { useApi } from './ApiContext';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);      // { id, full_name, email, role }
   const [loading, setLoading] = useState(true); // initial token check
+  const { getMe, loginUser, registerUser } = useApi();
 
   // On mount: if token exists, fetch /users/me to validate & populate user
   useEffect(() => {
@@ -15,30 +16,23 @@ export function AuthProvider({ children }) {
       Promise.resolve().then(() => setLoading(false));
       return;
     }
-    api.get('/users/me')
+    getMe()
       .then(setUser)
       .catch(() => localStorage.removeItem('soulshield_token'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [getMe]);
 
   const login = async (email, password) => {
-    const token = await api.post('/users/login', {
-      email:email,
-      password:password,
-    });
+    const token = await loginUser(email, password);
 
     localStorage.setItem('soulshield_token', token);
-    const me = await api.get('/users/me');
+    const me = await getMe();
     setUser(me);
     return me;
   };
 
   const register = async (full_name, email, password) => {
-    await api.post('/users/register', { 
-      email:email,
-      full_name:full_name,
-      password:password,
-    });
+    await registerUser(full_name, email, password);
   };
 
   const logout = () => {
@@ -47,7 +41,7 @@ export function AuthProvider({ children }) {
   };
 
   const refreshUser = async () => {
-    const me = await api.get('/users/me');
+    const me = await getMe();
     setUser(me);
   };
 

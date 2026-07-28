@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { X, Loader2 } from 'lucide-react';
-import { api } from '../services/api';
+import { useApi } from '../context/ApiContext';
 import { useToast } from './Toast';
 import ColorPicker from './ColorPicker';
 import Input from './ui/Input';
 import Button from './ui/Button';
 
 export default function CategoryFormModal({ open, onClose, onCreated }) {
+  const { createCategory } = useApi();
   const toast = useToast();
   const [name, setName] = useState('');
   const [color, setColor] = useState('#4F46E5');
@@ -32,10 +33,7 @@ export default function CategoryFormModal({ open, onClose, onCreated }) {
 
     setLoading(true);
     try {
-      const created = await api.post('/categories', {
-        name: name.trim(),
-        color_hex: color,
-      });
+      const created = await createCategory(name.trim(), color);
       toast.success(`Category "${created.name}" created ✨`);
       onCreated(created);
       onClose();
@@ -50,12 +48,12 @@ export default function CategoryFormModal({ open, onClose, onCreated }) {
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
           onClick={onClose}
         >
-          <motion.div
+          <m.div
             initial={{ scale: 0.95, y: 20, opacity: 0 }}
             animate={{ scale: 1, y: 0, opacity: 1 }}
             exit={{ scale: 0.95, y: 20, opacity: 0 }}
@@ -73,7 +71,7 @@ export default function CategoryFormModal({ open, onClose, onCreated }) {
             <form onSubmit={handleSubmit} className="p-6 space-y-5">
               {/* Live preview */}
               <div className="flex items-center gap-3 p-4 rounded-xl bg-slate-50 border border-slate-200">
-                <motion.div
+                <m.div
                   animate={{ backgroundColor: color }}
                   className="w-12 h-12 rounded-xl shadow-md flex-shrink-0"
                 />
@@ -104,8 +102,8 @@ export default function CategoryFormModal({ open, onClose, onCreated }) {
                 </Button>
               </div>
             </form>
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

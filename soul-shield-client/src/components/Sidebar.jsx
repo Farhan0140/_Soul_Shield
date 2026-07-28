@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Home, Calendar, Tags, User, Shield, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -20,13 +20,13 @@ export default function Sidebar() {
   return (
     <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-64 flex-col bg-white border-r border-slate-200 p-6">
       <div className="flex items-center gap-2 mb-8">
-        <motion.div
+        <m.div
           animate={{ rotate: [0, 10, -10, 0] }}
           transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
           className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold"
         >
           S
-        </motion.div>
+        </m.div>
         <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
           SoulShield
         </h1>

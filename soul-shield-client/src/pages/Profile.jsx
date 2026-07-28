@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import {
   User, Mail, Shield, LogOut, KeyRound, Target, Flame, Trophy,
   Sparkles, Calendar, AlertTriangle, Settings, Trash2, Info
@@ -33,14 +33,14 @@ export default function Profile() {
   const child = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } };
 
   return (
-    <motion.div
+    <m.div
       variants={pageVariants}
       initial="initial"
       animate="animate"
       className="space-y-6 max-w-5xl"
     >
       {/* Header */}
-      <motion.div variants={child}>
+      <m.div variants={child}>
         <h1 className="text-2xl md:text-3xl font-bold text-slate-800 flex items-center gap-2">
           <User className="w-7 h-7 text-indigo-500" />
           Profile
@@ -48,10 +48,10 @@ export default function Profile() {
         <p className="text-sm text-slate-500 mt-1">
           This is you — take a look at your journey so far ✨
         </p>
-      </motion.div>
+      </m.div>
 
       {/* User info card */}
-      <motion.div
+      <m.div
         variants={child}
         className="bg-white rounded-2xl border border-slate-200 overflow-hidden"
       >
@@ -83,10 +83,10 @@ export default function Profile() {
             </div>
           </div>
         </div>
-      </motion.div>
+      </m.div>
 
       {/* Personal stats */}
-      <motion.div variants={child}>
+      <m.div variants={child}>
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-2">
           <span className="w-6 h-0.5 bg-slate-300" />
           Your journey
@@ -141,7 +141,7 @@ export default function Profile() {
         )}
 
         {stats?.bestDay && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
@@ -151,12 +151,12 @@ export default function Profile() {
             <p className="text-sm text-indigo-900">
               Your most productive day is <strong>{stats.bestDay}</strong> — maybe schedule important tasks then?
             </p>
-          </motion.div>
+          </m.div>
         )}
-      </motion.div>
+      </m.div>
 
       {/* Account settings */}
-      <motion.div variants={child}>
+      <m.div variants={child}>
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-2">
           <span className="w-6 h-0.5 bg-slate-300" />
           Account settings
@@ -207,10 +207,10 @@ export default function Profile() {
             </div>
           </div>
         </div>
-      </motion.div>
+      </m.div>
 
       {/* Danger zone */}
-      <motion.div variants={child}>
+      <m.div variants={child}>
         <h3 className="text-xs font-bold uppercase tracking-wider text-rose-500 mb-3 flex items-center gap-2">
           <span className="w-6 h-0.5 bg-rose-300" />
           Danger zone
@@ -249,15 +249,15 @@ export default function Profile() {
             </button>
           </div>
         </div>
-      </motion.div>
+      </m.div>
 
       {/* Footer note */}
-      <motion.p
+      <m.p
         variants={child}
         className="text-center text-xs text-slate-400 pt-4"
       >
         SoulShield · Guarding your daily deeds ✨
-      </motion.p>
+      </m.p>
 
       {/* Modals */}
       <ChangePasswordModal
@@ -282,6 +282,6 @@ export default function Profile() {
           </p>
         </div>
       </ConfirmModal>
-    </motion.div>
+    </m.div>
   );
 }

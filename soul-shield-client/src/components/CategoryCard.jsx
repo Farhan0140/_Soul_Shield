@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Edit2, Trash2, Check, X, Loader2, Tag } from 'lucide-react';
-import { api } from '../services/api';
+import { useApi } from '../context/ApiContext';
 import { useToast } from './Toast';
 import ColorPicker from './ColorPicker';
 import Input from './ui/Input';
 
 export default function CategoryCard({ category, taskCount, onUpdate, onDelete, onRequestDelete }) {
+  const { updateCategory } = useApi();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(category.name);
   const [color, setColor] = useState(category.color_hex);
@@ -26,10 +27,7 @@ export default function CategoryCard({ category, taskCount, onUpdate, onDelete, 
     onUpdate({ ...category, name: name.trim(), color_hex: color });
 
     try {
-      const updated = await api.patch(`/categories/${category.id}`, {
-        name: name.trim(),
-        color_hex: color,
-      });
+      const updated = await updateCategory(category.id, name.trim(), color);
       onUpdate(updated);
       setEditing(false);
       // toast removed for inline edits to avoid spam — success is visible in UI
@@ -50,7 +48,7 @@ export default function CategoryCard({ category, taskCount, onUpdate, onDelete, 
   };
 
   return (
-    <motion.div
+    <m.div
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
@@ -60,13 +58,13 @@ export default function CategoryCard({ category, taskCount, onUpdate, onDelete, 
       <div className="p-5">
         {editing ? (
           /* ---------- EDIT MODE ---------- */
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="space-y-4"
           >
             <div className="flex items-center gap-3">
-              <motion.div
+              <m.div
                 animate={{ backgroundColor: color }}
                 className="w-12 h-12 rounded-xl shadow-md flex-shrink-0"
               />
@@ -85,15 +83,15 @@ export default function CategoryCard({ category, taskCount, onUpdate, onDelete, 
             <ColorPicker value={color} onChange={setColor} />
 
             <div className="flex gap-2 pt-2">
-              <motion.button
+              <m.button
                 whileTap={{ scale: 0.95 }}
                 onClick={handleCancel}
                 disabled={loading}
                 className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border-2 border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
               >
                 <X className="w-4 h-4" /> Cancel
-              </motion.button>
-              <motion.button
+              </m.button>
+              <m.button
                 whileTap={{ scale: 0.95 }}
                 onClick={handleSave}
                 disabled={loading}
@@ -101,20 +99,20 @@ export default function CategoryCard({ category, taskCount, onUpdate, onDelete, 
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                 Save
-              </motion.button>
+              </m.button>
             </div>
-          </motion.div>
+          </m.div>
         ) : (
           /* ---------- VIEW MODE ---------- */
           <div className="flex items-start gap-4">
             {/* Color swatch */}
-            <motion.div
+            <m.div
               whileHover={{ scale: 1.05, rotate: 3 }}
               className="w-14 h-14 rounded-xl shadow-md flex-shrink-0 flex items-center justify-center"
               style={{ backgroundColor: category.color_hex }}
             >
               <Tag className="w-6 h-6 text-white/90" />
-            </motion.div>
+            </m.div>
 
             {/* Info */}
             <div className="flex-1 min-w-0">
@@ -140,7 +138,7 @@ export default function CategoryCard({ category, taskCount, onUpdate, onDelete, 
 
             {/* Actions */}
             <div className="flex items-center gap-1 flex-shrink-0">
-              <motion.button
+              <m.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setEditing(true)}
@@ -148,8 +146,8 @@ export default function CategoryCard({ category, taskCount, onUpdate, onDelete, 
                 aria-label="Edit category"
               >
                 <Edit2 className="w-4 h-4" />
-              </motion.button>
-              <motion.button
+              </m.button>
+              <m.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => onRequestDelete(category)}
@@ -157,11 +155,11 @@ export default function CategoryCard({ category, taskCount, onUpdate, onDelete, 
                 aria-label="Delete category"
               >
                 <Trash2 className="w-4 h-4" />
-              </motion.button>
+              </m.button>
             </div>
           </div>
         )}
       </div>
-    </motion.div>
+    </m.div>
   );
 }

@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Target, Flame, Trophy, TrendingUp } from 'lucide-react';
 
 // Compute streak from byDate (consecutive days ending today or yesterday with ≥1 completion)
@@ -86,14 +86,14 @@ export default function WeeklyStats({ stats }) {
   ];
 
   return (
-    <motion.div
+    <m.div
       variants={container}
       initial="hidden"
       animate="show"
       className="grid grid-cols-2 lg:grid-cols-4 gap-3"
     >
       {cards.map((c, i) => (
-        <motion.div
+        <m.div
           key={i}
           variants={item}
           whileHover={{ y: -4, scale: 1.02 }}
@@ -108,8 +108,8 @@ export default function WeeklyStats({ stats }) {
             <p className="text-2xl font-bold text-slate-800 mt-0.5">{c.value}</p>
             <p className="text-xs text-slate-500 mt-1">{c.sub}</p>
           </div>
-        </motion.div>
+        </m.div>
       ))}
-    </motion.div>
+    </m.div>
   );
 }

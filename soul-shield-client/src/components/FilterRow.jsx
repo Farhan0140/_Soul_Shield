@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Filter } from 'lucide-react';
 
 const STATUS_TABS = [
@@ -14,7 +14,7 @@ export default function FilterRow({ categories, activeCategory, setActiveCategor
       {/* Status tabs */}
       <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl w-fit">
         {STATUS_TABS.map(tab => (
-          <motion.button
+          <m.button
             key={tab.key}
             whileTap={{ scale: 0.95 }}
             onClick={() => setActiveStatus(tab.key)}
@@ -22,32 +22,32 @@ export default function FilterRow({ categories, activeCategory, setActiveCategor
               ${activeStatus === tab.key ? 'text-white' : 'text-slate-600 hover:text-slate-900'}`}
           >
             {activeStatus === tab.key && (
-              <motion.div
+              <m.div
                 layoutId="status-pill"
                 className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg"
                 transition={{ type: 'spring', stiffness: 400, damping: 30 }}
               />
             )}
             <span className="relative">{tab.label}</span>
-          </motion.button>
+          </m.button>
         ))}
       </div>
 
       {/* Category chips */}
       <div className="flex items-center gap-2 flex-wrap">
         <Filter className="w-4 h-4 text-slate-400" />
-        <motion.button
+        <m.button
           whileTap={{ scale: 0.95 }}
           onClick={() => setActiveCategory(null)}
           className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-all
             ${!activeCategory ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
         >
           All
-        </motion.button>
+        </m.button>
         {categories.map(cat => {
           const active = activeCategory === cat.id;
           return (
-            <motion.button
+            <m.button
               key={cat.id}
               whileTap={{ scale: 0.95 }}
               onClick={() => setActiveCategory(active ? null : cat.id)}
@@ -60,7 +60,7 @@ export default function FilterRow({ categories, activeCategory, setActiveCategor
             >
               <span className="inline-block w-2 h-2 rounded-full mr-1.5" style={{ backgroundColor: cat.color_hex }} />
               {cat.name}
-            </motion.button>
+            </m.button>
           );
         })}
       </div>

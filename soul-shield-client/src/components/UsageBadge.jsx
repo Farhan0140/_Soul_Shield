@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Users, CheckCircle2, TrendingUp } from 'lucide-react';
 
 export default function UsageBadge({ usage, compact = false }) {
@@ -24,7 +24,7 @@ export default function UsageBadge({ usage, compact = false }) {
   }
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       className="flex items-center gap-4 p-3 rounded-xl bg-gradient-to-r from-slate-50 to-indigo-50/50 border border-slate-200"
@@ -71,6 +71,6 @@ export default function UsageBadge({ usage, compact = false }) {
           <p className="text-sm font-bold text-slate-800 tabular-nums">{usage.activeDays}</p>
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

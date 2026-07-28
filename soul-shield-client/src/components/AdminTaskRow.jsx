@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Edit2, Trash2, Shield, Tag, Calendar, Repeat, Check, X } from 'lucide-react';
 import UsageBadge from './UsageBadge';
 
@@ -12,8 +11,6 @@ const RECURRENCE_LABELS = {
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function AdminTaskRow({ task, usage, selected, onSelect, onEdit, onDelete }) {
-  const [hovered, setHovered] = useState(false);
-
   const categoryColor = task.category_color || '#94a3b8';
   const recurrenceLabel = RECURRENCE_LABELS[task.recurrence_type] || task.recurrence_type;
 
@@ -23,13 +20,11 @@ export default function AdminTaskRow({ task, usage, selected, onSelect, onEdit, 
     : null;
 
   return (
-    <motion.div
+    <m.div
       layout
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      onHoverStart={() => setHovered(true)}
-      onHoverEnd={() => setHovered(false)}
       className={`group bg-white rounded-2xl border-2 overflow-hidden transition-all
         ${selected ? 'border-indigo-400 bg-indigo-50/30 shadow-md' : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'}
       `}
@@ -37,7 +32,7 @@ export default function AdminTaskRow({ task, usage, selected, onSelect, onEdit, 
     >
       <div className="p-4 flex items-start gap-3">
         {/* Selection checkbox */}
-        <motion.button
+        <m.button
           whileTap={{ scale: 0.85 }}
           onClick={() => onSelect(!selected)}
           className={`mt-1 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all
@@ -45,7 +40,7 @@ export default function AdminTaskRow({ task, usage, selected, onSelect, onEdit, 
           `}
         >
           {selected && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
-        </motion.button>
+        </m.button>
 
         {/* Main content */}
         <div className="flex-1 min-w-0">
@@ -103,7 +98,7 @@ export default function AdminTaskRow({ task, usage, selected, onSelect, onEdit, 
 
         {/* Actions */}
         <div className="flex items-center gap-1 flex-shrink-0">
-          <motion.button
+          <m.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={() => onEdit(task)}
@@ -111,8 +106,8 @@ export default function AdminTaskRow({ task, usage, selected, onSelect, onEdit, 
             aria-label="Edit task"
           >
             <Edit2 className="w-4 h-4" />
-          </motion.button>
-          <motion.button
+          </m.button>
+          <m.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={() => onDelete(task)}
@@ -120,9 +115,9 @@ export default function AdminTaskRow({ task, usage, selected, onSelect, onEdit, 
             aria-label="Delete task"
           >
             <Trash2 className="w-4 h-4" />
-          </motion.button>
+          </m.button>
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

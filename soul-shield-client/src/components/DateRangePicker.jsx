@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Calendar, ChevronDown, X } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { fmtDate, prettyDate } from '../hooks/useTasks';
@@ -51,7 +51,7 @@ export default function DateRangePicker({ range, setRange }) {
 
   return (
     <div className="relative" ref={ref}>
-      <motion.button
+      <m.button
         whileTap={{ scale: 0.97 }}
         onClick={() => setOpen(o => !o)}
         className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-slate-200 rounded-xl
@@ -59,14 +59,14 @@ export default function DateRangePicker({ range, setRange }) {
       >
         <Calendar className="w-4 h-4 text-indigo-500" />
         <span>{prettyDate(range.from)} — {prettyDate(range.to)}</span>
-        <motion.div animate={{ rotate: open ? 180 : 0 }}>
+        <m.div animate={{ rotate: open ? 180 : 0 }}>
           <ChevronDown className="w-4 h-4 text-slate-400" />
-        </motion.div>
-      </motion.button>
+        </m.div>
+      </m.button>
 
       <AnimatePresence>
         {open && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
@@ -107,7 +107,7 @@ export default function DateRangePicker({ range, setRange }) {
               <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Quick select</p>
               <div className="grid grid-cols-2 gap-1.5">
                 {PRESETS.map(p => (
-                  <motion.button
+                  <m.button
                     key={p.key}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.97 }}
@@ -115,11 +115,11 @@ export default function DateRangePicker({ range, setRange }) {
                     className="px-3 py-2 text-xs font-medium rounded-lg bg-slate-50 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 transition-colors text-left"
                   >
                     {p.label}
-                  </motion.button>
+                  </m.button>
                 ))}
               </div>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

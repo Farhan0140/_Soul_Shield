@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Trophy, Users, Lock, Sparkles } from 'lucide-react';
 
 // Mock data — will be replaced by real endpoint when available
@@ -18,7 +18,7 @@ const MEDAL_COLORS = {
 
 export default function LeaderboardPreview() {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="bg-white rounded-2xl border border-slate-200 overflow-hidden"
@@ -42,7 +42,7 @@ export default function LeaderboardPreview() {
       {/* List */}
       <div className="divide-y divide-slate-100">
         {MOCK_LEADERS.map((leader, i) => (
-          <motion.div
+          <m.div
             key={leader.rank}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
@@ -78,7 +78,7 @@ export default function LeaderboardPreview() {
               </p>
               <p className="text-[10px] text-slate-400 uppercase font-semibold">Rate</p>
             </div>
-          </motion.div>
+          </m.div>
         ))}
       </div>
 
@@ -89,6 +89,6 @@ export default function LeaderboardPreview() {
           <strong>Coming soon:</strong> Real-time leaderboard powered by a dedicated backend endpoint.
         </p>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

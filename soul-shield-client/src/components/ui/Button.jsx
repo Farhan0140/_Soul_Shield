@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 
 export default function Button({
@@ -17,7 +17,7 @@ export default function Button({
   };
 
   return (
-    <motion.button
+    <m.button
       whileTap={{ scale: 0.97 }}
       disabled={disabled || loading}
       className={`inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-medium text-sm
@@ -27,6 +27,6 @@ export default function Button({
     >
       {loading && <Loader2 className="w-4 h-4 animate-spin" />}
       {children}
-    </motion.button>
+    </m.button>
   );
 }

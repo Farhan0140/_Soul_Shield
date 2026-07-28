@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { ChevronDown, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { prettyDate, fmtDate } from '../hooks/useTasks';
 import TaskCard from './TaskCard';
@@ -19,18 +19,18 @@ export default function DayGroup({ date, tasks, onNavigateToDay }) {
     : <Clock className="w-4 h-4 text-amber-500" />;
 
   return (
-    <motion.div
+    <m.div
       layout
       className="bg-white rounded-2xl border border-slate-200 overflow-hidden"
     >
       {/* Day header */}
-      <motion.button
+      <m.button
         onClick={() => setOpen(o => !o)}
         className="w-full flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors text-left"
       >
-        <motion.div animate={{ rotate: open ? 0 : -90 }}>
+        <m.div animate={{ rotate: open ? 0 : -90 }}>
           <ChevronDown className="w-4 h-4 text-slate-400" />
-        </motion.div>
+        </m.div>
 
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center flex-shrink-0
@@ -50,7 +50,7 @@ export default function DayGroup({ date, tasks, onNavigateToDay }) {
             </p>
             <div className="flex items-center gap-2 mt-1">
               <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden max-w-[120px]">
-                <motion.div
+                <m.div
                   className={`h-full rounded-full ${
                     pct === 100 ? 'bg-emerald-500' : pct > 0 ? 'bg-indigo-500' : 'bg-slate-300'
                   }`}
@@ -66,12 +66,12 @@ export default function DayGroup({ date, tasks, onNavigateToDay }) {
         </div>
 
         {statusIcon}
-      </motion.button>
+      </m.button>
 
       {/* Tasks */}
       <AnimatePresence initial={false}>
         {open && (
-          <motion.div
+          <m.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -91,9 +91,9 @@ export default function DayGroup({ date, tasks, onNavigateToDay }) {
                 />
               ))}
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </m.div>
   );
 }

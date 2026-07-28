@@ -1,11 +1,11 @@
-import { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useMemo, useEffect } from 'react';
+import { m, AnimatePresence } from 'framer-motion';
 import {
   Shield, Plus, Search, Filter, AlertCircle, Inbox, Users,
   TrendingUp, CheckCircle2, XCircle, ArrowUpDown
 } from 'lucide-react';
 import { useAdminTasks } from '../hooks/useAdminTasks';
-import { api } from '../services/api';
+import { useApi } from '../context/ApiContext';
 import { useToast } from '../components/Toast';
 import AdminTaskRow from '../components/AdminTaskRow';
 import TaskFormModal from '../components/TaskFormModal';
@@ -45,11 +45,13 @@ export default function AdminTasks() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  const { getCategories, deleteTask } = useApi();
+
   // Categories for form modal
   const [categories, setCategories] = useState([]);
-  useState(() => {
-    api.get('/categories').then(setCategories).catch(() => {});
-  });
+  useEffect(() => {
+    getCategories().then(setCategories).catch(() => {});
+  }, [getCategories]);
 
   // ---------- Filtering + Sorting ----------
   const filteredTasks = useMemo(() => {
@@ -117,7 +119,7 @@ export default function AdminTasks() {
     if (!deletingTask) return;
     setDeleteLoading(true);
     try {
-      await api.delete(`/tasks/${deletingTask.task_id}`);
+      await deleteTask(deletingTask.task_id);
       removeTask(deletingTask.task_id);
       selected.delete(deletingTask.task_id);
       setSelected(new Set(selected));
@@ -139,7 +141,7 @@ export default function AdminTasks() {
 
     for (const id of ids) {
       try {
-        await api.delete(`/tasks/${id}`);
+        await deleteTask(id);
         removeTask(id);
         success++;
       } catch {
@@ -174,14 +176,14 @@ export default function AdminTasks() {
   const child = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } };
 
   return (
-    <motion.div
+    <m.div
       variants={pageVariants}
       initial="initial"
       animate="animate"
       className="space-y-6"
     >
       {/* Header */}
-      <motion.div variants={child} className="flex items-start justify-between gap-4 flex-wrap">
+      <m.div variants={child} className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-slate-800 flex items-center gap-2">
             <Shield className="w-7 h-7 text-amber-500" />
@@ -194,10 +196,10 @@ export default function AdminTasks() {
         <Button onClick={openCreate}>
           <Plus className="w-4 h-4" /> New Fixed Task
         </Button>
-      </motion.div>
+      </m.div>
 
       {/* Summary cards */}
-      <motion.div variants={child} className="grid grid-cols-3 gap-3">
+      <m.div variants={child} className="grid grid-cols-3 gap-3">
         <div className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
             <Shield className="w-5 h-5 text-white" />
@@ -225,10 +227,10 @@ export default function AdminTasks() {
             <p className="text-xl font-bold text-slate-800 tabular-nums">{summaryStats.avgRate}%</p>
           </div>
         </div>
-      </motion.div>
+      </m.div>
 
       {/* Search + Filters */}
-      <motion.div variants={child} className="space-y-3">
+      <m.div variants={child} className="space-y-3">
         {/* Search bar */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -257,7 +259,7 @@ export default function AdminTasks() {
           {STATUS_FILTERS.map(f => {
             const active = typeFilter === f.key;
             return (
-              <motion.button
+              <m.button
                 key={f.key}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setTypeFilter(f.key)}
@@ -266,7 +268,7 @@ export default function AdminTasks() {
                 `}
               >
                 {f.label}
-              </motion.button>
+              </m.button>
             );
           })}
 
@@ -283,15 +285,15 @@ export default function AdminTasks() {
             </select>
           </div>
         </div>
-      </motion.div>
+      </m.div>
 
       {/* Error */}
       {error && (
-        <motion.div variants={child} className="p-6 rounded-2xl bg-rose-50 border border-rose-200 text-center">
+        <m.div variants={child} className="p-6 rounded-2xl bg-rose-50 border border-rose-200 text-center">
           <AlertCircle className="w-8 h-8 text-rose-500 mx-auto mb-2" />
           <p className="text-sm text-rose-700 mb-3">{error}</p>
           <Button variant="secondary" onClick={reload}>Try again</Button>
-        </motion.div>
+        </m.div>
       )}
 
       {/* Loading */}
@@ -305,7 +307,7 @@ export default function AdminTasks() {
       {!loading && !error && (
         <>
           {filteredTasks.length > 0 ? (
-            <motion.div variants={child} className="space-y-3">
+            <m.div variants={child} className="space-y-3">
               <AnimatePresence>
                 {filteredTasks.map(task => (
                   <AdminTaskRow
@@ -319,19 +321,19 @@ export default function AdminTasks() {
                   />
                 ))}
               </AnimatePresence>
-            </motion.div>
+            </m.div>
           ) : tasks.length === 0 ? (
-            <motion.div
+            <m.div
               variants={child}
               className="text-center py-16 bg-white rounded-2xl border border-slate-200"
             >
-              <motion.div
+              <m.div
                 animate={{ y: [0, -8, 0] }}
                 transition={{ duration: 2, repeat: Infinity }}
                 className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 mb-4"
               >
                 <Inbox className="w-8 h-8 text-amber-500" />
-              </motion.div>
+              </m.div>
               <h3 className="text-lg font-semibold text-slate-800 mb-1">No fixed tasks yet</h3>
               <p className="text-sm text-slate-500 mb-4 max-w-sm mx-auto">
                 Fixed tasks appear on every user's dashboard — great for daily reminders, ibadah routines, or company-wide goals.
@@ -339,25 +341,25 @@ export default function AdminTasks() {
               <Button onClick={openCreate}>
                 <Plus className="w-4 h-4" /> Create first fixed task
               </Button>
-            </motion.div>
+            </m.div>
           ) : (
-            <motion.div
+            <m.div
               variants={child}
               className="text-center py-12 text-sm text-slate-500"
             >
               No fixed tasks match these filters.
-            </motion.div>
+            </m.div>
           )}
 
           {/* Leaderboard */}
           {!loading && tasks.length > 0 && (
-            <motion.div variants={child}>
+            <m.div variants={child}>
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-2">
                 <span className="w-6 h-0.5 bg-slate-300" />
                 Community
               </h2>
               <LeaderboardPreview />
-            </motion.div>
+            </m.div>
           )}
         </>
       )}
@@ -418,6 +420,6 @@ export default function AdminTasks() {
         onClear={clearSelection}
         onDeleteSelected={() => setBulkDeleteOpen(true)}
       />
-    </motion.div>
+    </m.div>
   );
 }

@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, User, ArrowRight, ArrowLeft, ShieldCheck, CheckCircle2 } from 'lucide-react';
-import { api } from '../services/api';
+import { useApi } from '../context/ApiContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 import AuthLayout from './AuthLayout';
@@ -19,6 +19,7 @@ export default function Register() {
   const navigate = useNavigate();
   const toast = useToast();
   const { login } = useAuth();
+  const { sendOtp, verifyOtp, registerUser } = useApi();
 
   const [step, setStep] = useState(0);
   const [email, setEmail] = useState('');
@@ -45,7 +46,7 @@ export default function Register() {
     setErrors({});
     setLoading(true);
     try {
-      await api.post('/send-otp', { email }, { auth: false });
+      await sendOtp(email);
       toast.success("Code sent! Check your inbox 📬");
       setStep(1);
       setCooldown(60);
@@ -84,7 +85,7 @@ export default function Register() {
     setErrors({});
     setLoading(true);
     try {
-      await api.post('/verify-otp', { email, otp: code }, { auth: false });
+      await verifyOtp(email, code);
       toast.success("Email verified! 🎉");
       setStep(2);
     } catch (err) {
@@ -97,7 +98,7 @@ export default function Register() {
   const handleResend = async () => {
     if (cooldown > 0) return;
     try {
-      await api.post('/send-otp', { email }, { auth: false });
+      await sendOtp(email);
       toast.success("New code sent!");
       setCooldown(60);
     } catch (err) {
@@ -117,7 +118,7 @@ export default function Register() {
 
     setLoading(true);
     try {
-      await api.post('/users/register', { full_name, email, password }, { auth: false });
+      await registerUser(full_name, email, password);
       await login(email, password);
       toast.success("Account created! Welcome to SoulShield 🌟");
       navigate('/', { replace: true });
@@ -134,13 +135,13 @@ export default function Register() {
     <div className="flex items-center justify-center gap-2 mb-6">
       {STEPS.map((s, i) => (
         <div key={s.key} className="flex items-center gap-2">
-          <motion.div
+          <m.div
             animate={{ scale: i === step ? 1.1 : 1 }}
             className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-colors
               ${i < step ? 'bg-emerald-500 text-white' : i === step ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}
           >
             {i < step ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
-          </motion.div>
+          </m.div>
           {i < STEPS.length - 1 && (
             <div className={`w-8 h-0.5 ${i < step ? 'bg-emerald-400' : 'bg-slate-200'}`} />
           )}
@@ -156,7 +157,7 @@ export default function Register() {
       <AnimatePresence mode="wait">
         {/* ===== STEP 1: Email ===== */}
         {step === 0 && (
-          <motion.form
+          <m.form
             key="email"
             initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
             onSubmit={handleSendOtp} className="space-y-4"
@@ -170,12 +171,12 @@ export default function Register() {
             <Button type="submit" loading={loading} className="w-full">
               Send verification code <ArrowRight className="w-4 h-4" />
             </Button>
-          </motion.form>
+          </m.form>
         )}
 
         {/* ===== STEP 2: OTP ===== */}
         {step === 1 && (
-          <motion.form
+          <m.form
             key="otp"
             initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
             onSubmit={handleVerifyOtp} className="space-y-5"
@@ -196,9 +197,9 @@ export default function Register() {
               ))}
             </div>
             {errors.otp && (
-              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center text-sm text-rose-500">
+              <m.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center text-sm text-rose-500">
                 {errors.otp}
-              </motion.p>
+              </m.p>
             )}
 
             <div className="text-center text-sm text-slate-500">
@@ -220,23 +221,23 @@ export default function Register() {
                 Verify <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
-          </motion.form>
+          </m.form>
         )}
 
         {/* ===== STEP 3: Account ===== */}
         {step === 2 && (
-          <motion.form
+          <m.form
             key="account"
             initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
             onSubmit={handleCreate} className="space-y-4"
           >
             {errors.form && (
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
                 className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-600 flex items-center gap-2"
               >
                 <ShieldCheck className="w-4 h-4 flex-shrink-0" /> {errors.form}
-              </motion.div>
+              </m.div>
             )}
             <Input
               label="Full name" icon={User}
@@ -258,7 +259,7 @@ export default function Register() {
                 Create account <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
-          </motion.form>
+          </m.form>
         )}
       </AnimatePresence>
 

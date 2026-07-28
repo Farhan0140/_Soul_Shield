@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { api } from '../services/api';
+import { useApi } from '../context/ApiContext';
 import { fmtDate } from './useTasks';
 
 // Each counter task gets its own hook instance.
@@ -9,6 +9,7 @@ export function useCounter(taskId, initialProgress, targetCount, date, onUpdate)
   const pendingRef = useRef(0);
   const timerRef = useRef(null);
   const syncingRef = useRef(false);
+  const { incrementCounter } = useApi();
 
   // Reset when task/date changes
   useEffect(() => {
@@ -23,10 +24,7 @@ export function useCounter(taskId, initialProgress, targetCount, date, onUpdate)
     syncingRef.current = true;
 
     try {
-      const res = await api.post(`/tasks/${taskId}/increment`, {
-        amount,
-        date: fmtDate(date),
-      });
+      const res = await incrementCounter(taskId, fmtDate(date), amount);
       // Server returns updated progress + status
       onUpdate?.({
         progress_count: res.progress_count ?? (localProgress + amount),
@@ -42,7 +40,7 @@ export function useCounter(taskId, initialProgress, targetCount, date, onUpdate)
     } finally {
       syncingRef.current = false;
     }
-  }, [taskId, date, localProgress, onUpdate]);
+  }, [taskId, date, localProgress, onUpdate, incrementCounter]);
 
   const scheduleFlush = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);

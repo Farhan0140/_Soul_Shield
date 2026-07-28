@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Palette, Check, AlertCircle } from 'lucide-react';
 
 // A curated palette of accessible, pleasant colors
@@ -65,7 +65,7 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
 
       {/* Preview + hex input */}
       <div className="flex items-center gap-2 mb-3">
-        <motion.div
+        <m.div
           key={hex}
           initial={{ scale: 0.8 }}
           animate={{ scale: 1 }}
@@ -94,7 +94,7 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
         {PRESETS.map((c) => {
           const selected = hex.toUpperCase() === c.toUpperCase();
           return (
-            <motion.button
+            <m.button
               key={c}
               type="button"
               whileHover={{ scale: 1.15 }}
@@ -106,15 +106,15 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
               aria-label={`Select color ${c}`}
             >
               {selected && (
-                <motion.div
+                <m.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   className="absolute inset-0 flex items-center justify-center"
                 >
                   <Check className="w-4 h-4 text-white drop-shadow" strokeWidth={3} />
-                </motion.div>
+                </m.div>
               )}
-            </motion.button>
+            </m.button>
           );
         })}
       </div>
@@ -122,7 +122,7 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
       {/* Error */}
       <AnimatePresence>
         {error && (
-          <motion.p
+          <m.p
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
@@ -130,7 +130,7 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
           >
             <AlertCircle className="w-3.5 h-3.5" />
             {error}
-          </motion.p>
+          </m.p>
         )}
       </AnimatePresence>
     </div>

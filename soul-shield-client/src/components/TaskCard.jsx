@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Check, Edit2, Trash2, Shield, Sparkles, Loader2 } from 'lucide-react';
-import { api } from '../services/api';
+import { useApi } from '../context/ApiContext';
 import { useToast } from './Toast';
 import { useAuth } from '../context/AuthContext';
 import { fmtDate } from '../hooks/useTasks';
@@ -9,6 +9,7 @@ import CounterWidget from './CounterWidget';
 
 export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isReadOnly = false }) {
   const { user } = useAuth();
+  const { completeTask, deleteTask } = useApi();
   const toast = useToast();
   const [completing, setCompleting] = useState(false);
 
@@ -26,7 +27,7 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
     if (isCounter || isCompleted || isMissed) return;
     setCompleting(true);
     try {
-      const res = await api.post(`/tasks/${task.task_id}/complete`, { date: fmtDate(date) });
+      const res = await completeTask(task.task_id, fmtDate(date));
       onUpdate({ ...res, status: 'completed', reward_text: res.reward_text });
       toast.success('Nice work! 🎉');
     } catch (err) {
@@ -39,7 +40,7 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
   const handleDelete = async () => {
     if (!confirm('Delete this task? This cannot be undone.')) return;
     try {
-      await api.delete(`/tasks/${task.task_id}`);
+      await deleteTask(task.task_id);
       onDelete(task.task_id);
       toast.success('Task deleted');
     } catch (err) {
@@ -52,7 +53,7 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
   };
 
   return (
-    <motion.div
+    <m.div
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
@@ -69,7 +70,7 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
       <div className="flex items-start gap-3">
         {/* Checkbox (normal tasks only) */}
         {!isCounter && (
-          <motion.button
+          <m.button
             whileTap={{ scale: 0.85 }}
             onClick={handleToggleComplete}
             disabled={isCompleted || isMissed || completing || isReadOnly}
@@ -82,7 +83,7 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
             ) : isCompleted ? (
               <Check className="w-4 h-4 text-white" strokeWidth={3} />
             ) : null}
-          </motion.button>
+          </m.button>
         )}
 
         {/* Title + meta */}
@@ -126,44 +127,44 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
       {/* Reward text (completed normal tasks) */}
       <AnimatePresence>
         {isCompleted && !isCounter && task.reward_text && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             className="mt-3 flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200"
           >
-            <motion.div
+            <m.div
               animate={{ rotate: [0, -10, 10, -10, 0] }}
               transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 2 }}
             >
               <Sparkles className="w-4 h-4 text-amber-500" fill="currentColor" />
-            </motion.div>
+            </m.div>
             <span className="text-sm font-medium text-amber-800">{task.reward_text}</span>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
       {/* Action buttons */}
       {canManage && (
         <div className="flex items-center justify-end gap-1 mt-3 pt-3 border-t border-slate-100">
-          <motion.button
+          <m.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => onEdit(task)}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors"
           >
             <Edit2 className="w-3.5 h-3.5" /> Edit
-          </motion.button>
-          <motion.button
+          </m.button>
+          <m.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleDelete}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors"
           >
             <Trash2 className="w-3.5 h-3.5" /> Delete
-          </motion.button>
+          </m.button>
         </div>
       )}
-    </motion.div>
+    </m.div>
   );
 }

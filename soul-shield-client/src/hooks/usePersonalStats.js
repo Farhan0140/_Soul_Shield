@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { useApi } from '../context/ApiContext';
 import { fmtDate } from './useTasks';
 
 export function usePersonalStats() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { getTasksHistory } = useApi();
 
   useEffect(() => {
     const load = async () => {
@@ -14,7 +15,7 @@ export function usePersonalStats() {
         const from = new Date();
         from.setDate(to.getDate() - 365);
 
-        const history = await api.get(`/tasks/history?from=${fmtDate(from)}&to=${fmtDate(to)}`);
+        const history = await getTasksHistory(fmtDate(from), fmtDate(to));
         const items = Array.isArray(history) ? history : [];
 
         const completed = items.filter(t => t.status === 'completed');
@@ -73,7 +74,7 @@ export function usePersonalStats() {
       }
     };
     load();
-  }, []);
+  }, [getTasksHistory]);
 
   return { stats, loading };
 }

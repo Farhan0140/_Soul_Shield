@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { X, Lock, KeyRound, Mail, ArrowRight, ArrowLeft, CheckCircle2, ShieldCheck } from 'lucide-react';
-import { api } from '../services/api';
+import { useApi } from '../context/ApiContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from './Toast';
 import Input from './ui/Input';
@@ -15,6 +15,7 @@ const STEPS = [
 
 export default function ChangePasswordModal({ open, onClose }) {
   const { user } = useAuth();
+  const { sendOtp, verifyOtp, resetPassword } = useApi();
   const toast = useToast();
 
   const [step, setStep] = useState(0);
@@ -47,7 +48,7 @@ export default function ChangePasswordModal({ open, onClose }) {
     setErrors({});
     setLoading(true);
     try {
-      await api.post('/send-otp', { email: user.email });
+      await sendOtp(user.email);
       toast.success("Code sent! Check your inbox 📬");
       setStep(1);
       setCooldown(60);
@@ -85,7 +86,7 @@ export default function ChangePasswordModal({ open, onClose }) {
     setErrors({});
     setLoading(true);
     try {
-      await api.post('/verify-otp', { email: user.email, otp: code });
+      await verifyOtp(user.email, code);
       toast.success("Verified! Now set your new password 🔐");
       setStep(2);
     } catch (err) {
@@ -98,7 +99,7 @@ export default function ChangePasswordModal({ open, onClose }) {
   const handleResend = async () => {
     if (cooldown > 0) return;
     try {
-      await api.post('/send-otp', { email: user.email });
+      await sendOtp(user.email);
       toast.success("New code sent!");
       setCooldown(60);
     } catch (err) {
@@ -113,7 +114,7 @@ export default function ChangePasswordModal({ open, onClose }) {
     setErrors({});
     setLoading(true);
     try {
-      await api.post('/users/reset-password', { email: user.email, new_password: password });
+      await resetPassword(user.email, password);
       toast.success("Password updated! You're all set 🎉");
       onClose();
     } catch (err) {
@@ -126,12 +127,12 @@ export default function ChangePasswordModal({ open, onClose }) {
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
           onClick={onClose}
         >
-          <motion.div
+          <m.div
             initial={{ scale: 0.95, y: 20, opacity: 0 }}
             animate={{ scale: 1, y: 0, opacity: 1 }}
             exit={{ scale: 0.95, y: 20, opacity: 0 }}
@@ -154,13 +155,13 @@ export default function ChangePasswordModal({ open, onClose }) {
             <div className="flex items-center justify-center gap-2 px-6 pb-4">
               {STEPS.map((s, i) => (
                 <div key={s.key} className="flex items-center gap-2">
-                  <motion.div
+                  <m.div
                     animate={{ scale: i === step ? 1.1 : 1 }}
                     className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors
                       ${i < step ? 'bg-emerald-500 text-white' : i === step ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}
                   >
                     {i < step ? <CheckCircle2 className="w-3.5 h-3.5" /> : i + 1}
-                  </motion.div>
+                  </m.div>
                   {i < STEPS.length - 1 && (
                     <div className={`w-6 h-0.5 ${i < step ? 'bg-emerald-400' : 'bg-slate-200'}`} />
                   )}
@@ -172,7 +173,7 @@ export default function ChangePasswordModal({ open, onClose }) {
               <AnimatePresence mode="wait">
                 {/* Step 1: Send OTP */}
                 {step === 0 && (
-                  <motion.div
+                  <m.div
                     key="send"
                     initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
                     className="space-y-4"
@@ -184,19 +185,19 @@ export default function ChangePasswordModal({ open, onClose }) {
                       </p>
                     </div>
                     {errors.form && (
-                      <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-rose-500">
+                      <m.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-rose-500">
                         {errors.form}
-                      </motion.p>
+                      </m.p>
                     )}
                     <Button onClick={handleSendOtp} loading={loading} className="w-full">
                       Send code <ArrowRight className="w-4 h-4" />
                     </Button>
-                  </motion.div>
+                  </m.div>
                 )}
 
                 {/* Step 2: OTP */}
                 {step === 1 && (
-                  <motion.div
+                  <m.div
                     key="otp"
                     initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
                     className="space-y-4"
@@ -217,9 +218,9 @@ export default function ChangePasswordModal({ open, onClose }) {
                       ))}
                     </div>
                     {errors.otp && (
-                      <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center text-sm text-rose-500">
+                      <m.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center text-sm text-rose-500">
                         {errors.otp}
-                      </motion.p>
+                      </m.p>
                     )}
                     <div className="text-center text-sm text-slate-500">
                       Didn't get it?{' '}
@@ -239,12 +240,12 @@ export default function ChangePasswordModal({ open, onClose }) {
                         Verify <ArrowRight className="w-4 h-4" />
                       </Button>
                     </div>
-                  </motion.div>
+                  </m.div>
                 )}
 
                 {/* Step 3: New password */}
                 {step === 2 && (
-                  <motion.div
+                  <m.div
                     key="new"
                     initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
                     className="space-y-4"
@@ -264,12 +265,12 @@ export default function ChangePasswordModal({ open, onClose }) {
                         Update password <ArrowRight className="w-4 h-4" />
                       </Button>
                     </div>
-                  </motion.div>
+                  </m.div>
                 )}
               </AnimatePresence>
             </div>
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

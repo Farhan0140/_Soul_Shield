@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 
 // Deterministic gradient from name (so same user always gets same colors)
 const GRADIENTS = [
@@ -30,7 +30,7 @@ export default function AnimatedAvatar({ name, size = 80, className = '', animat
   const gradient = GRADIENTS[hashName(name) % GRADIENTS.length];
 
   return (
-    <motion.div
+    <m.div
       initial={animate ? { scale: 0.8, opacity: 0 } : false}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 260, damping: 20 }}
@@ -41,12 +41,12 @@ export default function AnimatedAvatar({ name, size = 80, className = '', animat
       aria-label={`Avatar for ${name || 'user'}`}
     >
       {/* Subtle shine effect */}
-      <motion.div
+      <m.div
         animate={{ x: ['-100%', '200%'] }}
         transition={{ duration: 3, repeat: Infinity, repeatDelay: 4, ease: 'easeInOut' }}
         className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12"
       />
       <span className="relative drop-shadow-sm">{initials}</span>
-    </motion.div>
+    </m.div>
   );
 }

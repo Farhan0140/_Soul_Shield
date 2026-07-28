@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { CalendarDays, AlertCircle, Inbox } from 'lucide-react';
 import { useHistory } from '../hooks/useHistory';
 import { fmtDate } from '../hooks/useTasks';
@@ -28,14 +28,14 @@ export default function History() {
   };
 
   return (
-    <motion.div
+    <m.div
       variants={pageVariants}
       initial="initial"
       animate="animate"
       className="space-y-6"
     >
       {/* Header */}
-      <motion.div variants={child} className="flex items-start justify-between gap-4 flex-wrap">
+      <m.div variants={child} className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-slate-800 flex items-center gap-2">
             <CalendarDays className="w-7 h-7 text-indigo-500" />
@@ -46,21 +46,21 @@ export default function History() {
           </p>
         </div>
         <DateRangePicker range={range} setRange={setRange} />
-      </motion.div>
+      </m.div>
 
       {/* Error */}
       {error && (
-        <motion.div variants={child} className="p-6 rounded-2xl bg-rose-50 border border-rose-200 text-center">
+        <m.div variants={child} className="p-6 rounded-2xl bg-rose-50 border border-rose-200 text-center">
           <AlertCircle className="w-8 h-8 text-rose-500 mx-auto mb-2" />
           <p className="text-sm text-rose-700 mb-3">{error}</p>
           <Button variant="secondary" onClick={reload}>Try again</Button>
-        </motion.div>
+        </m.div>
       )}
 
       {/* Loading skeleton */}
       {loading && (
         <>
-          <motion.div variants={child} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <m.div variants={child} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {[1, 2, 3, 4].map(i => (
               <div key={i} className="bg-white rounded-2xl border border-slate-200 p-4 animate-pulse">
                 <div className="w-9 h-9 rounded-xl bg-slate-200 mb-3" />
@@ -68,10 +68,10 @@ export default function History() {
                 <div className="h-6 bg-slate-200 rounded w-3/4" />
               </div>
             ))}
-          </motion.div>
-          <motion.div variants={child} className="bg-white rounded-2xl border border-slate-200 p-5 animate-pulse">
+          </m.div>
+          <m.div variants={child} className="bg-white rounded-2xl border border-slate-200 p-5 animate-pulse">
             <div className="h-32 bg-slate-100 rounded" />
-          </motion.div>
+          </m.div>
         </>
       )}
 
@@ -80,19 +80,19 @@ export default function History() {
         <>
           {/* Stats */}
           {stats.totalTasks > 0 && (
-            <motion.div variants={child}>
+            <m.div variants={child}>
               <WeeklyStats stats={stats} />
-            </motion.div>
+            </m.div>
           )}
 
           {/* Heatmap */}
-          <motion.div variants={child}>
+          <m.div variants={child}>
             <Heatmap byDate={byDate} range={range} onDateClick={handleDateClick} />
-          </motion.div>
+          </m.div>
 
           {/* Day groups */}
           {sortedDates.length > 0 ? (
-            <motion.div variants={child} className="space-y-3">
+            <m.div variants={child} className="space-y-3">
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
                 <span className="w-6 h-0.5 bg-slate-300" />
                 Daily breakdown
@@ -104,27 +104,27 @@ export default function History() {
                   tasks={byDate[date]}
                 />
               ))}
-            </motion.div>
+            </m.div>
           ) : (
-            <motion.div
+            <m.div
               variants={child}
               className="text-center py-16 bg-white rounded-2xl border border-slate-200"
             >
-              <motion.div
+              <m.div
                 animate={{ y: [0, -8, 0] }}
                 transition={{ duration: 2, repeat: Infinity }}
                 className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 mb-4"
               >
                 <Inbox className="w-8 h-8 text-indigo-500" />
-              </motion.div>
+              </m.div>
               <h3 className="text-lg font-semibold text-slate-800 mb-1">No history yet</h3>
               <p className="text-sm text-slate-500">
                 Complete some tasks and your progress will show up here.
               </p>
-            </motion.div>
+            </m.div>
           )}
         </>
       )}
-    </motion.div>
+    </m.div>
   );
 }

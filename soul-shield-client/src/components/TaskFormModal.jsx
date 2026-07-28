@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { X, Loader2 } from 'lucide-react';
-import { api } from '../services/api';
+import { useApi } from '../context/ApiContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from './Toast';
 import Input from './ui/Input';
@@ -11,6 +11,7 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function TaskFormModal({ open, onClose, task, categories, onSaved, forceGlobal = false }) {
   const { isAdmin } = useAuth();
+  const { createTask, updateTask } = useApi();
   const toast = useToast();
   const isEdit = !!task;
 
@@ -90,10 +91,10 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
     try {
       let saved;
       if (isEdit) {
-        saved = await api.patch(`/tasks/${task.task_id}`, payload);
+        saved = await updateTask(task.task_id, payload);
         toast.success('Task updated ✨');
       } else {
-        saved = await api.post('/tasks', payload);
+        saved = await createTask(payload);
         toast.success('Task created 🎉');
       }
       onSaved(saved);
@@ -108,12 +109,12 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
           onClick={onClose}
         >
-          <motion.div
+          <m.div
             initial={{ scale: 0.95, y: 20, opacity: 0 }}
             animate={{ scale: 1, y: 0, opacity: 1 }}
             exit={{ scale: 0.95, y: 20, opacity: 0 }}
@@ -283,8 +284,8 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
                 </Button>
               </div>
             </form>
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Plus, RotateCcw, Inbox, AlertCircle } from 'lucide-react';
 import { useTasks, prettyDate, fmtDate } from '../hooks/useTasks';
-import { api } from '../services/api';
+import { useApi } from '../context/ApiContext';
 import TaskCard from '../components/TaskCard';
 import FilterRow from '../components/FilterRow';
 import ProgressSummary from '../components/ProgressSummary';
@@ -17,11 +17,12 @@ export default function Dashboard() {
   const [activeStatus, setActiveStatus] = useState('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const { getCategories } = useApi();
 
   // Load categories once
   useEffect(() => {
-    api.get('/categories').then(setCategories).catch(() => {});
-  }, []);
+    getCategories().then(setCategories).catch(() => {});
+  }, [getCategories]);
 
   // Client-side filtering
   const filteredTasks = useMemo(() => {
@@ -64,25 +65,25 @@ export default function Dashboard() {
 
         <div className="flex items-center gap-2">
           <div className="flex items-center bg-white border border-slate-200 rounded-xl overflow-hidden">
-            <motion.button
+            <m.button
               whileTap={{ scale: 0.9 }}
               onClick={() => shiftDate(-1)}
               className="p-2.5 hover:bg-slate-50 transition-colors"
               aria-label="Previous day"
             >
               <ChevronLeft className="w-5 h-5 text-slate-600" />
-            </motion.button>
+            </m.button>
             <div className="px-3 py-2 border-x border-slate-200 min-w-[110px] text-center">
               <p className="text-sm font-semibold text-slate-800">{prettyDate(date)}</p>
             </div>
-            <motion.button
+            <m.button
               whileTap={{ scale: 0.9 }}
               onClick={() => shiftDate(1)}
               className="p-2.5 hover:bg-slate-50 transition-colors"
               aria-label="Next day"
             >
               <ChevronRight className="w-5 h-5 text-slate-600" />
-            </motion.button>
+            </m.button>
           </div>
 
           {!isToday && (
@@ -111,14 +112,14 @@ export default function Dashboard() {
 
       {/* Error state */}
       {error && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
           className="p-6 rounded-2xl bg-rose-50 border border-rose-200 text-center"
         >
           <AlertCircle className="w-8 h-8 text-rose-500 mx-auto mb-2" />
           <p className="text-sm text-rose-700 mb-3">{error}</p>
           <Button variant="secondary" onClick={reload}>Try again</Button>
-        </motion.div>
+        </m.div>
       )}
 
       {/* Loading */}
@@ -183,39 +184,39 @@ export default function Dashboard() {
 
           {/* Empty state */}
           {filteredTasks.length === 0 && tasks.length === 0 && isToday && (
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
               className="text-center py-16"
             >
-              <motion.div
+              <m.div
                 animate={{ y: [0, -8, 0] }}
                 transition={{ duration: 2, repeat: Infinity }}
                 className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 mb-4"
               >
                 <Inbox className="w-8 h-8 text-indigo-500" />
-              </motion.div>
+              </m.div>
               <h3 className="text-lg font-semibold text-slate-800 mb-1">No tasks yet</h3>
               <p className="text-sm text-slate-500 mb-4">Your day is a blank canvas — add your first task!</p>
               <Button onClick={openCreate}>
                 <Plus className="w-4 h-4" /> Add a task
               </Button>
-            </motion.div>
+            </m.div>
           )}
 
           {filteredTasks.length === 0 && tasks.length > 0 && (
-            <motion.div
+            <m.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               className="text-center py-12 text-sm text-slate-500"
             >
               No tasks match these filters. Try clearing them.
-            </motion.div>
+            </m.div>
           )}
         </div>
       )}
 
       {/* Floating add button */}
       {isToday && !loading && (
-        <motion.button
+        <m.button
           initial={{ scale: 0 }} animate={{ scale: 1 }}
           whileHover={{ scale: 1.1, rotate: 90 }}
           whileTap={{ scale: 0.9 }}
@@ -224,7 +225,7 @@ export default function Dashboard() {
           aria-label="Add task"
         >
           <Plus className="w-6 h-6" />
-        </motion.button>
+        </m.button>
       )}
 
       {/* Modal */}

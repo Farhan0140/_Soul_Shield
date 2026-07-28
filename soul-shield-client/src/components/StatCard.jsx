@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 
 // Animated number counter
 function useCountUp(target, duration = 1200) {
@@ -30,7 +30,7 @@ export default function StatCard({ icon: Icon, label, value, suffix = '', sub, g
   const displayValue = useCountUp(numericValue ?? 0);
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, type: 'spring', stiffness: 200, damping: 20 }}
@@ -51,6 +51,6 @@ export default function StatCard({ icon: Icon, label, value, suffix = '', sub, g
         </p>
         {sub && <p className="text-xs text-slate-500 mt-1">{sub}</p>}
       </div>
-    </motion.div>
+    </m.div>
   );
 }

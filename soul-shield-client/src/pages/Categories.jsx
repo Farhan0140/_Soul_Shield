@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Plus, Tags, AlertCircle, Inbox, Info } from 'lucide-react';
-import { api } from '../services/api';
+import { useApi } from '../context/ApiContext';
 import { useToast } from '../components/Toast';
 import CategoryCard from '../components/CategoryCard';
 import CategoryFormModal from '../components/CategoryFormModal';
@@ -14,6 +14,7 @@ export default function Categories() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { getCategories, getTasksHistory, deleteCategory } = useApi();
 
   // Task usage counts per category (from last 30 days of history)
   const [usageCounts, setUsageCounts] = useState({});
@@ -27,7 +28,7 @@ export default function Categories() {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.get('/categories');
+      const data = await getCategories();
       setCategories(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message);
@@ -43,7 +44,7 @@ export default function Categories() {
       const from = new Date();
       from.setDate(to.getDate() - 30);
       const fmt = (d) => d.toISOString().slice(0, 10);
-      const history = await api.get(`/tasks/history?from=${fmt(from)}&to=${fmt(to)}`);
+      const history = await getTasksHistory(fmt(from), fmt(to));
       const counts = {};
       (Array.isArray(history) ? history : []).forEach(t => {
         if (t.category_id) {
@@ -59,7 +60,7 @@ export default function Categories() {
   useEffect(() => {
     load();
     loadUsageCounts();
-  }, []);
+  }, [getCategories, getTasksHistory]);
 
   const handleCreated = (newCat) => {
     setCategories(prev => [...prev, newCat]);
@@ -73,7 +74,7 @@ export default function Categories() {
     if (!deleting) return;
     setDeleteLoading(true);
     try {
-      await api.delete(`/categories/${deleting.id}`);
+      await deleteCategory(deleting.id);
       setCategories(prev => prev.filter(c => c.id !== deleting.id));
       setUsageCounts(prev => {
         const next = { ...prev };
@@ -106,14 +107,14 @@ export default function Categories() {
   const child = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } };
 
   return (
-    <motion.div
+    <m.div
       variants={pageVariants}
       initial="initial"
       animate="animate"
       className="space-y-6"
     >
       {/* Header */}
-      <motion.div variants={child} className="flex items-start justify-between gap-4 flex-wrap">
+      <m.div variants={child} className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-slate-800 flex items-center gap-2">
             <Tags className="w-7 h-7 text-indigo-500" />
@@ -126,10 +127,10 @@ export default function Categories() {
         <Button onClick={() => setCreateOpen(true)}>
           <Plus className="w-4 h-4" /> New category
         </Button>
-      </motion.div>
+      </m.div>
 
       {/* Info banner */}
-      <motion.div
+      <m.div
         variants={child}
         className="flex items-start gap-3 p-4 rounded-2xl bg-indigo-50 border border-indigo-100"
       >
@@ -140,15 +141,15 @@ export default function Categories() {
             If you delete a category, its tasks won't disappear — they'll just become "Uncategorized".
           </p>
         </div>
-      </motion.div>
+      </m.div>
 
       {/* Error */}
       {error && (
-        <motion.div variants={child} className="p-6 rounded-2xl bg-rose-50 border border-rose-200 text-center">
+        <m.div variants={child} className="p-6 rounded-2xl bg-rose-50 border border-rose-200 text-center">
           <AlertCircle className="w-8 h-8 text-rose-500 mx-auto mb-2" />
           <p className="text-sm text-rose-700 mb-3">{error}</p>
           <Button variant="secondary" onClick={load}>Try again</Button>
-        </motion.div>
+        </m.div>
       )}
 
       {/* Loading */}
@@ -162,7 +163,7 @@ export default function Categories() {
       {!loading && !error && (
         <>
           {sorted.length > 0 ? (
-            <motion.div variants={child} className="grid gap-3 md:grid-cols-2">
+            <m.div variants={child} className="grid gap-3 md:grid-cols-2">
               <AnimatePresence>
                 {sorted.map(cat => (
                   <CategoryCard
@@ -175,19 +176,19 @@ export default function Categories() {
                   />
                 ))}
               </AnimatePresence>
-            </motion.div>
+            </m.div>
           ) : (
-            <motion.div
+            <m.div
               variants={child}
               className="text-center py-16 bg-white rounded-2xl border border-slate-200"
             >
-              <motion.div
+              <m.div
                 animate={{ y: [0, -8, 0] }}
                 transition={{ duration: 2, repeat: Infinity }}
                 className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 mb-4"
               >
                 <Inbox className="w-8 h-8 text-indigo-500" />
-              </motion.div>
+              </m.div>
               <h3 className="text-lg font-semibold text-slate-800 mb-1">No categories yet</h3>
               <p className="text-sm text-slate-500 mb-4 max-w-sm mx-auto">
                 Categories help you group similar tasks together — like "Ibadah", "Work", or "Health".
@@ -195,7 +196,7 @@ export default function Categories() {
               <Button onClick={() => setCreateOpen(true)}>
                 <Plus className="w-4 h-4" /> Create your first category
               </Button>
-            </motion.div>
+            </m.div>
           )}
         </>
       )}
@@ -228,6 +229,6 @@ export default function Categories() {
           </div>
         )}
       </ConfirmModal>
-    </motion.div>
+    </m.div>
   );
 }

@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Target, CheckCircle2 } from 'lucide-react';
 
 export default function ProgressSummary({ tasks }) {
@@ -18,17 +18,17 @@ export default function ProgressSummary({ tasks }) {
             <span className="text-slate-400"> / {total} completed</span>
           </p>
           {completed === total && total > 0 && (
-            <motion.span
+            <m.span
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               className="flex items-center gap-1 text-xs font-semibold text-emerald-600"
             >
               <CheckCircle2 className="w-3.5 h-3.5" /> All done!
-            </motion.span>
+            </m.span>
           )}
         </div>
         <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-          <motion.div
+          <m.div
             className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
             animate={{ width: `${pct}%` }}
             transition={{ type: 'spring', stiffness: 100, damping: 20 }}

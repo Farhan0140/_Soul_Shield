@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Home, Calendar, Tags, User, Shield } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -37,7 +37,7 @@ export default function MobileBottomNav() {
                 {({ isActive }) => (
                   <>
                     {isActive && (
-                      <motion.div
+                      <m.div
                         layoutId="mobile-nav-pill"
                         className="absolute inset-0 bg-indigo-50 rounded-xl -z-0"
                         transition={{ type: 'spring', stiffness: 400, damping: 30 }}

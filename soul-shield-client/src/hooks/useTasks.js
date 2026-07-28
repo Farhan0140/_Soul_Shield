@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api } from '../services/api';
+import { useApi } from '../context/ApiContext';
 
 // Format date as YYYY-MM-DD
 export const fmtDate = (d) => {
@@ -24,12 +24,13 @@ export function useTasks(initialDate = new Date()) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { getTasks } = useApi();
 
   const load = useCallback(async (d = date) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.get(`/tasks?date=${fmtDate(d)}`);
+      const data = await getTasks(fmtDate(d));
       setTasks(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message);
@@ -37,7 +38,7 @@ export function useTasks(initialDate = new Date()) {
     } finally {
       setLoading(false);
     }
-  }, [date]);
+  }, [date, getTasks]);
 
   useEffect(() => { load(); }, [load]);
 

@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { CheckSquare, Trash2, X } from 'lucide-react';
 import Button from './ui/Button';
 
@@ -6,7 +6,7 @@ export default function BulkActionBar({ count, onClear, onDeleteSelected }) {
   return (
     <AnimatePresence>
       {count > 0 && (
-        <motion.div
+        <m.div
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
@@ -39,7 +39,7 @@ export default function BulkActionBar({ count, onClear, onDeleteSelected }) {
           >
             <X className="w-4 h-4" />
           </button>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );
