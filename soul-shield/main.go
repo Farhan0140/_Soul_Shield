@@ -17,9 +17,17 @@
 // @name Authorization
 package main
 
-import "soulsheld/cmd"
-import _ "soulsheld/docs"
+import (
+	"os"
+	"soulsheld/cmd"
+	"soulsheld/docs"
+)
 
 func main() {
+	if hostname := os.Getenv("RENDER_EXTERNAL_HOSTNAME"); hostname != "" {
+		docs.SwaggerInfo.Host = hostname
+		docs.SwaggerInfo.Schemes = []string{"https"}
+	}
+
 	cmd.Serve()
 }
