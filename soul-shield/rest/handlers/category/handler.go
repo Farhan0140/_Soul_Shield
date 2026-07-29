@@ -17,7 +17,7 @@ func NewHandler(categoryRepo repo.CategoryRepo) *Handler {
 // getUserID: JWT middleware থেকে context এ বসানো userID বের করে
 func getUserID(r *http.Request) (int64, bool) {
 	val := r.Context().Value("userID")
-	id, ok := val.(int)
+	id, ok := val.(int64)
 	if !ok {
 		return 0, false
 	}

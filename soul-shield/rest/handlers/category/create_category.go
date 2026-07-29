@@ -21,7 +21,7 @@ var hexColorRegex = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
 // @Failure 400 {object} ErrorResponse
 // @Router /categories [post]
 func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value("userID").(int)
+	userID, ok := r.Context().Value("userID").(int64)
 	if !ok {
 		util.SendError(w, map[string]string{"error": "Unauthorize"}, http.StatusUnauthorized)
 		return
