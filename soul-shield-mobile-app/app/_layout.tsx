@@ -1,24 +1,58 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { ThemeProvider } from '@react-navigation/native';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { ActivityIndicator, View } from 'react-native';
 import 'react-native-reanimated';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AuthProvider, useAuth } from '@/context/auth-context';
+import { AppThemeProvider, useAppTheme } from '@/context/theme-context';
+import { getNavigationTheme } from '@/lib/navigation-theme';
+import { queryClient } from '@/lib/query-client';
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+function RootNavigator() {
+  const { status } = useAuth();
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  if (status === 'loading') {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
+    <Stack>
+      <Stack.Protected guard={status === 'signedOut'}>
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      </Stack.Protected>
+      <Stack.Protected guard={status === 'signedIn'}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
+        <Stack.Screen name="task" options={{ presentation: 'modal' }} />
+      </Stack.Protected>
+    </Stack>
+  );
+}
+
+function ThemedApp() {
+  const { resolvedTheme } = useAppTheme();
+
+  return (
+    <ThemeProvider value={getNavigationTheme(resolvedTheme)}>
+      <RootNavigator />
+      <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
     </ThemeProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppThemeProvider>
+        <AuthProvider>
+          <ThemedApp />
+        </AuthProvider>
+      </AppThemeProvider>
+    </QueryClientProvider>
   );
 }

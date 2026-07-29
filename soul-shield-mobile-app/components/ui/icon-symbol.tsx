@@ -6,7 +6,7 @@ import { ComponentProps } from 'react';
 import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
 
 type IconMapping = Record<SymbolViewProps['name'], ComponentProps<typeof MaterialIcons>['name']>;
-type IconSymbolName = keyof typeof MAPPING;
+export type IconSymbolName = keyof typeof MAPPING;
 
 /**
  * Add your SF Symbols to Material Icons mappings here.
@@ -18,6 +18,34 @@ const MAPPING = {
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  'chevron.left': 'chevron-left',
+  calendar: 'event',
+  'tag.fill': 'label',
+  'person.fill': 'person',
+  'person.crop.circle.fill': 'account-circle',
+  'shield.fill': 'shield',
+  'checkmark.circle.fill': 'check-circle',
+  checkmark: 'check',
+  circle: 'radio-button-unchecked',
+  plus: 'add',
+  'plus.circle.fill': 'add-circle',
+  pencil: 'edit',
+  trash: 'delete',
+  xmark: 'close',
+  'xmark.circle.fill': 'cancel',
+  'rectangle.portrait.and.arrow.right': 'logout',
+  sparkles: 'auto-awesome',
+  'exclamationmark.triangle.fill': 'warning',
+  tray: 'inbox',
+  'square.grid.2x2': 'apps',
+  clock: 'schedule',
+  'checkmark.square': 'check-box',
+  repeat: 'repeat',
+  'line.3.horizontal.decrease': 'filter-list',
+  'paintpalette.fill': 'palette',
+  'sun.max.fill': 'light-mode',
+  'moon.fill': 'dark-mode',
+  'circle.fill': 'circle',
 } as IconMapping;
 
 /**
