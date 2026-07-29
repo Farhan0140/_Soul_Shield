@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "soul-shield-mobile-app",
-    "slug": "soul-shield-mobile-app",
+    "slug": "soul-shield-mobile-app-fn2026",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -46,6 +46,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0ea94208-da3d-40ca-88f3-d60fd664ac16"
+      }
+    },
+    "owner": "farhannadims-team"
   }
 }
