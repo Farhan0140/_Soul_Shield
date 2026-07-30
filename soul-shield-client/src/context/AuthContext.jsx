@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { useApi } from './ApiContext';
 
 const AuthContext = createContext(null);
@@ -22,31 +22,35 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, [getMe]);
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     const token = await loginUser(email, password);
 
     localStorage.setItem('soulshield_token', token);
     const me = await getMe();
     setUser(me);
     return me;
-  };
+  }, [loginUser, getMe]);
 
-  const register = async (full_name, email, password) => {
+  const register = useCallback(async (full_name, email, password) => {
     await registerUser(full_name, email, password);
-  };
+  }, [registerUser]);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('soulshield_token');
     setUser(null);
-  };
+  }, []);
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     const me = await getMe();
     setUser(me);
-  };
+  }, [getMe]);
+
+  const value = useMemo(() => ({
+    user, loading, login, register, logout, refreshUser, isAdmin: user?.role === 'admin',
+  }), [user, loading, login, register, logout, refreshUser]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser, isAdmin: user?.role === 'admin' }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

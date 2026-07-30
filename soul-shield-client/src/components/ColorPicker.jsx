@@ -80,6 +80,7 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
             onChange={(e) => handleHexChange(e.target.value)}
             maxLength={7}
             placeholder="#4F46E5"
+            aria-label="Hex color code"
             className={`w-full px-3 py-2.5 rounded-xl border-2 font-mono text-sm uppercase outline-none transition-colors
               ${error ? 'border-rose-400' : 'border-slate-200 focus:border-indigo-500'}`}
           />

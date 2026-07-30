@@ -75,7 +75,12 @@ export default function DateRangePicker({ range, setRange }) {
           >
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-slate-800">Date range</h3>
-              <button onClick={() => setOpen(false)} className="p-1 rounded hover:bg-slate-100">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Close date range picker"
+                className="p-1 rounded hover:bg-slate-100"
+              >
                 <X className="w-4 h-4 text-slate-400" />
               </button>
             </div>
@@ -83,8 +88,9 @@ export default function DateRangePicker({ range, setRange }) {
             {/* Custom inputs */}
             <div className="grid grid-cols-2 gap-2 mb-3">
               <div>
-                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">From</label>
+                <label htmlFor="date-range-from" className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">From</label>
                 <input
+                  id="date-range-from"
                   type="date"
                   value={fmtDate(range.from)}
                   onChange={(e) => handleFromChange(e.target.value)}
@@ -92,8 +98,9 @@ export default function DateRangePicker({ range, setRange }) {
                 />
               </div>
               <div>
-                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">To</label>
+                <label htmlFor="date-range-to" className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">To</label>
                 <input
+                  id="date-range-to"
                   type="date"
                   value={fmtDate(range.to)}
                   onChange={(e) => handleToChange(e.target.value)}

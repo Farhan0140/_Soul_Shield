@@ -33,6 +33,7 @@ export default function BulkActionBar({ count, onClear, onDeleteSelected }) {
           </Button>
 
           <button
+            type="button"
             onClick={onClear}
             className="p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
             aria-label="Clear selection"

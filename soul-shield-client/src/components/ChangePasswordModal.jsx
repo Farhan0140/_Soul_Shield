@@ -146,7 +146,12 @@ export default function ChangePasswordModal({ open, onClose }) {
                 <h2 className="text-lg font-bold text-slate-800">{STEPS[step].title}</h2>
                 <p className="text-xs text-slate-500 mt-0.5">{STEPS[step].subtitle}</p>
               </div>
-              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              >
                 <X className="w-5 h-5 text-slate-500" />
               </button>
             </div>

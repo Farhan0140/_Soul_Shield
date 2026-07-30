@@ -1,13 +1,15 @@
-import { useState, forwardRef } from 'react';
+import { useState, useId, forwardRef } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 const Input = forwardRef(function Input(
-  { label, type = 'text', error, icon: Icon, className = '', ...props },
+  { label, type = 'text', error, icon: Icon, className = '', id, ...props },
   ref
 ) {
   const [focused, setFocused] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
+  const generatedId = useId();
+  const inputId = id || generatedId;
   const isPassword = type === 'password';
   const active = focused || String(props.value || props.defaultValue || '').length > 0;
 
@@ -29,6 +31,7 @@ const Input = forwardRef(function Input(
         )}
         <input
           ref={ref}
+          id={inputId}
           type={isPassword ? (showPwd ? 'text' : 'password') : type}
           onFocus={(e) => { setFocused(true); props.onFocus?.(e); }}
           onBlur={(e) => { setFocused(false); props.onBlur?.(e); }}
@@ -40,6 +43,7 @@ const Input = forwardRef(function Input(
           <button
             type="button"
             onClick={() => setShowPwd(s => !s)}
+            aria-label={showPwd ? 'Hide password' : 'Show password'}
             className="px-3 text-slate-400 hover:text-slate-600 transition-colors"
             tabIndex={-1}
           >
@@ -50,6 +54,7 @@ const Input = forwardRef(function Input(
 
       {/* Floating label */}
       <label
+        htmlFor={inputId}
         className={`absolute left-3 pointer-events-none transition-all duration-200 px-1
           ${Icon ? 'left-10' : 'left-3'}
           ${active ? 'top-0 text-xs bg-white text-indigo-600' : 'top-3.5 text-sm text-slate-400'}

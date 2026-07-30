@@ -19,6 +19,8 @@ const COLORS = [
   'bg-indigo-700',
 ];
 
+const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
 export default function Heatmap({ byDate, range, onDateClick }) {
   const [hovered, setHovered] = useState(null);
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, data: null });
@@ -70,8 +72,6 @@ export default function Heatmap({ byDate, range, onDateClick }) {
     setHovered(null);
     setTooltip({ show: false, x: 0, y: 0, data: null });
   };
-
-  const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-5">

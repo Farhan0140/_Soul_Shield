@@ -11,7 +11,7 @@ export const defaultRange = () => {
 };
 
 export function useHistory() {
-  const [range, setRange] = useState(defaultRange());
+  const [range, setRange] = useState(defaultRange);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

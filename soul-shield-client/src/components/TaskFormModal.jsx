@@ -127,7 +127,12 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
               <h2 className="text-lg font-bold text-slate-800">
                 {isEdit ? 'Edit task' : 'New task'}
               </h2>
-              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              >
                 <X className="w-5 h-5 text-slate-500" />
               </button>
             </div>
@@ -141,19 +146,24 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
               />
 
               <div className="relative">
+                <label htmlFor="task-description" className="text-xs font-semibold text-slate-600 mb-1.5 block">
+                  Description
+                </label>
                 <textarea
+                  id="task-description"
                   rows={2}
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  placeholder="Description (optional)"
+                  placeholder="Optional — add any extra detail"
                   className="w-full px-3 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 outline-none text-sm resize-none transition-colors"
                 />
               </div>
 
               {/* Category */}
               <div>
-                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Category</label>
+                <label htmlFor="task-category" className="text-xs font-semibold text-slate-600 mb-1.5 block">Category</label>
                 <select
+                  id="task-category"
                   value={form.category_id}
                   onChange={(e) => setForm({ ...form, category_id: e.target.value })}
                   className="w-full px-3 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 outline-none text-sm bg-white"
@@ -167,7 +177,7 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
 
               {/* Recurrence type */}
               <div>
-                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Recurrence</label>
+                <span className="text-xs font-semibold text-slate-600 mb-1.5 block">Recurrence</span>
                 <div className="grid grid-cols-3 gap-2">
                   {['daily', 'weekly', 'custom'].map(type => (
                     <button
@@ -188,7 +198,7 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
               {/* Day picker (weekly/custom only) */}
               {form.recurrence_type !== 'daily' && (
                 <div>
-                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Days</label>
+                  <span className="text-xs font-semibold text-slate-600 mb-1.5 block">Days</span>
                   <div className="grid grid-cols-7 gap-1.5">
                     {DAYS.map((d, i) => {
                       const active = form.recurrence_days.includes(i);
@@ -210,7 +220,7 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
 
               {/* Task type toggle */}
               <div>
-                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Task type</label>
+                <span className="text-xs font-semibold text-slate-600 mb-1.5 block">Task type</span>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"

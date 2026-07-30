@@ -92,9 +92,9 @@ export default function WeeklyStats({ stats }) {
       animate="show"
       className="grid grid-cols-2 lg:grid-cols-4 gap-3"
     >
-      {cards.map((c, i) => (
+      {cards.map((c) => (
         <m.div
-          key={i}
+          key={c.label}
           variants={item}
           whileHover={{ y: -4, scale: 1.02 }}
           className="relative bg-white rounded-2xl border border-slate-200 p-4 overflow-hidden group"

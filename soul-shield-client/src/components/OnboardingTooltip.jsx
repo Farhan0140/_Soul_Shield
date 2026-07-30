@@ -85,6 +85,7 @@ export default function OnboardingTooltip() {
 
             {/* Close button */}
             <button
+              type="button"
               onClick={() => dismiss()}
               className="absolute top-3 right-3 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
               aria-label="Close"
@@ -110,6 +111,7 @@ export default function OnboardingTooltip() {
             <div className="px-6 pb-6 flex items-center gap-2">
               {step > 0 && (
                 <button
+                  type="button"
                   onClick={() => setStep(s => s - 1)}
                   className="px-3 py-2 text-sm text-slate-500 hover:text-slate-700 font-medium"
                 >
@@ -118,12 +120,14 @@ export default function OnboardingTooltip() {
               )}
               <div className="flex-1" />
               <button
+                type="button"
                 onClick={() => dismiss()}
                 className="px-3 py-2 text-sm text-slate-500 hover:text-slate-700 font-medium"
               >
                 Skip
               </button>
               <m.button
+                type="button"
                 whileTap={{ scale: 0.95 }}
                 onClick={next}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-indigo-200 transition-shadow"

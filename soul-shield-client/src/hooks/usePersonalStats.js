@@ -8,6 +8,7 @@ export function usePersonalStats() {
   const { getTasksHistory } = useApi();
 
   useEffect(() => {
+    let ignore = false;
     const load = async () => {
       try {
         // Fetch last 365 days of history
@@ -53,6 +54,7 @@ export function usePersonalStats() {
         const maxDay = Math.max(...dayCounts);
         const bestDay = maxDay === 0 ? null : DAY_NAMES[dayCounts.indexOf(maxDay)];
 
+        if (ignore) return;
         setStats({
           totalCompleted: completed.length,
           completionRate,
@@ -64,16 +66,18 @@ export function usePersonalStats() {
         });
       } catch (err) {
         console.warn('Stats load failed:', err.message);
+        if (ignore) return;
         setStats({
           totalCompleted: 0, completionRate: 0, streak: 0,
           favoriteCategory: null, favoriteCategoryCount: 0,
           bestDay: null, totalTasks: 0,
         });
       } finally {
-        setLoading(false);
+        if (!ignore) setLoading(false);
       }
     };
     load();
+    return () => { ignore = true; };
   }, [getTasksHistory]);
 
   return { stats, loading };

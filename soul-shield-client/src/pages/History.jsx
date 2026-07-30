@@ -9,6 +9,15 @@ import WeeklyStats from '../components/WeeklyStats';
 import DayGroup from '../components/DayGroup';
 import Button from '../components/ui/Button';
 
+const pageVariants = {
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0, transition: { staggerChildren: 0.08 } },
+};
+const child = {
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0 },
+};
+
 export default function History() {
   const { range, setRange, byDate, sortedDates, stats, loading, error, reload } = useHistory();
 
@@ -16,15 +25,6 @@ export default function History() {
     // Jump to that day on the dashboard
     window.location.hash = `#/day/${fmtDate(date)}`;
     // Alternatively, could use a global event or navigate
-  };
-
-  const pageVariants = {
-    initial: { opacity: 0, y: 10 },
-    animate: { opacity: 1, y: 0, transition: { staggerChildren: 0.08 } },
-  };
-  const child = {
-    initial: { opacity: 0, y: 10 },
-    animate: { opacity: 1, y: 0 },
   };
 
   return (

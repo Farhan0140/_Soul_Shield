@@ -11,7 +11,7 @@ import SkeletonCard from '../components/SkeletonCard';
 import Button from '../components/ui/Button';
 
 export default function Dashboard() {
-  const { date, tasks, loading, error, shiftDate, goToday, isToday, updateTask, removeTask, addTask, reload } = useTasks();
+  const { date, tasks, loading, error, shiftDate, goToday, isToday, updateTask, removeTask, reload } = useTasks();
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState(null);
   const [activeStatus, setActiveStatus] = useState('all');
@@ -45,7 +45,10 @@ export default function Dashboard() {
     if (editingTask) {
       updateTask(editingTask.task_id, saved);
     } else {
-      addTask(saved);
+      // The create endpoint doesn't return the full task-with-status shape
+      // (task_id, task_type, category, status, etc.) — reload to get it,
+      // otherwise the new task renders incorrectly until the next refresh.
+      reload();
     }
     // Refresh categories in case a new one was created inline (future)
   };

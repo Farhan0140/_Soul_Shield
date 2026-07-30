@@ -1,8 +1,14 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 
 const ToastContext = createContext(null);
+
+const icons = {
+  success: <CheckCircle2 className="w-5 h-5 text-emerald-500" />,
+  error:   <AlertCircle className="w-5 h-5 text-rose-500" />,
+  info:    <Info className="w-5 h-5 text-indigo-500" />,
+};
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
@@ -13,17 +19,11 @@ export function ToastProvider({ children }) {
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), duration);
   }, []);
 
-  const toast = {
+  const toast = useMemo(() => ({
     success: (m) => push(m, 'success'),
     error:   (m) => push(m, 'error', 6000),
     info:    (m) => push(m, 'info'),
-  };
-
-  const icons = {
-    success: <CheckCircle2 className="w-5 h-5 text-emerald-500" />,
-    error:   <AlertCircle className="w-5 h-5 text-rose-500" />,
-    info:    <Info className="w-5 h-5 text-indigo-500" />,
-  };
+  }), [push]);
 
   return (
     <ToastContext.Provider value={toast}>
@@ -40,7 +40,11 @@ export function ToastProvider({ children }) {
             >
               {icons[t.type]}
               <p className="text-sm text-slate-700 flex-1">{t.message}</p>
-              <button onClick={() => setToasts(ts => ts.filter(x => x.id !== t.id))}>
+              <button
+                type="button"
+                onClick={() => setToasts(ts => ts.filter(x => x.id !== t.id))}
+                aria-label="Dismiss notification"
+              >
                 <X className="w-4 h-4 text-slate-400 hover:text-slate-600" />
               </button>
             </m.div>

@@ -49,7 +49,9 @@ export default function ConfirmModal({
                   {children && <div className="mt-3">{children}</div>}
                 </div>
                 <button
+                  type="button"
                   onClick={onClose}
+                  aria-label="Close"
                   className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors -mr-1 -mt-1"
                 >
                   <X className="w-5 h-5 text-slate-400" />

@@ -10,16 +10,17 @@ function useCountUp(target, duration = 1200) {
   useEffect(() => {
     fromRef.current = 0;
     startRef.current = null;
+    const frameRef = { current: null };
     const step = (ts) => {
       if (!startRef.current) startRef.current = ts;
       const progress = Math.min((ts - startRef.current) / duration, 1);
       // easeOutCubic
       const eased = 1 - Math.pow(1 - progress, 3);
       setValue(Math.round(fromRef.current + (target - fromRef.current) * eased));
-      if (progress < 1) requestAnimationFrame(step);
+      if (progress < 1) frameRef.current = requestAnimationFrame(step);
     };
-    const raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
+    frameRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frameRef.current);
   }, [target, duration]);
 
   return value;

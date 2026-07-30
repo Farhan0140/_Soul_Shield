@@ -14,6 +14,27 @@ const STEPS = [
   { key: 'new',    title: 'Pick a new password',   subtitle: "Choose something strong — and different from the last one." },
 ];
 
+function StepIndicator({ step }) {
+  return (
+    <div className="flex items-center justify-center gap-2 mb-6">
+      {STEPS.map((s, i) => (
+        <div key={s.key} className="flex items-center gap-2">
+          <m.div
+            animate={{ scale: i === step ? 1.1 : 1 }}
+            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-colors
+              ${i < step ? 'bg-emerald-500 text-white' : i === step ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}
+          >
+            {i < step ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
+          </m.div>
+          {i < STEPS.length - 1 && (
+            <div className={`w-8 h-0.5 ${i < step ? 'bg-emerald-400' : 'bg-slate-200'}`} />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ForgotPassword() {
   const navigate = useNavigate();
   const toast = useToast();
@@ -130,28 +151,9 @@ export default function ForgotPassword() {
   //   }
   // };
 
-  const StepIndicator = () => (
-    <div className="flex items-center justify-center gap-2 mb-6">
-      {STEPS.map((s, i) => (
-        <div key={s.key} className="flex items-center gap-2">
-          <m.div
-            animate={{ scale: i === step ? 1.1 : 1 }}
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-colors
-              ${i < step ? 'bg-emerald-500 text-white' : i === step ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}
-          >
-            {i < step ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
-          </m.div>
-          {i < STEPS.length - 1 && (
-            <div className={`w-8 h-0.5 ${i < step ? 'bg-emerald-400' : 'bg-slate-200'}`} />
-          )}
-        </div>
-      ))}
-    </div>
-  );
-
   return (
     <AuthLayout title={STEPS[step].title} subtitle={STEPS[step].subtitle}>
-      <StepIndicator />
+      <StepIndicator step={step} />
 
       <AnimatePresence mode="wait">
         {step === 0 && (

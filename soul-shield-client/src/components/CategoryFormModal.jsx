@@ -63,7 +63,12 @@ export default function CategoryFormModal({ open, onClose, onCreated }) {
           >
             <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-800">New category</h2>
-              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              >
                 <X className="w-5 h-5 text-slate-500" />
               </button>
             </div>

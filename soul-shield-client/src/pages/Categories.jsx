@@ -9,6 +9,12 @@ import ConfirmModal from '../components/ConfirmModal';
 import Button from '../components/ui/Button';
 import SkeletonCard from '../components/SkeletonCard';
 
+const pageVariants = {
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0, transition: { staggerChildren: 0.06 } },
+};
+const child = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } };
+
 export default function Categories() {
   const toast = useToast();
   const [categories, setCategories] = useState([]);
@@ -99,12 +105,6 @@ export default function Categories() {
       return a.name.localeCompare(b.name);
     });
   }, [categories, usageCounts]);
-
-  const pageVariants = {
-    initial: { opacity: 0, y: 10 },
-    animate: { opacity: 1, y: 0, transition: { staggerChildren: 0.06 } },
-  };
-  const child = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } };
 
   return (
     <m.div

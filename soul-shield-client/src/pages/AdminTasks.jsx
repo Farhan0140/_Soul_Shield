@@ -28,9 +28,15 @@ const STATUS_FILTERS = [
   { key: 'counter',  label: 'Counter',   icon: null },
 ];
 
+const pageVariants = {
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0, transition: { staggerChildren: 0.06 } },
+};
+const child = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } };
+
 export default function AdminTasks() {
   const toast = useToast();
-  const { tasks, usage, loading, error, reload, updateTask, removeTask, addTask } = useAdminTasks();
+  const { tasks, usage, loading, error, reload, updateTask, removeTask } = useAdminTasks();
 
   // UI state
   const [search, setSearch] = useState('');
@@ -110,7 +116,10 @@ export default function AdminTasks() {
     if (editingTask) {
       updateTask(editingTask.task_id, saved);
     } else {
-      addTask(saved);
+      // The create endpoint doesn't return the full task-with-status shape
+      // (task_id, task_type, category, status, etc.) — reload to get it,
+      // otherwise the new task renders incorrectly until the next refresh.
+      reload();
     }
   };
 
@@ -168,12 +177,6 @@ export default function AdminTasks() {
       avgRate,
     };
   }, [tasks, usage]);
-
-  const pageVariants = {
-    initial: { opacity: 0, y: 10 },
-    animate: { opacity: 1, y: 0, transition: { staggerChildren: 0.06 } },
-  };
-  const child = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } };
 
   return (
     <m.div
@@ -239,11 +242,14 @@ export default function AdminTasks() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search fixed tasks by title, description, or category..."
+            aria-label="Search fixed tasks"
             className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 outline-none text-sm transition-colors"
           />
           {search && (
             <button
+              type="button"
               onClick={() => setSearch('')}
+              aria-label="Clear search"
               className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-slate-100"
             >
               <XCircle className="w-4 h-4 text-slate-400" />
@@ -277,6 +283,7 @@ export default function AdminTasks() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
+              aria-label="Sort fixed tasks"
               className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium bg-white outline-none focus:border-indigo-500"
             >
               {SORT_OPTIONS.map(o => (

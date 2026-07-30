@@ -13,6 +13,12 @@ import ChangePasswordModal from '../components/ChangePasswordModal';
 import ConfirmModal from '../components/ConfirmModal';
 import Button from '../components/ui/Button';
 
+const pageVariants = {
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0, transition: { staggerChildren: 0.08 } },
+};
+const child = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } };
+
 export default function Profile() {
   const { user, logout, isAdmin } = useAuth();
   const toast = useToast();
@@ -25,12 +31,6 @@ export default function Profile() {
     logout();
     toast.success("Logged out. See you soon 👋");
   };
-
-  const pageVariants = {
-    initial: { opacity: 0, y: 10 },
-    animate: { opacity: 1, y: 0, transition: { staggerChildren: 0.08 } },
-  };
-  const child = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } };
 
   return (
     <m.div
@@ -165,6 +165,7 @@ export default function Profile() {
         <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100">
           {/* Change password */}
           <button
+            type="button"
             onClick={() => setPasswordModalOpen(true)}
             className="w-full flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors text-left group"
           >
@@ -219,6 +220,7 @@ export default function Profile() {
         <div className="bg-white rounded-2xl border-2 border-rose-200 overflow-hidden">
           {/* Logout */}
           <button
+            type="button"
             onClick={() => setLogoutConfirmOpen(true)}
             className="w-full flex items-center gap-4 p-4 hover:bg-rose-50 transition-colors text-left group"
           >
@@ -241,6 +243,7 @@ export default function Profile() {
               <p className="text-xs text-slate-500">Permanently remove your account and all data</p>
             </div>
             <button
+              type="button"
               disabled
               className="px-3 py-1.5 rounded-lg bg-rose-100 text-rose-400 text-xs font-semibold cursor-not-allowed"
               title="Coming soon"
