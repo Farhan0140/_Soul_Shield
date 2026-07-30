@@ -2,6 +2,7 @@ package otp
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"soulsheld/util"
 )
@@ -79,6 +80,8 @@ func (h *Handler) SendOTP(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if err != nil {
+
+		log.Printf("SendOTPEmail failed for %s: %v", req.Email, err)
 
 		http.Error(
 			w,
