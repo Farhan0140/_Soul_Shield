@@ -2,7 +2,7 @@ package repo
 
 import (
 	"database/sql"
-	"errors"
+	// "errors"
 	"fmt"
 	"soulsheld/util"
 
@@ -35,24 +35,24 @@ func (r *userRepo) Create(user User) (*User, error) {
 
 	defer tx.Rollback()
 
-	var verified bool
+	// var verified bool
 
-	err = tx.QueryRow(`
-		SELECT verified
-		FROM email_otps
-		WHERE email = $1
-	`, user.Email).Scan(&verified)
+	// err = tx.QueryRow(`
+	// 	SELECT verified
+	// 	FROM email_otps
+	// 	WHERE email = $1
+	// `, user.Email).Scan(&verified)
 
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, util.ErrOTPNotFound
-		}
-		return nil, err
-	}
+	// if err != nil {
+	// 	if errors.Is(err, sql.ErrNoRows) {
+	// 		return nil, util.ErrOTPNotFound
+	// 	}
+	// 	return nil, err
+	// }
 
-	if !verified {
-		return nil, util.ErrEmailNotVerified
-	}
+	// if !verified {
+	// 	return nil, util.ErrEmailNotVerified
+	// }
 
 	hashedPassword, err := bcrypt.GenerateFromPassword(
 		[]byte(user.Password),

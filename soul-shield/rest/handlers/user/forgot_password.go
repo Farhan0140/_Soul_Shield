@@ -41,33 +41,33 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	verified, err := h.otpRepo.IsVerified(
-		req.Email,
-	)
+	// verified, err := h.otpRepo.IsVerified(
+	// 	req.Email,
+	// )
 
-	if err != nil {
-		util.SendError(
-			w,
-			map[string]string{
-				"error": "Email verification required",
-			},
-			http.StatusBadRequest,
-		)
+	// if err != nil {
+	// 	util.SendError(
+	// 		w,
+	// 		map[string]string{
+	// 			"error": "Email verification required",
+	// 		},
+	// 		http.StatusBadRequest,
+	// 	)
 
-		return
-	}
+	// 	return
+	// }
 
-	if !verified {
-		util.SendError(
-			w,
-			map[string]string{
-				"error": "OTP not verified",
-			},
-			http.StatusBadRequest,
-		)
+	// if !verified {
+	// 	util.SendError(
+	// 		w,
+	// 		map[string]string{
+	// 			"error": "OTP not verified",
+	// 		},
+	// 		http.StatusBadRequest,
+	// 	)
 
-		return
-	}
+	// 	return
+	// }
 
 	err = h.userRepo.Update(
 		req.Email,
