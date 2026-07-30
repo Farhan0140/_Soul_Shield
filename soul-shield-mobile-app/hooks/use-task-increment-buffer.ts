@@ -13,6 +13,7 @@ interface UseTaskIncrementBufferOptions {
   date: string;
   serverProgressCount: number;
   targetCount: number;
+  onRewardEarned?: (text: string) => void;
 }
 
 export function useTaskIncrementBuffer({
@@ -20,6 +21,7 @@ export function useTaskIncrementBuffer({
   date,
   serverProgressCount,
   targetCount,
+  onRewardEarned,
 }: UseTaskIncrementBufferOptions) {
   const [pending, setPending] = useState(0);
   const pendingRef = useRef(0);
@@ -76,6 +78,9 @@ export function useTaskIncrementBuffer({
                 : t
             )
           );
+          if (data.status === 'completed' && data.reward_text) {
+            onRewardEarned?.(data.reward_text);
+          }
         },
         onSettled: () => {
           isFlushingRef.current = false;
@@ -84,7 +89,7 @@ export function useTaskIncrementBuffer({
         },
       }
     );
-  }, [taskId, date, incrementMutation, queryClient, scheduleFlush]);
+  }, [taskId, date, incrementMutation, queryClient, scheduleFlush, onRewardEarned]);
 
   flushRef.current = flush;
 

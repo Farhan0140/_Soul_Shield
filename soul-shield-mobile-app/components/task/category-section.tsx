@@ -24,6 +24,7 @@ interface CategorySectionProps {
   onToggleComplete: (task: Task) => void;
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;
+  onRewardEarned?: (task: Task, text: string) => void;
 }
 
 export function CategorySection({
@@ -41,6 +42,7 @@ export function CategorySection({
   onToggleComplete,
   onEdit,
   onDelete,
+  onRewardEarned,
 }: CategorySectionProps) {
   const mutedColor = useThemeColor({}, 'muted');
   const cardColor = useThemeColor({}, 'card');
@@ -97,6 +99,7 @@ export function CategorySection({
                   onToggleComplete={() => onToggleComplete(task)}
                   onEdit={() => onEdit(task)}
                   onDelete={() => onDelete(task)}
+                  onRewardEarned={(text) => onRewardEarned?.(task, text)}
                 />
               </Animated.View>
             ))

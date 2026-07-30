@@ -10,6 +10,7 @@ import { SourceFilterRow, type SourceFilter } from '@/components/filters/source-
 import { StatusTabs, type StatusFilter } from '@/components/filters/status-tabs';
 import { TaskTypeFilterRow, type TaskTypeFilter } from '@/components/filters/task-type-filter';
 import { CategorySection } from '@/components/task/category-section';
+import { RewardModal } from '@/components/task/reward-modal';
 import { ErrorState } from '@/components/ui/error-state';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
@@ -37,6 +38,12 @@ export default function HomeScreen() {
   // screen instance (tabs stay mounted across navigation, so this survives
   // switching tabs and back).
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  // Owned here rather than by TaskCard: completing a task moves its card from
+  // an active section into the separate "Completed Tasks" section below,
+  // which unmounts/remounts TaskCard in a new subtree — any modal state kept
+  // there would be lost before the reward text ever showed up. This screen
+  // never unmounts on that transition, so it's the stable place to hold it.
+  const [reward, setReward] = useState<{ text: string; taskTitle: string } | null>(null);
 
   const tasksQuery = useTasksQuery(date);
   const { data: categories = [] } = useCategoriesQuery();
@@ -116,8 +123,19 @@ export default function HomeScreen() {
   const handleToggleComplete = (task: Task) => {
     completeTask.mutate(
       { taskId: task.task_id, date },
-      { onError: (err) => Alert.alert('Could not complete task', getErrorMessage(err)) }
+      {
+        onSuccess: (data) => {
+          if (data.status === 'completed' && data.reward_text) {
+            setReward({ text: data.reward_text, taskTitle: task.title });
+          }
+        },
+        onError: (err) => Alert.alert('Could not complete task', getErrorMessage(err)),
+      }
     );
+  };
+
+  const handleRewardEarned = (task: Task, text: string) => {
+    setReward({ text, taskTitle: task.title });
   };
 
   const handleEdit = (task: Task) => {
@@ -142,6 +160,7 @@ export default function HomeScreen() {
   };
 
   return (
+    <>
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
       <DateNavHeader
         date={date}
@@ -196,6 +215,7 @@ export default function HomeScreen() {
             onToggleComplete={handleToggleComplete}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onRewardEarned={handleRewardEarned}
           />
           {categorySections.map((section) => (
             <CategorySection
@@ -211,6 +231,7 @@ export default function HomeScreen() {
               onToggleComplete={handleToggleComplete}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onRewardEarned={handleRewardEarned}
             />
           ))}
           {completedTasks.length > 0 ? (
@@ -233,6 +254,13 @@ export default function HomeScreen() {
         </View>
       )}
     </ScrollView>
+    <RewardModal
+      visible={!!reward}
+      text={reward?.text ?? ''}
+      taskTitle={reward?.taskTitle}
+      onClose={() => setReward(null)}
+    />
+    </>
   );
 }
 

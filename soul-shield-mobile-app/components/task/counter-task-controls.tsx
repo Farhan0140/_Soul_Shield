@@ -10,14 +10,22 @@ interface CounterTaskControlsProps {
   date: string;
   disabled?: boolean;
   accentColor?: string;
+  onRewardEarned?: (text: string) => void;
 }
 
-export function CounterTaskControls({ task, date, disabled, accentColor }: CounterTaskControlsProps) {
+export function CounterTaskControls({
+  task,
+  date,
+  disabled,
+  accentColor,
+  onRewardEarned,
+}: CounterTaskControlsProps) {
   const { displayProgress, addAmount } = useTaskIncrementBuffer({
     taskId: task.task_id,
     date,
     serverProgressCount: task.progress_count ?? 0,
     targetCount: task.target_count ?? 0,
+    onRewardEarned,
   });
 
   return (

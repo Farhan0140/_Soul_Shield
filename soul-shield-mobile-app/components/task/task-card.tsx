@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { Task } from '@/api/types';
 import { ThemedText } from '@/components/themed-text';
 import { CounterTaskControls } from '@/components/task/counter-task-controls';
 import { RewardBanner } from '@/components/task/reward-banner';
-import { RewardModal } from '@/components/task/reward-modal';
 import { StatusBadge } from '@/components/task/status-badge';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColor } from '@/hooks/use-theme-color';
@@ -23,6 +21,15 @@ interface TaskCardProps {
   onToggleComplete: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  /** Fired once, right when a counter task's increment pushes it to
+   * 'completed' and the server returns reward_text. Normal-task completion
+   * fires its own reward straight from the mutation call site (see
+   * app/(tabs)/index.tsx) — completing a task moves its card from an active
+   * section into the separate "Completed Tasks" section, which unmounts and
+   * remounts TaskCard in a new subtree, so any modal state owned here would
+   * be wiped before the reward text ever arrived. Ownership lives one level
+   * up (the screen) instead, where it survives that remount. */
+  onRewardEarned?: (text: string) => void;
 }
 
 export function TaskCard({
@@ -33,6 +40,7 @@ export function TaskCard({
   onToggleComplete,
   onEdit,
   onDelete,
+  onRewardEarned,
 }: TaskCardProps) {
   const cardColor = useThemeColor({}, 'card');
   const tintColor = useThemeColor({}, 'tint');
@@ -50,38 +58,6 @@ export function TaskCard({
   const canManage = task.is_global ? isAdmin : true;
 
   const backgroundColor = isCompleted ? completedTint : isMissed ? missedTint : cardColor;
-
-  const [showRewardModal, setShowRewardModal] = useState(false);
-  const prevStatusRef = useRef(task.status);
-  // Completing a task optimistically flips status to 'completed' before the
-  // server confirms it, so reward_text (which only exists once the mutation
-  // response — or the list refetch it triggers — comes back) can arrive one
-  // or more renders later, after the status transition already happened.
-  // This tracks "we're still waiting on reward_text for the completion that
-  // just occurred" independently of the status transition itself, so the
-  // modal fires whenever the text catches up rather than only in the one
-  // render where status flips.
-  const awaitingRewardRef = useRef(false);
-
-  useEffect(() => {
-    const wasCompleted = prevStatusRef.current === 'completed';
-    const isCompleted = task.status === 'completed';
-
-    if (!wasCompleted && isCompleted) {
-      if (task.reward_text) {
-        setShowRewardModal(true);
-      } else {
-        awaitingRewardRef.current = true;
-      }
-    } else if (isCompleted && awaitingRewardRef.current && task.reward_text) {
-      setShowRewardModal(true);
-      awaitingRewardRef.current = false;
-    } else if (!isCompleted) {
-      awaitingRewardRef.current = false;
-    }
-
-    prevStatusRef.current = task.status;
-  }, [task.status, task.reward_text]);
 
   return (
     <View style={[styles.card, { backgroundColor, borderLeftColor: accentColor }]}>
@@ -127,7 +103,13 @@ export function TaskCard({
       ) : null}
 
       {isCounter ? (
-        <CounterTaskControls task={task} date={date} disabled={isMissed} accentColor={accentColor} />
+        <CounterTaskControls
+          task={task}
+          date={date}
+          disabled={isMissed}
+          accentColor={accentColor}
+          onRewardEarned={onRewardEarned}
+        />
       ) : null}
 
       {isCompleted && task.reward_text ? <RewardBanner text={task.reward_text} /> : null}
@@ -142,15 +124,6 @@ export function TaskCard({
             <IconSymbol name="trash" size={18} color={dangerColor} />
           </Pressable>
         </View>
-      ) : null}
-
-      {task.reward_text ? (
-        <RewardModal
-          visible={showRewardModal}
-          text={task.reward_text}
-          taskTitle={task.title}
-          onClose={() => setShowRewardModal(false)}
-        />
       ) : null}
     </View>
   );
