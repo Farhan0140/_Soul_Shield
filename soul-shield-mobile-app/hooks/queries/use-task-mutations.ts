@@ -67,6 +67,10 @@ export function useDeleteTask(date: string) {
   });
 }
 
+/** POST /tasks/:id/complete toggles: calling it again on an already-completed
+ * task un-completes it (the endpoint returns the resulting TaskStatus, not a
+ * fixed 'completed' literal — see CompletionResponse). The checkbox in
+ * TaskCard is intentionally left tappable on completed tasks for this. */
 export function useCompleteTask() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -77,7 +81,11 @@ export function useCompleteTask() {
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<Task[]>(key);
       queryClient.setQueryData<Task[]>(key, (old) =>
-        old?.map((t) => (t.task_id === taskId ? { ...t, status: 'completed' as const } : t))
+        old?.map((t) =>
+          t.task_id === taskId
+            ? { ...t, status: t.status === 'completed' ? ('pending' as const) : ('completed' as const) }
+            : t
+        )
       );
       return { previous, date };
     },

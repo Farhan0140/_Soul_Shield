@@ -13,13 +13,27 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 interface TaskCardProps {
   task: Task;
   date: string;
-  canManage: boolean;
+  /** Whether the current user is an admin — fixed/global tasks can only be
+   * edited/deleted by admins, personal tasks always by their owner. */
+  isAdmin: boolean;
+  /** Shows an explicit category chip even for tasks with no category, so a
+   * task keeps its original-category context when displayed somewhere that
+   * groups by status rather than category (the Completed Tasks section). */
+  showCategoryBadge?: boolean;
   onToggleComplete: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }
 
-export function TaskCard({ task, date, canManage, onToggleComplete, onEdit, onDelete }: TaskCardProps) {
+export function TaskCard({
+  task,
+  date,
+  isAdmin,
+  showCategoryBadge,
+  onToggleComplete,
+  onEdit,
+  onDelete,
+}: TaskCardProps) {
   const cardColor = useThemeColor({}, 'card');
   const tintColor = useThemeColor({}, 'tint');
   const mutedColor = useThemeColor({}, 'muted');
@@ -33,6 +47,7 @@ export function TaskCard({ task, date, canManage, onToggleComplete, onEdit, onDe
   const isCompleted = task.status === 'completed';
   const isCounter = task.task_type === 'counter';
   const accentColor = task.category_color ?? categoryFallback;
+  const canManage = task.is_global ? isAdmin : true;
 
   const backgroundColor = isCompleted ? completedTint : isMissed ? missedTint : cardColor;
 
@@ -81,6 +96,11 @@ export function TaskCard({ task, date, canManage, onToggleComplete, onEdit, onDe
         <View style={[styles.categoryChip, { borderColor: accentColor }]}>
           <View style={[styles.dot, { backgroundColor: accentColor }]} />
           <ThemedText style={styles.categoryLabel}>{task.category_name}</ThemedText>
+        </View>
+      ) : showCategoryBadge && !task.is_global ? (
+        <View style={[styles.categoryChip, { borderColor: categoryFallback }]}>
+          <View style={[styles.dot, { backgroundColor: categoryFallback }]} />
+          <ThemedText style={styles.categoryLabel}>Uncategorized</ThemedText>
         </View>
       ) : null}
 

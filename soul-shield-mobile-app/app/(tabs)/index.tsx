@@ -23,6 +23,7 @@ import { getErrorMessage } from '@/lib/errors';
 
 const FIXED_SECTION_KEY = 'fixed';
 const UNCATEGORIZED_SECTION_KEY = 'uncategorized';
+const COMPLETED_SECTION_KEY = 'completed';
 
 export default function HomeScreen() {
   const { user } = useAuth();
@@ -46,6 +47,7 @@ export default function HomeScreen() {
   const borderColor = useThemeColor({}, 'border');
   const mutedColor = useThemeColor({}, 'muted');
   const tintColor = useThemeColor({}, 'tint');
+  const successColor = useThemeColor({}, 'success');
   const categoryFallback = useThemeColor({}, 'categoryFallback');
 
   const tasks = useMemo(() => tasksQuery.data ?? [], [tasksQuery.data]);
@@ -62,8 +64,14 @@ export default function HomeScreen() {
     });
   }, [tasks, status, taskType, source]);
 
-  const fixedTasks = filteredTasks.filter((t) => t.is_global);
-  const myTasks = filteredTasks.filter((t) => !t.is_global);
+  // Completed tasks are pulled out of their normal category grouping into a
+  // single dedicated section (see below) — every other section only ever
+  // shows active (non-completed) tasks.
+  const completedTasks = filteredTasks.filter((t) => t.status === 'completed');
+  const activeTasks = filteredTasks.filter((t) => t.status !== 'completed');
+
+  const fixedTasks = activeTasks.filter((t) => t.is_global);
+  const myTasks = activeTasks.filter((t) => !t.is_global);
 
   const categorySections = useMemo(() => {
     const byCategory = new Map<number, Task[]>();
@@ -184,7 +192,7 @@ export default function HomeScreen() {
             onToggle={() => toggleSection(FIXED_SECTION_KEY)}
             tasks={fixedTasks}
             date={date}
-            canManage={isAdmin}
+            isAdmin={isAdmin}
             onToggleComplete={handleToggleComplete}
             onEdit={handleEdit}
             onDelete={handleDelete}
@@ -199,12 +207,29 @@ export default function HomeScreen() {
               onToggle={() => toggleSection(section.key)}
               tasks={section.tasks}
               date={date}
-              canManage
+              isAdmin={isAdmin}
               onToggleComplete={handleToggleComplete}
               onEdit={handleEdit}
               onDelete={handleDelete}
             />
           ))}
+          {completedTasks.length > 0 ? (
+            <CategorySection
+              title="Completed Tasks"
+              count={completedTasks.length}
+              accentColor={successColor}
+              icon="checkmark.circle.fill"
+              expanded={expandedKey === COMPLETED_SECTION_KEY}
+              onToggle={() => toggleSection(COMPLETED_SECTION_KEY)}
+              tasks={completedTasks}
+              date={date}
+              isAdmin={isAdmin}
+              showCategoryBadge
+              onToggleComplete={handleToggleComplete}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+          ) : null}
         </View>
       )}
     </ScrollView>

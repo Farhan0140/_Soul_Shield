@@ -16,7 +16,11 @@ interface CategorySectionProps {
   onToggle: () => void;
   tasks: Task[];
   date: string;
-  canManage: boolean;
+  isAdmin: boolean;
+  /** See TaskCard — surfaces original-category context when tasks are shown
+   * outside their normal category grouping (the Completed Tasks section). */
+  showCategoryBadge?: boolean;
+  emptyLabel?: string;
   onToggleComplete: (task: Task) => void;
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;
@@ -31,7 +35,9 @@ export function CategorySection({
   onToggle,
   tasks,
   date,
-  canManage,
+  isAdmin,
+  showCategoryBadge,
+  emptyLabel = 'No active tasks in this category.',
   onToggleComplete,
   onEdit,
   onDelete,
@@ -72,22 +78,27 @@ export function CategorySection({
         <Animated.View
           entering={FadeIn.duration(180)}
           exiting={FadeOut.duration(120)}
+          layout={LinearTransition.duration(220)}
           style={styles.body}>
           {tasks.length === 0 ? (
-            <ThemedText style={[styles.empty, { color: mutedColor }]}>
-              No tasks in this category.
-            </ThemedText>
+            <ThemedText style={[styles.empty, { color: mutedColor }]}>{emptyLabel}</ThemedText>
           ) : (
             tasks.map((task) => (
-              <TaskCard
+              <Animated.View
                 key={task.task_id}
-                task={task}
-                date={date}
-                canManage={canManage}
-                onToggleComplete={() => onToggleComplete(task)}
-                onEdit={() => onEdit(task)}
-                onDelete={() => onDelete(task)}
-              />
+                layout={LinearTransition.duration(220)}
+                entering={FadeIn.duration(200)}
+                exiting={FadeOut.duration(160)}>
+                <TaskCard
+                  task={task}
+                  date={date}
+                  isAdmin={isAdmin}
+                  showCategoryBadge={showCategoryBadge}
+                  onToggleComplete={() => onToggleComplete(task)}
+                  onEdit={() => onEdit(task)}
+                  onDelete={() => onDelete(task)}
+                />
+              </Animated.View>
             ))
           )}
         </Animated.View>
