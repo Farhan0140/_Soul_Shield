@@ -81,6 +81,6 @@ export default function AdminTasksScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { flexGrow: 1, padding: 20, gap: 16 },
+  content: { flexGrow: 1, padding: 20, paddingBottom: 120, gap: 16 },
   list: { gap: 10 },
 });

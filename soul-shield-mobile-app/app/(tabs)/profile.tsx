@@ -40,7 +40,7 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { flexGrow: 1, padding: 24, gap: 24 },
+  content: { flexGrow: 1, padding: 24, paddingBottom: 120, gap: 24 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',

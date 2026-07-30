@@ -120,7 +120,7 @@ export default function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { flexGrow: 1, padding: 20, gap: 20 },
+  content: { flexGrow: 1, padding: 20, paddingBottom: 120, gap: 20 },
   rangeRow: { flexDirection: 'row', gap: 12 },
   rangeButton: { flex: 1, borderWidth: 1, borderRadius: 14, borderCurve: 'continuous', padding: 12, gap: 2 },
   rangeLabel: { fontSize: 12, opacity: 0.7 },

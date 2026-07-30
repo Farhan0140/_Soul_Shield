@@ -14,7 +14,6 @@ import { ErrorState } from '@/components/ui/error-state';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { useAuth } from '@/context/auth-context';
-import { useFabAction } from '@/context/fab-context';
 import { useCategoriesQuery } from '@/hooks/queries/use-categories';
 import { useCompleteTask, useDeleteTask } from '@/hooks/queries/use-task-mutations';
 import { useTasksQuery } from '@/hooks/queries/use-tasks';
@@ -42,8 +41,6 @@ export default function HomeScreen() {
   const { data: categories = [] } = useCategoriesQuery();
   const completeTask = useCompleteTask();
   const deleteTask = useDeleteTask(date);
-
-  useFabAction(() => router.push('/task/new'));
 
   const cardColor = useThemeColor({}, 'card');
   const borderColor = useThemeColor({}, 'border');
@@ -215,7 +212,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { flexGrow: 1, padding: 20, paddingBottom: 100, gap: 16 },
+  content: { flexGrow: 1, padding: 20, paddingBottom: 120, gap: 16 },
   filters: {
     gap: 12,
     padding: 16,

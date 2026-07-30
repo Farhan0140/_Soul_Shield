@@ -48,6 +48,7 @@ const MAPPING = {
   'circle.fill': 'circle',
   'bell.fill': 'notifications',
   bell: 'notifications-none',
+  'folder.fill': 'folder',
 } as IconMapping;
 
 /**

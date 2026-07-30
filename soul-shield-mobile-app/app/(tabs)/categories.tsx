@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import type { Category } from '@/api/types';
 import { CategoryForm } from '@/components/categories/category-form';
@@ -7,9 +7,9 @@ import { CategoryRow } from '@/components/categories/category-row';
 import { ThemedText } from '@/components/themed-text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { KeyboardAvoidingScrollView } from '@/components/ui/keyboard-avoiding-scroll-view';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
-import { useFabAction } from '@/context/fab-context';
 import { useCategoriesQuery } from '@/hooks/queries/use-categories';
 import {
   useCreateCategory,
@@ -17,6 +17,7 @@ import {
   useUpdateCategory,
 } from '@/hooks/queries/use-category-mutations';
 import { useNetworkStatus } from '@/hooks/use-network-status';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import { getErrorMessage } from '@/lib/errors';
 
 type EditingState = 'new' | Category | null;
@@ -27,14 +28,13 @@ export default function CategoriesScreen() {
   const updateCategory = useUpdateCategory();
   const deleteCategory = useDeleteCategory();
   const { isOnline } = useNetworkStatus();
+  const tintColor = useThemeColor({}, 'tint');
 
   const [editing, setEditing] = useState<EditingState>(null);
   const [error, setError] = useState<string | null>(null);
 
   const categories = categoriesQuery.data ?? [];
   const isEditingExisting = editing !== null && editing !== 'new';
-
-  useFabAction(editing === null ? () => setEditing('new') : null);
 
   const handleSubmit = (input: { name: string; color_hex: string }) => {
     setError(null);
@@ -77,7 +77,14 @@ export default function CategoriesScreen() {
 
   return (
     <KeyboardAvoidingScrollView contentContainerStyle={styles.content}>
-      <ThemedText type="title">Categories</ThemedText>
+      <View style={styles.header}>
+        <ThemedText type="title">Categories</ThemedText>
+        {editing === null ? (
+          <Pressable onPress={() => setEditing('new')} hitSlop={10} style={styles.addButton}>
+            <IconSymbol name="plus" size={22} color={tintColor} />
+          </Pressable>
+        ) : null}
+      </View>
 
       {editing !== null ? (
         <CategoryForm
@@ -129,6 +136,8 @@ export default function CategoriesScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { flexGrow: 1, padding: 20, paddingBottom: 100, gap: 20 },
+  content: { flexGrow: 1, padding: 20, paddingBottom: 120, gap: 20 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  addButton: { padding: 4 },
   list: { gap: 10 },
 });

@@ -31,6 +31,7 @@ function RootNavigator() {
       <Stack.Protected guard={status === 'signedIn'}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="task" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="category" options={{ presentation: 'modal' }} />
         <Stack.Screen
           name="sync-notifications"
           options={{ presentation: 'modal', title: 'Sync Issues' }}
