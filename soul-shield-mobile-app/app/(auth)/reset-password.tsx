@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -10,7 +10,7 @@ import { TextField } from '@/components/ui/text-field';
 import { getErrorMessage } from '@/lib/errors';
 
 export default function ResetPasswordScreen() {
-  const { email } = useLocalSearchParams<{ email: string }>();
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,7 +19,7 @@ export default function ResetPasswordScreen() {
     setError(null);
     setLoading(true);
     try {
-      await resetPassword(email, password);
+      await resetPassword(email.trim(), password);
       router.replace('/(auth)/login');
     } catch (err) {
       setError(getErrorMessage(err));
@@ -31,11 +31,20 @@ export default function ResetPasswordScreen() {
   return (
     <KeyboardAvoidingScrollView contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <ThemedText type="title">New Password</ThemedText>
-        <ThemedText type="default">Choose a new password for {email}.</ThemedText>
+        <ThemedText type="title">Reset Password</ThemedText>
+        <ThemedText type="default">Enter your email and choose a new password.</ThemedText>
       </View>
 
       <View style={styles.form}>
+        <TextField
+          label="Email"
+          autoCapitalize="none"
+          keyboardType="email-address"
+          autoComplete="email"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="you@example.com"
+        />
         <TextField
           label="New Password"
           secureTextEntry
@@ -52,7 +61,7 @@ export default function ResetPasswordScreen() {
           label="Reset Password"
           onPress={handleSubmit}
           loading={loading}
-          disabled={!password}
+          disabled={!email.trim() || !password}
         />
       </View>
     </KeyboardAvoidingScrollView>

@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -10,7 +10,7 @@ import { TextField } from '@/components/ui/text-field';
 import { getErrorMessage } from '@/lib/errors';
 
 export default function RegisterScreen() {
-  const { email } = useLocalSearchParams<{ email: string }>();
+  const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -20,7 +20,7 @@ export default function RegisterScreen() {
     setError(null);
     setLoading(true);
     try {
-      await register({ name: name.trim(), email, password });
+      await register({ name: name.trim(), email: email.trim(), password });
       router.replace('/(auth)/login');
     } catch (err) {
       setError(getErrorMessage(err));
@@ -32,12 +32,20 @@ export default function RegisterScreen() {
   return (
     <KeyboardAvoidingScrollView contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <ThemedText type="title">Almost There</ThemedText>
-        <ThemedText type="default">Email verified — finish creating your account.</ThemedText>
+        <ThemedText type="title">Create Account</ThemedText>
+        <ThemedText type="default">Enter your details to get started.</ThemedText>
       </View>
 
       <View style={styles.form}>
-        <TextField label="Email" value={email} editable={false} />
+        <TextField
+          label="Email"
+          autoCapitalize="none"
+          keyboardType="email-address"
+          autoComplete="email"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="you@example.com"
+        />
         <TextField label="Full Name" value={name} onChangeText={setName} placeholder="Your name" />
         <TextField
           label="Password"
@@ -55,7 +63,7 @@ export default function RegisterScreen() {
           label="Create Account"
           onPress={handleSubmit}
           loading={loading}
-          disabled={!name.trim() || !password}
+          disabled={!email.trim() || !name.trim() || !password}
         />
       </View>
     </KeyboardAvoidingScrollView>

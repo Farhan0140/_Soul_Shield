@@ -71,10 +71,10 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.footer}>
-        <Link href={{ pathname: '/(auth)/request-otp', params: { flow: 'reset' } }}>
+        <Link href="/(auth)/reset-password">
           <ThemedText type="link">Forgot password?</ThemedText>
         </Link>
-        <Link href={{ pathname: '/(auth)/request-otp', params: { flow: 'register' } }}>
+        <Link href="/(auth)/register">
           <ThemedText type="link">Create an account</ThemedText>
         </Link>
       </View>

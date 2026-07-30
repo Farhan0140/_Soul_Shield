@@ -31,19 +31,15 @@ export async function login(input: LoginInput): Promise<string> {
 }
 
 export function register(input: RegisterInput) {
-  return apiPost<{ id: number; full_name: string; email: string }>('/users/register', input);
+  return apiPost<{ id: number; full_name: string; email: string }>('/users/register', {
+    full_name: input.name,
+    email: input.email,
+    password: input.password,
+  });
 }
 
 export function fetchMe(token: string) {
   return apiGet<User>('/users/me', token);
-}
-
-export function sendOtp(email: string) {
-  return apiPost<void>('/send-otp', { email });
-}
-
-export function verifyOtp(email: string, otp: string) {
-  return apiPost<void>('/verify-otp', { email, otp });
 }
 
 export function resetPassword(email: string, newPassword: string) {
