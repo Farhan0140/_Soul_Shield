@@ -6,11 +6,6 @@ import (
 	"soulsheld/util"
 )
 
-var req struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
 // ResetPassword godoc
 //
 // @Summary Reset Password
@@ -26,6 +21,11 @@ var req struct {
 // @Failure 500 {object} ErrorResponse
 // @Router /users/reset-password [post]
 func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+
+	var req struct {
+		Email       string `json:"email"`
+		NewPassword string `json:"new_password"`
+	}
 
 	err := json.NewDecoder(r.Body).Decode(&req)
 
@@ -71,7 +71,7 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 
 	err = h.userRepo.Update(
 		req.Email,
-		req.Password,
+		req.NewPassword,
 	)
 
 	if err != nil {
