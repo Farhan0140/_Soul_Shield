@@ -10,7 +10,7 @@ export class ApiError extends Error {
   }
 }
 
-export type ErrorContext = 'login' | 'register' | 'reset-password';
+export type ErrorContext = 'login' | 'register' | 'verify-security-answer' | 'reset-password';
 
 // Backend messages are written for logs, not users (e.g. "Internal Server Error" for a
 // wrong password). Per-screen overrides translate known status codes into copy someone
@@ -24,9 +24,12 @@ const CONTEXT_MESSAGES: Record<ErrorContext, Partial<Record<number, string>>> = 
   register: {
     409: 'That email is already registered — try logging in instead.',
   },
+  'verify-security-answer': {
+    401: 'The security answer you entered is incorrect. Please try again.',
+    429: 'Too many failed attempts. Please try again later.',
+  },
   'reset-password': {
-    400: "We couldn't find an account with that email.",
-    404: "We couldn't find an account with that email.",
+    401: "That reset session expired. Please verify your security answer again.",
   },
 };
 

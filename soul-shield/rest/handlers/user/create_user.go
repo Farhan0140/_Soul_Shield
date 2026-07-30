@@ -7,13 +7,15 @@ import (
 	"net/http"
 	"soulsheld/repo"
 	"soulsheld/util"
+	"strings"
 )
 
 type User struct {
-	ID        int    `json:"id"`
-	Full_Name string `json:"full_name"`
-	Email     string `json:"email"`
-	Password  string `json:"password"`
+	ID             int    `json:"id"`
+	Full_Name      string `json:"full_name"`
+	Email          string `json:"email"`
+	Password       string `json:"password"`
+	SecurityAnswer string `json:"security_answer"`
 }
 
 // CreateUser godoc
@@ -40,10 +42,19 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	securityAnswer := strings.TrimSpace(newUser.SecurityAnswer)
+	if len(securityAnswer) < 3 || len(securityAnswer) > 100 {
+		util.SendError(w, map[string]string{
+			"error": "Security answer must be between 3 and 100 characters",
+		}, http.StatusBadRequest)
+		return
+	}
+
 	createdUser, err := h.userRepo.Create(repo.User{
-		Full_Name: newUser.Full_Name,
-		Email: newUser.Email,
-		Password: newUser.Password,
+		Full_Name:      newUser.Full_Name,
+		Email:          newUser.Email,
+		Password:       newUser.Password,
+		SecurityAnswer: securityAnswer,
 	})
 	if err != nil {
 

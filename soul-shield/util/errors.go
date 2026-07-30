@@ -20,4 +20,9 @@ var (
 	ErrNotCounterTask       = errors.New("this endpoint is only for counter type tasks")
 
 	ErrInvalidIncrementAmount = errors.New("increment amount must be greater than 0")
+
+	ErrSecurityAnswerMismatch = errors.New("security answer is incorrect")
+	ErrSecurityAnswerNotSet   = errors.New("security answer not set for this account")
+	ErrSecurityAnswerLocked   = errors.New("too many failed attempts, verification temporarily locked")
+	ErrInvalidResetToken      = errors.New("invalid or expired reset token")
 )

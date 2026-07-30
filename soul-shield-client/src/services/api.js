@@ -8,6 +8,7 @@ const ERROR_MAP = {
   403: "You don't have permission to do that right now.",
   404: "We looked everywhere, but couldn't find what you're asking for.",
   409: "That already exists — maybe try something different?",
+  429: "Too many attempts. Please wait a while before trying again.",
   500: "Something went wrong on our end. We're on it — please try again in a moment.",
   network: "Couldn't reach our servers. Check your internet and try again.",
   timeout: "That took too long. Please try again.",
@@ -20,6 +21,10 @@ const SCENARIO_MAP = {
   'email not verified': "Please verify your email first — we sent you a code.",
   'otp expired': "That code expired. Request a fresh one?",
   'otp invalid': "That code doesn't match. Please try again.",
+  'security answer you entered is incorrect': "The security answer you entered is incorrect. Please try again.",
+  'security answer must be between': "Your security answer needs to be between 3 and 100 characters.",
+  'too many failed attempts': "Too many failed attempts. Please try again later.",
+  'reset session': "That reset session expired. Please verify your security answer again.",
   'task not scheduled': "This task isn't scheduled for that day.",
   'unauthorized': "Please log in to continue.",
 };

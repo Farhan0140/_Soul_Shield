@@ -22,8 +22,11 @@ export function ApiProvider({ children }) {
   // Auth/OTP APIs
   // const sendOtp = (email) => api.post('/send-otp', { email }, { auth: false });
   // const verifyOtp = (email, otp) => api.post('/verify-otp', { email, otp }, { auth: false });
-  const registerUser = (full_name, email, password) => api.post('/users/register', { full_name, email, password }, { auth: false });
-  const resetPassword = (email, new_password) => api.post('/users/reset-password', { email, new_password }, { auth: false });
+  const registerUser = (full_name, email, password, security_answer) => api.post('/users/register', { full_name, email, password, security_answer }, { auth: false });
+  // Password reset is a two-step flow: verifySecurityAnswer proves identity and returns a
+  // short-lived reset_token, which resetPassword then redeems for the actual password change.
+  const verifySecurityAnswer = (email, security_answer) => api.post('/users/verify-security-answer', { email, security_answer }, { auth: false });
+  const resetPassword = (reset_token, new_password) => api.post('/users/reset-password', { reset_token, new_password }, { auth: false });
   const getMe = () => api.get('/users/me');
   const loginUser = (email, password) => api.post('/users/login', { email, password });
 
@@ -43,6 +46,7 @@ export function ApiProvider({ children }) {
       // sendOtp,
       // verifyOtp,
       registerUser,
+      verifySecurityAnswer,
       resetPassword,
       getMe,
       loginUser

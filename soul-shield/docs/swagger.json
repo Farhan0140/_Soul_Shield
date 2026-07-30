@@ -717,7 +717,7 @@
         },
         "/users/reset-password": {
             "post": {
-                "description": "Reset user password after successful OTP verification",
+                "description": "Reset user password using the reset_token issued by /users/verify-security-answer",
                 "consumes": [
                     "application/json"
                 ],
@@ -766,6 +766,58 @@
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/user.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/verify-security-answer": {
+            "post": {
+                "description": "Step 1 of password reset: verify the security answer set at registration.\nOn success, returns a short-lived reset_token to use with /users/reset-password.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Verify Security Answer",
+                "parameters": [
+                    {
+                        "description": "Email + Security Answer",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/user.VerifySecurityAnswerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/user.VerifySecurityAnswerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/user.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/user.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
                         "schema": {
                             "$ref": "#/definitions/user.ErrorResponse"
                         }
@@ -1223,19 +1275,22 @@
                 },
                 "password": {
                     "type": "string"
+                },
+                "security_answer": {
+                    "type": "string",
+                    "example": "Bluebird"
                 }
             }
         },
         "user.ResetPasswordRequest": {
             "type": "object",
             "properties": {
-                "email": {
-                    "type": "string",
-                    "example": "user@gmail.com"
-                },
                 "new_password": {
                     "type": "string",
                     "example": "Password@123"
+                },
+                "reset_token": {
+                    "type": "string"
                 }
             }
         },
@@ -1243,6 +1298,30 @@
             "type": "object",
             "properties": {
                 "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "user.VerifySecurityAnswerRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "user@gmail.com"
+                },
+                "security_answer": {
+                    "type": "string",
+                    "example": "Bluebird"
+                }
+            }
+        },
+        "user.VerifySecurityAnswerResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "reset_token": {
                     "type": "string"
                 }
             }

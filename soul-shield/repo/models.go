@@ -122,4 +122,11 @@ type User struct {
 	Email     string `json:"email" db:"email"`
 	Password  string `json:"password" db:"password"`
 	Role      string `json:"role" db:"role"`
+
+	// SecurityAnswer is the plaintext answer supplied on registration. It is never persisted
+	// as-is (db:"-") — Create() hashes it into SecurityAnswerHash before the INSERT.
+	SecurityAnswer             string         `json:"-" db:"-"`
+	SecurityAnswerHash         sql.NullString `json:"-" db:"security_answer_hash"`
+	SecurityAnswerAttempts     int            `json:"-" db:"security_answer_attempts"`
+	SecurityAnswerLockedUntil  sql.NullTime   `json:"-" db:"security_answer_locked_until"`
 }

@@ -5,11 +5,17 @@ interface RegisterInput {
   name: string;
   email: string;
   password: string;
+  securityAnswer: string;
 }
 
 interface LoginInput {
   email: string;
   password: string;
+}
+
+interface VerifySecurityAnswerResponse {
+  message: string;
+  reset_token: string;
 }
 
 /**
@@ -35,6 +41,7 @@ export function register(input: RegisterInput) {
     full_name: input.name,
     email: input.email,
     password: input.password,
+    security_answer: input.securityAnswer,
   });
 }
 
@@ -42,6 +49,17 @@ export function fetchMe(token: string) {
   return apiGet<User>('/users/me', token);
 }
 
-export function resetPassword(email: string, newPassword: string) {
-  return apiPost<void>('/users/reset-password', { email, new_password: newPassword });
+/**
+ * Password reset is a two-step flow: verifySecurityAnswer proves identity and returns a
+ * short-lived reset_token, which resetPassword then redeems for the actual password change.
+ */
+export function verifySecurityAnswer(email: string, securityAnswer: string) {
+  return apiPost<VerifySecurityAnswerResponse>('/users/verify-security-answer', {
+    email,
+    security_answer: securityAnswer,
+  });
+}
+
+export function resetPassword(resetToken: string, newPassword: string) {
+  return apiPost<void>('/users/reset-password', { reset_token: resetToken, new_password: newPassword });
 }

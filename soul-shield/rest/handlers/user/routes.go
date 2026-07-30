@@ -23,6 +23,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, manager *middlewares.Manage
 	)
 
 	mux.Handle(
+		"POST /users/verify-security-answer",
+
+		manager.With(
+			http.HandlerFunc(h.VerifySecurityAnswer),
+		),
+	)
+
+	mux.Handle(
 		"POST /users/reset-password",
 
 		manager.With(

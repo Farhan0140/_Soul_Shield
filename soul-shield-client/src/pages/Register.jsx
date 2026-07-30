@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { m, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, User, ArrowRight, ArrowLeft, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, ArrowLeft, ShieldCheck, CheckCircle2, KeyRound } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
@@ -26,6 +26,7 @@ export default function Register() {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [full_name, setFullName] = useState('');
   const [password, setPassword] = useState('');
+  const [security_answer, setSecurityAnswer] = useState('');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0); // resend timer
@@ -110,15 +111,19 @@ export default function Register() {
   const handleCreate = async (e) => {
     e.preventDefault();
     const errs = {};
+    const trimmedAnswer = security_answer.trim();
     if (!full_name.trim()) errs.name = "What should we call you?";
     if (!password) errs.password = "Please choose a password.";
     else if (password.length < 6) errs.password = "At least 6 characters — keep it safe.";
+    if (!trimmedAnswer) errs.security_answer = "Please set a security answer — you'll need it to reset your password.";
+    else if (trimmedAnswer.length < 3) errs.security_answer = "At least 3 characters, please.";
+    else if (trimmedAnswer.length > 100) errs.security_answer = "Keep it under 100 characters.";
     setErrors(errs);
     if (Object.keys(errs).length) return;
 
     setLoading(true);
     try {
-      await registerUser(full_name, email, password);
+      await registerUser(full_name, email, password, trimmedAnswer);
       await login(email, password);
       toast.success("Account created! Welcome to SoulShield 🌟");
       navigate('/', { replace: true });
@@ -252,6 +257,21 @@ export default function Register() {
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
             />
+            <div>
+              <Input
+                label="Security Verification Answer" icon={KeyRound}
+                value={security_answer} error={errors.security_answer}
+                onChange={(e) => setSecurityAnswer(e.target.value)}
+                placeholder="Please enter a personal answer that you will always remember."
+                autoComplete="off"
+              />
+              <p className="text-xs text-slate-500 mt-1.5">
+                This can be your nickname, your favorite thing, your pet's name, your father's name, your mother's
+                name, your favorite place, or any personal word or phrase that only you know. You'll be asked for
+                this answer if you ever need to reset your password. Choose something memorable but difficult for
+                others to guess.
+              </p>
+            </div>
             <div className="flex gap-2">
               <Button type="button" variant="secondary" onClick={() => setStep(0)} className="flex-1">
                 <ArrowLeft className="w-4 h-4" /> Back

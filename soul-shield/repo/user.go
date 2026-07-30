@@ -5,16 +5,23 @@ import (
 	// "errors"
 	"fmt"
 	"soulsheld/util"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
 
+const (
+	maxSecurityAnswerAttempts   = 5
+	securityAnswerLockDuration  = 24 * time.Hour
+)
+
 type UserRepo interface {
 	Create(user User) (*User, error)
 	Find(email, password string) (*User, error)
 	Update(email string, password string) error
+	VerifySecurityAnswer(email, answer, ipAddress string) error
 }
 
 type userRepo struct {
@@ -63,20 +70,30 @@ func (r *userRepo) Create(user User) (*User, error) {
 	}
 	user.Password = string(hashedPassword)
 
+	hashedAnswer, err := bcrypt.GenerateFromPassword(
+		[]byte(user.SecurityAnswer),
+		bcrypt.DefaultCost,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	query := `
 		INSERT INTO users (
 			full_name,
 			email,
-			password
+			password,
+			security_answer_hash
 		) VALUES (
 			$1,
 			$2,
-			$3
+			$3,
+			$4
 		)
 		RETURNING id
 	`
 
-	row := tx.QueryRow(query, user.Full_Name, user.Email, user.Password)
+	row := tx.QueryRow(query, user.Full_Name, user.Email, user.Password, string(hashedAnswer))
 	err = row.Scan(&user.ID)
 	if err != nil {
 		if pqErr, ok := err.(*pq.Error); ok {
@@ -188,4 +205,86 @@ func (r *userRepo) Update(email string, password string) error {
 	}
 
 	return nil
+}
+
+// VerifySecurityAnswer checks the supplied answer against the stored hash for email.
+// It always logs the attempt (success or failure) and enforces a lockout after
+// maxSecurityAnswerAttempts consecutive failures. Errors are deliberately generic at the
+// handler layer (same message for "no such user" / "no answer set" / "wrong answer") so this
+// endpoint can't be used to enumerate registered emails or confirm partial answers.
+func (r *userRepo) VerifySecurityAnswer(email, answer, ipAddress string) error {
+	var u User
+	err := r.db.Get(&u, `
+		SELECT id, email, security_answer_hash, security_answer_attempts, security_answer_locked_until
+		FROM users
+		WHERE email = $1
+		LIMIT 1
+	`, email)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			r.logSecurityAnswerAttempt(email, false, ipAddress)
+			return util.ErrUserNotFound
+		}
+		return err
+	}
+
+	if u.SecurityAnswerLockedUntil.Valid && u.SecurityAnswerLockedUntil.Time.After(time.Now()) {
+		r.logSecurityAnswerAttempt(email, false, ipAddress)
+		return util.ErrSecurityAnswerLocked
+	}
+
+	if !u.SecurityAnswerHash.Valid || u.SecurityAnswerHash.String == "" {
+		r.logSecurityAnswerAttempt(email, false, ipAddress)
+		return util.ErrSecurityAnswerNotSet
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(u.SecurityAnswerHash.String), []byte(answer)); err != nil {
+		r.logSecurityAnswerAttempt(email, false, ipAddress)
+
+		attempts := u.SecurityAnswerAttempts + 1
+		if attempts >= maxSecurityAnswerAttempts {
+			_, uErr := r.db.Exec(`
+				UPDATE users
+				SET security_answer_attempts = $1, security_answer_locked_until = $2
+				WHERE email = $3
+			`, attempts, time.Now().Add(securityAnswerLockDuration), email)
+			if uErr != nil {
+				return uErr
+			}
+			return util.ErrSecurityAnswerLocked
+		}
+
+		_, uErr := r.db.Exec(`
+			UPDATE users SET security_answer_attempts = $1 WHERE email = $2
+		`, attempts, email)
+		if uErr != nil {
+			return uErr
+		}
+
+		return util.ErrSecurityAnswerMismatch
+	}
+
+	_, err = r.db.Exec(`
+		UPDATE users
+		SET security_answer_attempts = 0, security_answer_locked_until = NULL
+		WHERE email = $1
+	`, email)
+	if err != nil {
+		return err
+	}
+
+	r.logSecurityAnswerAttempt(email, true, ipAddress)
+
+	return nil
+}
+
+func (r *userRepo) logSecurityAnswerAttempt(email string, success bool, ipAddress string) {
+	_, err := r.db.Exec(`
+		INSERT INTO security_answer_attempt_logs (email, success, ip_address)
+		VALUES ($1, $2, $3)
+	`, email, success, ipAddress)
+	if err != nil {
+		fmt.Println("failed to log security answer attempt:", err)
+	}
 }

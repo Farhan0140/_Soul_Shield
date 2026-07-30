@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { m, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, ArrowRight, ArrowLeft, CheckCircle2, KeyRound } from 'lucide-react';
+import { Mail, Lock, ArrowRight, ArrowLeft, CheckCircle2, KeyRound, ShieldCheck } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { useToast } from '../components/Toast';
 import AuthLayout from './AuthLayout';
@@ -9,19 +9,21 @@ import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 
 const STEPS = [
-  { key: 'email', title: 'Reset your password', subtitle: "Enter your email to continue." },
-  // { key: 'otp',   title: 'Verify it\'s you',    subtitle: "Enter the 6-digit code we just emailed you." },
-  { key: 'new',   title: 'Pick a new password', subtitle: "Choose something strong — and different from the last one." },
+  { key: 'email',  title: 'Reset your password',  subtitle: "Enter your email to continue." },
+  { key: 'verify', title: 'Verify Your Identity',  subtitle: "Please enter the security answer you created when you registered your account." },
+  { key: 'new',    title: 'Pick a new password',   subtitle: "Choose something strong — and different from the last one." },
 ];
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
   const toast = useToast();
-  const { /* sendOtp, verifyOtp, */ resetPassword } = useApi();
+  const { /* sendOtp, verifyOtp, */ verifySecurityAnswer, resetPassword } = useApi();
 
   const [step, setStep] = useState(0);
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [security_answer, setSecurityAnswer] = useState('');
+  const [resetToken, setResetToken] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -39,15 +41,26 @@ export default function ForgotPassword() {
     if (!email) return setErrors({ email: "We need your email to continue." });
     if (!/\S+@\S+\.\S+/.test(email)) return setErrors({ email: "That doesn't look like a valid email." });
     setErrors({});
+    setStep(1);
+    // await sendOtp(email);
+    // setCooldown(60);
+    // setTimeout(() => otpRefs.current[0]?.focus(), 100);
+  };
+
+  // ---------- STEP 2: Verify security answer ----------
+  const handleVerifyAnswer = async (e) => {
+    e?.preventDefault?.();
+    const answer = security_answer.trim();
+    if (!answer) return setErrors({ security_answer: "Please enter your security answer." });
+    setErrors({});
     setLoading(true);
     try {
-      // await sendOtp(email);
-      // toast.success("Code sent! Check your inbox 📬");
-      setStep(1);
-      // setCooldown(60);
-      // setTimeout(() => otpRefs.current[0]?.focus(), 100);
+      const res = await verifySecurityAnswer(email, answer);
+      setResetToken(res?.reset_token || '');
+      toast.success("Identity verified successfully. You may now reset your password.");
+      setStep(2);
     } catch (err) {
-      setErrors({ email: err.message });
+      setErrors({ security_answer: err.message });
     } finally {
       setLoading(false);
     }
@@ -96,7 +109,7 @@ export default function ForgotPassword() {
     setErrors({});
     setLoading(true);
     try {
-      await resetPassword(email, password);
+      await resetPassword(resetToken, password);
       toast.success("Password updated! You can now sign in 🎉");
       navigate('/login', { replace: true });
     } catch (err) {
@@ -158,43 +171,27 @@ export default function ForgotPassword() {
           </m.form>
         )}
 
-        {/* OTP step removed
+        {/* ===== STEP 2: Verify security answer ===== */}
         {step === 1 && (
           <m.form
-            key="otp"
+            key="verify"
             initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-            onSubmit={handleVerifyOtp} className="space-y-5"
+            onSubmit={handleVerifyAnswer} className="space-y-4"
           >
-            <div className="flex justify-center gap-2" onPaste={handlePaste}>
-              {otp.map((d, i) => (
-                <input
-                  key={i}
-                  ref={(el) => (otpRefs.current[i] = el)}
-                  type="text" inputMode="numeric" maxLength={1}
-                  value={d}
-                  onChange={(e) => handleOtpChange(i, e.target.value)}
-                  onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                  className={`w-12 h-14 text-center text-xl font-bold rounded-xl border-2 outline-none transition-all
-                    ${errors.otp ? 'border-rose-400' : 'border-slate-200 focus:border-indigo-500'}
-                    focus:shadow-sm focus:shadow-indigo-100`}
-                />
-              ))}
+            <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-100 flex items-start gap-3">
+              <ShieldCheck className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-indigo-900">
+                For security purposes, please enter the personal security answer you created when you registered
+                your account.
+              </p>
             </div>
-            {errors.otp && (
-              <m.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center text-sm text-rose-500">
-                {errors.otp}
-              </m.p>
-            )}
-            <div className="text-center text-sm text-slate-500">
-              Didn't get it?{' '}
-              {cooldown > 0 ? (
-                <span className="text-slate-400">Resend in {cooldown}s</span>
-              ) : (
-                <button type="button" onClick={handleResend} className="text-indigo-600 font-semibold hover:text-indigo-700">
-                  Resend code
-                </button>
-              )}
-            </div>
+            <Input
+              label="Security Verification Answer" icon={KeyRound}
+              value={security_answer} error={errors.security_answer}
+              onChange={(e) => setSecurityAnswer(e.target.value)}
+              placeholder="Enter your security answer"
+              autoComplete="off"
+            />
             <div className="flex gap-2">
               <Button type="button" variant="secondary" onClick={() => setStep(0)} className="flex-1">
                 <ArrowLeft className="w-4 h-4" /> Back
@@ -205,9 +202,9 @@ export default function ForgotPassword() {
             </div>
           </m.form>
         )}
-        */}
 
-        {step === 1 && (
+        {/* ===== STEP 3: New password ===== */}
+        {step === 2 && (
           <m.form
             key="new"
             initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
@@ -220,7 +217,7 @@ export default function ForgotPassword() {
               autoComplete="new-password"
             />
             <div className="flex gap-2">
-              <Button type="button" variant="secondary" onClick={() => setStep(0)} className="flex-1">
+              <Button type="button" variant="secondary" onClick={() => setStep(1)} className="flex-1">
                 <ArrowLeft className="w-4 h-4" /> Back
               </Button>
               <Button type="submit" loading={loading} className="flex-1">

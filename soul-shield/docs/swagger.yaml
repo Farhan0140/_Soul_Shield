@@ -273,19 +273,37 @@ definitions:
         type: string
       password:
         type: string
+      security_answer:
+        example: Bluebird
+        type: string
     type: object
   user.ResetPasswordRequest:
     properties:
-      email:
-        example: user@gmail.com
-        type: string
       new_password:
         example: Password@123
+        type: string
+      reset_token:
         type: string
     type: object
   user.SuccessResponse:
     properties:
       message:
+        type: string
+    type: object
+  user.VerifySecurityAnswerRequest:
+    properties:
+      email:
+        example: user@gmail.com
+        type: string
+      security_answer:
+        example: Bluebird
+        type: string
+    type: object
+  user.VerifySecurityAnswerResponse:
+    properties:
+      message:
+        type: string
+      reset_token:
         type: string
     type: object
 host: localhost:3000
@@ -756,7 +774,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Reset user password after successful OTP verification
+      description: Reset user password using the reset_token issued by /users/verify-security-answer
       parameters:
       - description: Password Reset Information
         in: body
@@ -788,6 +806,42 @@ paths:
           schema:
             $ref: '#/definitions/user.ErrorResponse'
       summary: Reset Password
+      tags:
+      - Users
+  /users/verify-security-answer:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Step 1 of password reset: verify the security answer set at registration.
+        On success, returns a short-lived reset_token to use with /users/reset-password.
+      parameters:
+      - description: Email + Security Answer
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/user.VerifySecurityAnswerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.VerifySecurityAnswerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+      summary: Verify Security Answer
       tags:
       - Users
   /verify-otp:

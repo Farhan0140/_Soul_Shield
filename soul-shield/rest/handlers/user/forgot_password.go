@@ -9,7 +9,7 @@ import (
 // ResetPassword godoc
 //
 // @Summary Reset Password
-// @Description Reset user password after successful OTP verification
+// @Description Reset user password using the reset_token issued by /users/verify-security-answer
 // @Tags Users
 // @Accept json
 // @Produce json
@@ -22,10 +22,7 @@ import (
 // @Router /users/reset-password [post]
 func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 
-	var req struct {
-		Email       string `json:"email"`
-		NewPassword string `json:"new_password"`
-	}
+	var req ResetPasswordRequest
 
 	err := json.NewDecoder(r.Body).Decode(&req)
 
@@ -41,6 +38,9 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The reset_token is only issued after a successful /users/verify-security-answer call
+	// (see verify_security_answer.go), so its presence + validity IS the identity check here —
+	// this replaced the old commented-out OTP-verified check below.
 	// verified, err := h.otpRepo.IsVerified(
 	// 	req.Email,
 	// )
@@ -69,8 +69,21 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	// 	return
 	// }
 
+	claims, err := util.VerifyResetPasswordJWT(h.cnf.SecretKey, req.ResetToken)
+	if err != nil {
+		util.SendError(
+			w,
+			map[string]string{
+				"error": "Invalid or expired reset session. Please verify your security answer again.",
+			},
+			http.StatusUnauthorized,
+		)
+
+		return
+	}
+
 	err = h.userRepo.Update(
-		req.Email,
+		claims.Email,
 		req.NewPassword,
 	)
 
