@@ -17,7 +17,7 @@ import { getErrorMessage } from '@/lib/errors';
 export default function AdminTasksScreen() {
   const today = todayISODate();
   const tasksQuery = useTasksQuery(today);
-  const deleteTask = useDeleteTask();
+  const deleteTask = useDeleteTask(today);
 
   const globalTasks = useMemo(
     () => (tasksQuery.data ?? []).filter((task) => task.is_global),

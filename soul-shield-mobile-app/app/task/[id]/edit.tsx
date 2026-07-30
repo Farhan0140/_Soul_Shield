@@ -5,12 +5,14 @@ import type { Task, TaskUpdateInput } from '@/api/types';
 import { TaskForm } from '@/components/task/task-form';
 import { useAuth } from '@/context/auth-context';
 import { useUpdateTask } from '@/hooks/queries/use-task-mutations';
+import { useNetworkStatus } from '@/hooks/use-network-status';
 import { getErrorMessage } from '@/lib/errors';
+import { todayISODate } from '@/lib/date';
 
 export default function EditTaskScreen() {
   const { id, task: taskParam } = useLocalSearchParams<{ id: string; task: string }>();
   const { user } = useAuth();
-  const updateTask = useUpdateTask();
+  const { isOnline } = useNetworkStatus();
   const [error, setError] = useState<string | null>(null);
 
   const initialTask = useMemo<Task | undefined>(() => {
@@ -20,6 +22,8 @@ export default function EditTaskScreen() {
       return undefined;
     }
   }, [taskParam]);
+
+  const updateTask = useUpdateTask(initialTask?.date ?? todayISODate());
 
   const isAdmin = user?.role === 'admin';
 
@@ -32,6 +36,9 @@ export default function EditTaskScreen() {
         onError: (err) => setError(getErrorMessage(err)),
       }
     );
+    // Offline: the mutation queues silently rather than resolving, so don't
+    // leave the form stuck on "saving" — the optimistic patch already applied.
+    if (!isOnline) router.back();
   };
 
   return (

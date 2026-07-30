@@ -113,26 +113,19 @@ Keep `production` as an AAB for eventual Play Store submission, and use
 
 ---
 
-## Step 5 — Fix the placeholder production API URL
+## Step 5 — API URL
 
-This project's `.env.production` currently contains a placeholder backend
-URL:
+The backend is deployed on Render at `https://soul-shield-api.onrender.com`.
+`EXPO_PUBLIC_API_URL` is set to that URL in `.env.development`,
+`.env.production`, and explicitly per build profile in `eas.json`
+(`build.development.env` / `build.preview.env`, which always win over
+whatever `.env.*` file would otherwise apply). No local LAN IP or dev-machine
+backend is needed anymore — every profile talks to the same deployed HTTPS
+backend.
 
-```
-EXPO_PUBLIC_API_URL=https://api.soulshield.example.com
-```
-
-That host doesn't exist yet. If you build with this profile as-is, the app
-will install fine but **every network request will fail**. Before building,
-do one of the following:
-
-- **Simplest**: edit `.env.production` and replace the URL with your real,
-  deployed backend URL.
-- **If you don't want the URL committed to the repo**: set it as an EAS
-  environment variable instead:
-  ```bash
-  eas env:create --name EXPO_PUBLIC_API_URL --value https://your-real-backend.com --environment production
-  ```
+Since the backend is HTTPS, Android's cleartext (non-HTTPS) traffic block
+(API 28+) no longer applies, and the `expo-build-properties` cleartext plugin
+has been removed from `app.json`.
 
 ---
 

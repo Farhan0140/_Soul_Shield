@@ -46,6 +46,8 @@ const MAPPING = {
   'sun.max.fill': 'light-mode',
   'moon.fill': 'dark-mode',
   'circle.fill': 'circle',
+  'bell.fill': 'notifications',
+  bell: 'notifications-none',
 } as IconMapping;
 
 /**

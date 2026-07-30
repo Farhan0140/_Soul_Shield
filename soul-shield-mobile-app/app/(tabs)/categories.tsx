@@ -8,14 +8,15 @@ import { ThemedText } from '@/components/themed-text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { KeyboardAvoidingScrollView } from '@/components/ui/keyboard-avoiding-scroll-view';
-import { PrimaryButton } from '@/components/ui/primary-button';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
+import { useFabAction } from '@/context/fab-context';
 import { useCategoriesQuery } from '@/hooks/queries/use-categories';
 import {
   useCreateCategory,
   useDeleteCategory,
   useUpdateCategory,
 } from '@/hooks/queries/use-category-mutations';
+import { useNetworkStatus } from '@/hooks/use-network-status';
 import { getErrorMessage } from '@/lib/errors';
 
 type EditingState = 'new' | Category | null;
@@ -25,12 +26,15 @@ export default function CategoriesScreen() {
   const createCategory = useCreateCategory();
   const updateCategory = useUpdateCategory();
   const deleteCategory = useDeleteCategory();
+  const { isOnline } = useNetworkStatus();
 
   const [editing, setEditing] = useState<EditingState>(null);
   const [error, setError] = useState<string | null>(null);
 
   const categories = categoriesQuery.data ?? [];
   const isEditingExisting = editing !== null && editing !== 'new';
+
+  useFabAction(editing === null ? () => setEditing('new') : null);
 
   const handleSubmit = (input: { name: string; color_hex: string }) => {
     setError(null);
@@ -48,6 +52,9 @@ export default function CategoriesScreen() {
         onError: (err) => setError(getErrorMessage(err)),
       });
     }
+    // Offline: the mutation queues silently rather than resolving, so don't
+    // leave the form stuck open — it'll sync automatically once online.
+    if (!isOnline) setEditing(null);
   };
 
   const handleDelete = (category: Category) => {
@@ -85,9 +92,7 @@ export default function CategoriesScreen() {
             setEditing(null);
           }}
         />
-      ) : (
-        <PrimaryButton label="+ Add Category" onPress={() => setEditing('new')} />
-      )}
+      ) : null}
 
       {categoriesQuery.isLoading ? (
         <View style={styles.list}>
@@ -104,6 +109,8 @@ export default function CategoriesScreen() {
           icon="tag.fill"
           title="No categories found"
           message="Create a category to organize your tasks."
+          actionLabel={editing === null ? 'Add Category' : undefined}
+          onAction={editing === null ? () => setEditing('new') : undefined}
         />
       ) : (
         <View style={styles.list}>
@@ -122,6 +129,6 @@ export default function CategoriesScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { flexGrow: 1, padding: 20, gap: 20 },
+  content: { flexGrow: 1, padding: 20, paddingBottom: 100, gap: 20 },
   list: { gap: 10 },
 });

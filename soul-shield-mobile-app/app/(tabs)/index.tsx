@@ -20,6 +20,7 @@ import { ErrorState } from '@/components/ui/error-state';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { useAuth } from '@/context/auth-context';
+import { useFabAction } from '@/context/fab-context';
 import { useCategoriesQuery } from '@/hooks/queries/use-categories';
 import { useCompleteTask, useDeleteTask } from '@/hooks/queries/use-task-mutations';
 import { useTasksQuery } from '@/hooks/queries/use-tasks';
@@ -39,10 +40,11 @@ export default function HomeScreen() {
 
   const tasksQuery = useTasksQuery(date);
   const { data: categories = [] } = useCategoriesQuery();
-  const completeTask = useCompleteTask(date);
-  const deleteTask = useDeleteTask();
+  const completeTask = useCompleteTask();
+  const deleteTask = useDeleteTask(date);
 
-  const tint = useThemeColor({}, 'tint');
+  useFabAction(() => router.push('/task/new'));
+
   const cardColor = useThemeColor({}, 'card');
   const borderColor = useThemeColor({}, 'border');
   const mutedColor = useThemeColor({}, 'muted');
@@ -82,9 +84,10 @@ export default function HomeScreen() {
   };
 
   const handleToggleComplete = (task: Task) => {
-    completeTask.mutate(task.task_id, {
-      onError: (err) => Alert.alert('Could not complete task', getErrorMessage(err)),
-    });
+    completeTask.mutate(
+      { taskId: task.task_id, date },
+      { onError: (err) => Alert.alert('Could not complete task', getErrorMessage(err)) }
+    );
   };
 
   const handleEdit = (task: Task) => {
@@ -116,15 +119,6 @@ export default function HomeScreen() {
         onNext={() => setDate((d) => addDays(d, 1))}
         onToday={() => setDate(todayISODate())}
       />
-
-      <View style={styles.newTaskRow}>
-        <Pressable
-          onPress={() => router.push('/task/new')}
-          style={({ pressed }) => [styles.newTaskButton, { backgroundColor: tint, opacity: pressed ? 0.8 : 1 }]}>
-          <IconSymbol name="plus" size={16} color="#fff" />
-          <ThemedText style={styles.newTaskLabel}>New Task</ThemedText>
-        </Pressable>
-      </View>
 
       {tasks.length > 0 ? <ProgressSummaryBar completed={completedCount} total={tasks.length} /> : null}
 
@@ -195,17 +189,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { flexGrow: 1, padding: 20, gap: 16 },
-  newTaskRow: { flexDirection: 'row', justifyContent: 'flex-end' },
-  newTaskButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-  },
-  newTaskLabel: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  content: { flexGrow: 1, padding: 20, paddingBottom: 100, gap: 16 },
   filters: {
     gap: 12,
     padding: 16,

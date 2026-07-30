@@ -1,5 +1,6 @@
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 import { ApiError } from '@/lib/errors';
+import { registerMutationDefaults } from '@/lib/mutation-defaults';
 
 let unauthorizedHandler: (() => void) | null = null;
 
@@ -23,3 +24,5 @@ export const queryClient = new QueryClient({
   queryCache: new QueryCache({ onError: handleError }),
   mutationCache: new MutationCache({ onError: handleError }),
 });
+
+registerMutationDefaults(queryClient);

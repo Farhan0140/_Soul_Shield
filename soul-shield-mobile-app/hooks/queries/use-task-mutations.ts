@@ -1,8 +1,14 @@
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
-import { completeTask, createTask, deleteTask, incrementTask, updateTask } from '@/api/tasks';
-import type { Task, TaskInput, TaskUpdateInput } from '@/api/types';
-import { useAuth } from '@/context/auth-context';
+import type { Task } from '@/api/types';
+import {
+  completeTaskMutationFn,
+  createTaskMutationFn,
+  deleteTaskMutationFn,
+  incrementTaskMutationFn,
+  mutationKeys,
+  updateTaskMutationFn,
+} from '@/lib/mutation-defaults';
 import { queryKeys } from '@/lib/query-keys';
 
 function invalidateTaskLists(queryClient: QueryClient) {
@@ -11,62 +17,88 @@ function invalidateTaskLists(queryClient: QueryClient) {
 }
 
 export function useCreateTask() {
-  const { token } = useAuth();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: TaskInput) => createTask(input, token),
+    mutationKey: mutationKeys.tasks.create,
+    mutationFn: createTaskMutationFn,
     onSuccess: () => invalidateTaskLists(queryClient),
   });
 }
 
-export function useUpdateTask() {
-  const { token } = useAuth();
+/** `date` targets which cached `tasks(date)` list to optimistically patch —
+ * task edits themselves aren't date-scoped, only the currently viewed list is. */
+export function useUpdateTask(date: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, input }: { id: number; input: TaskUpdateInput }) =>
-      updateTask(id, input, token),
-    onSuccess: () => invalidateTaskLists(queryClient),
+    mutationKey: mutationKeys.tasks.update,
+    mutationFn: updateTaskMutationFn,
+    onMutate: async ({ id, input }) => {
+      const key = queryKeys.tasks(date);
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<Task[]>(key);
+      queryClient.setQueryData<Task[]>(key, (old) =>
+        old?.map((t) => (t.task_id === id ? { ...t, ...input } : t))
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(queryKeys.tasks(date), context.previous);
+    },
+    onSettled: () => invalidateTaskLists(queryClient),
   });
 }
 
-export function useDeleteTask() {
-  const { token } = useAuth();
+export function useDeleteTask(date: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => deleteTask(id, token),
-    onSuccess: () => invalidateTaskLists(queryClient),
+    mutationKey: mutationKeys.tasks.delete,
+    mutationFn: deleteTaskMutationFn,
+    onMutate: async (id: number) => {
+      const key = queryKeys.tasks(date);
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<Task[]>(key);
+      queryClient.setQueryData<Task[]>(key, (old) => old?.filter((t) => t.task_id !== id));
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previous) queryClient.setQueryData(queryKeys.tasks(date), context.previous);
+    },
+    onSettled: () => invalidateTaskLists(queryClient),
   });
 }
 
-export function useCompleteTask(date: string) {
-  const { token } = useAuth();
+export function useCompleteTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (taskId: number) => completeTask(taskId, date, token),
-    onMutate: async (taskId: number) => {
+    mutationKey: mutationKeys.tasks.complete,
+    mutationFn: completeTaskMutationFn,
+    onMutate: async ({ taskId, date }: { taskId: number; date: string }) => {
       const key = queryKeys.tasks(date);
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<Task[]>(key);
       queryClient.setQueryData<Task[]>(key, (old) =>
         old?.map((t) => (t.task_id === taskId ? { ...t, status: 'completed' as const } : t))
       );
-      return { previous };
+      return { previous, date };
     },
-    onError: (_err, _taskId, context) => {
+    onError: (_err, _vars, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(queryKeys.tasks(date), context.previous);
+        queryClient.setQueryData(queryKeys.tasks(context.date), context.previous);
       }
     },
     onSettled: () => invalidateTaskLists(queryClient),
   });
 }
 
-/** Bare, unbuffered increment mutation. Used directly as a stub in Phase 2; Phase 3
- * wraps this in a debounced buffer hook instead of calling it per-tap. */
+/** Bare, unbuffered increment mutation. Called through
+ * hooks/use-task-increment-buffer.ts, which does its own manual optimistic
+ * cache patching (it computes the new count from the buffered amount rather
+ * than trusting a generic snapshot/diff), so this hook doesn't need its own
+ * onMutate. A network failure here pauses the mutation via onlineManager
+ * rather than reaching the buffer's onError, so the two don't conflict. */
 export function useIncrementTask() {
-  const { token } = useAuth();
   return useMutation({
-    mutationFn: ({ taskId, amount, date }: { taskId: number; amount: number; date?: string }) =>
-      incrementTask(taskId, amount, date, token),
+    mutationKey: mutationKeys.tasks.increment,
+    mutationFn: incrementTaskMutationFn,
   });
 }
