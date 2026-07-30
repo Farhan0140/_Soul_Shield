@@ -31,7 +31,7 @@ export default function LoginScreen() {
       await login(trimmedEmail, password);
       rememberedEmailStore.set(trimmedEmail);
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err, 'login'));
     } finally {
       setLoading(false);
     }

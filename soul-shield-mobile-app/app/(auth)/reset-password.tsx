@@ -22,7 +22,7 @@ export default function ResetPasswordScreen() {
       await resetPassword(email.trim(), password);
       router.replace('/(auth)/login');
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err, 'reset-password'));
     } finally {
       setLoading(false);
     }

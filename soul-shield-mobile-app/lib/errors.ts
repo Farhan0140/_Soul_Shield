@@ -10,8 +10,31 @@ export class ApiError extends Error {
   }
 }
 
-export function getErrorMessage(error: unknown): string {
+export type ErrorContext = 'login' | 'register' | 'reset-password';
+
+// Backend messages are written for logs, not users (e.g. "Internal Server Error" for a
+// wrong password). Per-screen overrides translate known status codes into copy someone
+// can actually act on; the generic switch below is the fallback for everything else.
+const CONTEXT_MESSAGES: Record<ErrorContext, Partial<Record<number, string>>> = {
+  login: {
+    400: 'Incorrect email or password.',
+    401: 'Incorrect email or password.',
+    404: 'Incorrect email or password.',
+  },
+  register: {
+    409: 'That email is already registered — try logging in instead.',
+  },
+  'reset-password': {
+    400: "We couldn't find an account with that email.",
+    404: "We couldn't find an account with that email.",
+  },
+};
+
+export function getErrorMessage(error: unknown, context?: ErrorContext): string {
   if (error instanceof ApiError) {
+    const override = context && CONTEXT_MESSAGES[context][error.status];
+    if (override) return override;
+
     switch (error.status) {
       case 400:
         return error.message || 'That request was invalid.';

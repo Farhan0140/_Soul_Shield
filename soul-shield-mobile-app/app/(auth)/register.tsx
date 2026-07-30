@@ -23,7 +23,7 @@ export default function RegisterScreen() {
       await register({ name: name.trim(), email: email.trim(), password });
       router.replace('/(auth)/login');
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err, 'register'));
     } finally {
       setLoading(false);
     }
