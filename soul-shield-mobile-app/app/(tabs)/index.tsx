@@ -6,16 +6,10 @@ import type { Task } from '@/api/types';
 import { ThemedText } from '@/components/themed-text';
 import { DateNavHeader } from '@/components/dashboard/date-nav-header';
 import { ProgressSummaryBar } from '@/components/dashboard/progress-summary-bar';
-import {
-  ALL_CATEGORIES,
-  CategoryChipRow,
-  UNCATEGORIZED,
-} from '@/components/filters/category-chip-row';
 import { SourceFilterRow, type SourceFilter } from '@/components/filters/source-filter';
 import { StatusTabs, type StatusFilter } from '@/components/filters/status-tabs';
 import { TaskTypeFilterRow, type TaskTypeFilter } from '@/components/filters/task-type-filter';
-import { TaskListSection } from '@/components/task/task-list-section';
-import { EmptyState } from '@/components/ui/empty-state';
+import { CategorySection } from '@/components/task/category-section';
 import { ErrorState } from '@/components/ui/error-state';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
@@ -28,15 +22,21 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 import { addDays, todayISODate } from '@/lib/date';
 import { getErrorMessage } from '@/lib/errors';
 
+const FIXED_SECTION_KEY = 'fixed';
+const UNCATEGORIZED_SECTION_KEY = 'uncategorized';
+
 export default function HomeScreen() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
 
   const [date, setDate] = useState(todayISODate());
-  const [category, setCategory] = useState<string>(ALL_CATEGORIES);
   const [status, setStatus] = useState<StatusFilter>('all');
   const [taskType, setTaskType] = useState<TaskTypeFilter>('all');
   const [source, setSource] = useState<SourceFilter>('all');
+  // Accordion: at most one section open at a time, kept for the life of the
+  // screen instance (tabs stay mounted across navigation, so this survives
+  // switching tabs and back).
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
   const tasksQuery = useTasksQuery(date);
   const { data: categories = [] } = useCategoriesQuery();
@@ -48,6 +48,8 @@ export default function HomeScreen() {
   const cardColor = useThemeColor({}, 'card');
   const borderColor = useThemeColor({}, 'border');
   const mutedColor = useThemeColor({}, 'muted');
+  const tintColor = useThemeColor({}, 'tint');
+  const categoryFallback = useThemeColor({}, 'categoryFallback');
 
   const tasks = useMemo(() => tasksQuery.data ?? [], [tasksQuery.data]);
 
@@ -55,32 +57,55 @@ export default function HomeScreen() {
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
-      if (category === ALL_CATEGORIES) {
-        // no-op
-      } else if (category === UNCATEGORIZED) {
-        if (task.category_id != null) return false;
-      } else if (String(task.category_id) !== category) {
-        return false;
-      }
       if (status !== 'all' && task.status !== status) return false;
       if (taskType !== 'all' && task.task_type !== taskType) return false;
       if (source === 'fixed' && !task.is_global) return false;
       if (source === 'mine' && task.is_global) return false;
       return true;
     });
-  }, [tasks, category, status, taskType, source]);
+  }, [tasks, status, taskType, source]);
 
   const fixedTasks = filteredTasks.filter((t) => t.is_global);
   const myTasks = filteredTasks.filter((t) => !t.is_global);
 
-  const hasActiveFilters =
-    category !== ALL_CATEGORIES || status !== 'all' || taskType !== 'all' || source !== 'all';
+  const categorySections = useMemo(() => {
+    const byCategory = new Map<number, Task[]>();
+    const uncategorized: Task[] = [];
+    for (const task of myTasks) {
+      if (task.category_id == null) {
+        uncategorized.push(task);
+      } else {
+        const list = byCategory.get(task.category_id);
+        if (list) list.push(task);
+        else byCategory.set(task.category_id, [task]);
+      }
+    }
+    return [
+      ...categories.map((cat) => ({
+        key: String(cat.id),
+        title: cat.name,
+        accentColor: cat.color_hex,
+        tasks: byCategory.get(cat.id) ?? [],
+      })),
+      {
+        key: UNCATEGORIZED_SECTION_KEY,
+        title: 'Uncategorized',
+        accentColor: categoryFallback,
+        tasks: uncategorized,
+      },
+    ];
+  }, [categories, myTasks, categoryFallback]);
+
+  const hasActiveFilters = status !== 'all' || taskType !== 'all' || source !== 'all';
 
   const clearFilters = () => {
-    setCategory(ALL_CATEGORIES);
     setStatus('all');
     setTaskType('all');
     setSource('all');
+  };
+
+  const toggleSection = (key: string) => {
+    setExpandedKey((current) => (current === key ? null : key));
   };
 
   const handleToggleComplete = (task: Task) => {
@@ -138,7 +163,6 @@ export default function HomeScreen() {
             </Pressable>
           ) : null}
         </View>
-        <CategoryChipRow categories={categories} selected={category} onSelect={setCategory} />
         <StatusTabs value={status} onChange={setStatus} />
         <TaskTypeFilterRow value={taskType} onChange={setTaskType} />
         <SourceFilterRow value={source} onChange={setSource} />
@@ -152,20 +176,15 @@ export default function HomeScreen() {
         </View>
       ) : tasksQuery.isError ? (
         <ErrorState message={getErrorMessage(tasksQuery.error)} onRetry={() => tasksQuery.refetch()} />
-      ) : tasks.length === 0 ? (
-        <EmptyState
-          icon="tray"
-          title="No tasks scheduled for today."
-          message="Add a new task to get started."
-          actionLabel="Add Task"
-          onAction={() => router.push('/task/new')}
-        />
-      ) : filteredTasks.length === 0 ? (
-        <EmptyState icon="tray" title="No tasks match these filters." />
       ) : (
         <View style={styles.sections}>
-          <TaskListSection
+          <CategorySection
             title="Fixed Tasks"
+            count={fixedTasks.length}
+            accentColor={tintColor}
+            icon="shield.fill"
+            expanded={expandedKey === FIXED_SECTION_KEY}
+            onToggle={() => toggleSection(FIXED_SECTION_KEY)}
             tasks={fixedTasks}
             date={date}
             canManage={isAdmin}
@@ -173,15 +192,22 @@ export default function HomeScreen() {
             onEdit={handleEdit}
             onDelete={handleDelete}
           />
-          <TaskListSection
-            title="My Tasks"
-            tasks={myTasks}
-            date={date}
-            canManage
-            onToggleComplete={handleToggleComplete}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-          />
+          {categorySections.map((section) => (
+            <CategorySection
+              key={section.key}
+              title={section.title}
+              count={section.tasks.length}
+              accentColor={section.accentColor}
+              expanded={expandedKey === section.key}
+              onToggle={() => toggleSection(section.key)}
+              tasks={section.tasks}
+              date={date}
+              canManage
+              onToggleComplete={handleToggleComplete}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+          ))}
         </View>
       )}
     </ScrollView>
@@ -202,5 +228,5 @@ const styles = StyleSheet.create({
   filtersHeaderLabel: { fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5 },
   clearLabel: { fontSize: 13 },
   skeletons: { gap: 12 },
-  sections: { gap: 24 },
+  sections: { gap: 12 },
 });
