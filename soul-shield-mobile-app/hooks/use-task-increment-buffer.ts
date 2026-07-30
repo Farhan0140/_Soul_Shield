@@ -25,6 +25,7 @@ export function useTaskIncrementBuffer({
   const pendingRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const flushRef = useRef<() => void>(() => {});
+  const isFlushingRef = useRef(false);
   const queryClient = useQueryClient();
   const incrementMutation = useIncrementTask();
 
@@ -39,15 +40,26 @@ export function useTaskIncrementBuffer({
 
   const flush = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
+    // A prior flush's mutation is still in flight (or paused offline by
+    // onlineManager) — leave its buffered amount displayed as pending rather
+    // than double-submitting; onSettled below will re-flush any newly
+    // buffered taps once it resolves.
+    if (isFlushingRef.current) return;
     const amount = pendingRef.current;
     if (amount <= 0) return;
-    pendingRef.current = 0;
-    setPending(0);
+    isFlushingRef.current = true;
 
     incrementMutation.mutate(
       { taskId, amount, date },
       {
         onSuccess: (data) => {
+          // Only now — once the server has actually confirmed the amount —
+          // do we remove it from the unconfirmed buffer. Clearing it earlier
+          // (e.g. immediately on dispatch) makes the counter visibly revert
+          // to the stale server value while offline, since a paused mutation
+          // doesn't call onSuccess/onError until connectivity returns.
+          pendingRef.current -= amount;
+          setPending(pendingRef.current);
           // The backend's increment response (CompletionResponse) doesn't include the
           // updated progress_count, only status — so the new count is computed from the
           // amount we just sent rather than read off the response.
@@ -64,11 +76,10 @@ export function useTaskIncrementBuffer({
             queryClient.invalidateQueries({ queryKey: queryKeys.tasks(date) });
           }
         },
-        onError: () => {
-          // Re-buffer rather than silently drop the taps, and retry on the next flush window.
-          pendingRef.current += amount;
-          setPending(pendingRef.current);
-          scheduleFlush();
+        onSettled: () => {
+          isFlushingRef.current = false;
+          // Taps buffered while this mutation was in flight/paused still need to go out.
+          if (pendingRef.current > 0) scheduleFlush();
         },
       }
     );

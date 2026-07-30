@@ -47,12 +47,12 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
+    "owner": "farhannadims-team",
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "0ea94208-da3d-40ca-88f3-d60fd664ac16"
+        "projectId": "3ef35756-5b07-4ad0-870d-76e4c06494a2"
       }
-    },
-    "owner": "farhannadims-team"
+    }
   }
 }
