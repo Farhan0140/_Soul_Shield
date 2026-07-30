@@ -71,7 +71,8 @@ export interface TaskMutationResponse {
 }
 
 /** Shape returned by POST /tasks/{id}/complete and POST /tasks/{id}/increment
- * (both reuse CompletionResponse on the backend — note there is no progress_count here). */
+ * (both reuse CompletionResponse on the backend — note there is no progress_count here,
+ * only reward_text once the completion reaches 'completed' status). */
 export interface CompletionResponse {
   id: number;
   task_id?: number;
@@ -79,4 +80,5 @@ export interface CompletionResponse {
   date: string;
   status: TaskStatus;
   completed_at?: string;
+  reward_text?: string;
 }

@@ -1002,6 +1002,10 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 10
                 },
+                "reward_text": {
+                    "type": "string",
+                    "example": "Alhamdulillah! +1 for jannah"
+                },
                 "status": {
                     "type": "string",
                     "example": "completed"

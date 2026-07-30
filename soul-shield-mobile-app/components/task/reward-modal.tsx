@@ -8,10 +8,11 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 interface RewardModalProps {
   visible: boolean;
   text: string;
+  taskTitle?: string;
   onClose: () => void;
 }
 
-export function RewardModal({ visible, text, onClose }: RewardModalProps) {
+export function RewardModal({ visible, text, taskTitle, onClose }: RewardModalProps) {
   const cardColor = useThemeColor({}, 'card');
   const success = useThemeColor({}, 'success');
   const mutedColor = useThemeColor({}, 'muted');
@@ -34,9 +35,25 @@ export function RewardModal({ visible, text, onClose }: RewardModalProps) {
           <ThemedText type="subtitle" style={styles.title}>
             Well done!
           </ThemedText>
-          <ThemedText selectable style={[styles.text, { color: mutedColor }]}>
-            {text}
-          </ThemedText>
+          {taskTitle ? (
+            <ThemedText style={[styles.taskTitle, { color: mutedColor }]} numberOfLines={1}>
+              {taskTitle}
+            </ThemedText>
+          ) : null}
+          <View style={[styles.textCard, { backgroundColor: `${success}14`, borderColor: `${success}33` }]}>
+            <ThemedText selectable style={[styles.text, { color: success }]}>
+              {text}
+            </ThemedText>
+          </View>
+
+          <Pressable
+            onPress={onClose}
+            style={({ pressed }) => [
+              styles.ctaButton,
+              { backgroundColor: success, opacity: pressed ? 0.85 : 1 },
+            ]}>
+            <ThemedText style={styles.ctaLabel}>Nice!</ThemedText>
+          </Pressable>
         </Animated.View>
       </Animated.View>
     </Modal>
@@ -75,5 +92,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: { textAlign: 'center' },
-  text: { textAlign: 'center', fontSize: 15 },
+  taskTitle: { textAlign: 'center', fontSize: 13, marginTop: -8 },
+  textCard: {
+    width: '100%',
+    borderWidth: 1,
+    borderRadius: 16,
+    borderCurve: 'continuous',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  text: { textAlign: 'center', fontSize: 15, fontWeight: '600' },
+  ctaButton: {
+    width: '100%',
+    borderRadius: 14,
+    borderCurve: 'continuous',
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  ctaLabel: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });

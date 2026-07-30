@@ -80,6 +80,9 @@ type TaskCompletion struct {
 	ProgressCount     int32         `db:"progress_count" json:"progress_count"`
 	CompletedAt       sql.NullTime  `db:"completed_at" json:"completed_at,omitempty"`
 	CreatedAt         time.Time     `db:"created_at" json:"created_at"`
+
+	// RewardText শুধু status completed হলেই সেট করা হয় (Complete/Increment এ, tasks.reward_text থেকে)
+	RewardText *string `db:"-" json:"reward_text,omitempty"`
 }
 
 // TaskWithStatus - handler কে যা রিটার্ন করা হবে (task + একটা নির্দিষ্ট দিনের status একসাথে)

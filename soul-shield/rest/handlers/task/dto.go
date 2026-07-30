@@ -112,6 +112,7 @@ type CompletionResponse struct {
 	Date        string     `json:"date" example:"2026-07-04"`
 	Status      string     `json:"status" example:"completed"`
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
+	RewardText  *string    `json:"reward_text,omitempty" example:"Alhamdulillah! +1 for jannah"`
 }
 
 type SuccessResponse struct {

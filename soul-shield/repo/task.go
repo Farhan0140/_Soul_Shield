@@ -420,6 +420,12 @@ func (r *taskRepo) Complete(taskID int64, userID int64, date time.Time) (*TaskCo
 	if err != nil {
 		return nil, err
 	}
+
+	if completion.Status == util.StatusCompleted && task.RewardText.Valid {
+		rewardText := task.RewardText.String
+		completion.RewardText = &rewardText
+	}
+
 	return &completion, nil
 }
 
@@ -496,6 +502,11 @@ func (r *taskRepo) Increment(taskID int64, userID int64, date time.Time, amount 
 
 	if err := tx.Commit(); err != nil {
 		return nil, err
+	}
+
+	if completion.Status == util.StatusCompleted && task.RewardText.Valid {
+		rewardText := task.RewardText.String
+		completion.RewardText = &rewardText
 	}
 
 	return &completion, nil

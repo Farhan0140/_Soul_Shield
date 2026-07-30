@@ -2,13 +2,14 @@ import { m, AnimatePresence } from 'framer-motion';
 import { Plus, Zap } from 'lucide-react';
 import { useCounter } from '../hooks/useCounter';
 
-export default function CounterWidget({ task, date, onUpdate }) {
+export default function CounterWidget({ task, date, onUpdate, onRewardEarned }) {
   const { localProgress, increment } = useCounter(
     task.task_id,
     task.progress_count,
     task.target_count,
     date,
-    onUpdate
+    onUpdate,
+    onRewardEarned
   );
 
   const pct = Math.min(100, (localProgress / task.target_count) * 100);

@@ -4,7 +4,7 @@ import { fmtDate } from './useTasks';
 
 // Each counter task gets its own hook instance.
 // Taps accumulate locally; we flush to the server after inactivity or on unmount.
-export function useCounter(taskId, initialProgress, targetCount, date, onUpdate) {
+export function useCounter(taskId, initialProgress, targetCount, date, onUpdate, onRewardEarned) {
   const [localProgress, setLocalProgress] = useState(initialProgress || 0);
   const pendingRef = useRef(0);
   const timerRef = useRef(null);
@@ -32,6 +32,9 @@ export function useCounter(taskId, initialProgress, targetCount, date, onUpdate)
         reward_text: res.reward_text,
       });
       setLocalProgress(res.progress_count ?? (localProgress + amount));
+      if (res.status === 'completed' && res.reward_text) {
+        onRewardEarned?.(res.reward_text);
+      }
     } catch (err) {
       // Rollback on failure
       setLocalProgress(p => Math.max(0, p - amount));
@@ -40,7 +43,7 @@ export function useCounter(taskId, initialProgress, targetCount, date, onUpdate)
     } finally {
       syncingRef.current = false;
     }
-  }, [taskId, date, localProgress, onUpdate, incrementCounter]);
+  }, [taskId, date, localProgress, onUpdate, onRewardEarned, incrementCounter]);
 
   const scheduleFlush = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);

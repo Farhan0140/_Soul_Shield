@@ -53,11 +53,33 @@ export function TaskCard({
 
   const [showRewardModal, setShowRewardModal] = useState(false);
   const prevStatusRef = useRef(task.status);
+  // Completing a task optimistically flips status to 'completed' before the
+  // server confirms it, so reward_text (which only exists once the mutation
+  // response — or the list refetch it triggers — comes back) can arrive one
+  // or more renders later, after the status transition already happened.
+  // This tracks "we're still waiting on reward_text for the completion that
+  // just occurred" independently of the status transition itself, so the
+  // modal fires whenever the text catches up rather than only in the one
+  // render where status flips.
+  const awaitingRewardRef = useRef(false);
 
   useEffect(() => {
-    if (prevStatusRef.current !== 'completed' && task.status === 'completed' && task.reward_text) {
+    const wasCompleted = prevStatusRef.current === 'completed';
+    const isCompleted = task.status === 'completed';
+
+    if (!wasCompleted && isCompleted) {
+      if (task.reward_text) {
+        setShowRewardModal(true);
+      } else {
+        awaitingRewardRef.current = true;
+      }
+    } else if (isCompleted && awaitingRewardRef.current && task.reward_text) {
       setShowRewardModal(true);
+      awaitingRewardRef.current = false;
+    } else if (!isCompleted) {
+      awaitingRewardRef.current = false;
     }
+
     prevStatusRef.current = task.status;
   }, [task.status, task.reward_text]);
 
@@ -126,6 +148,7 @@ export function TaskCard({
         <RewardModal
           visible={showRewardModal}
           text={task.reward_text}
+          taskTitle={task.title}
           onClose={() => setShowRewardModal(false)}
         />
       ) : null}

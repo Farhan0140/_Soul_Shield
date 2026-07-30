@@ -76,5 +76,6 @@ func toCompletionResponse(c *repo.TaskCompletion) CompletionResponse {
 		Date:        c.TaskDate.Format("2006-01-02"),
 		Status:      c.Status,
 		CompletedAt: completedAt,
+		RewardText:  c.RewardText,
 	}
 }

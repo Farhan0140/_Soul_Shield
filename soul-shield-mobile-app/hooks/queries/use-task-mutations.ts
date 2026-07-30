@@ -89,6 +89,19 @@ export function useCompleteTask() {
       );
       return { previous, date };
     },
+    onSuccess: (data, { taskId, date }) => {
+      // Apply the server-confirmed status + reward_text directly, rather than
+      // waiting on the onSettled invalidate/refetch below — reward_text only
+      // ever arrives via this response (or the refetch it lags behind), so
+      // patching it here is what lets the reward modal fire promptly.
+      queryClient.setQueryData<Task[]>(queryKeys.tasks(date), (old) =>
+        old?.map((t) =>
+          t.task_id === taskId
+            ? { ...t, status: data.status, reward_text: data.status === 'completed' ? data.reward_text : undefined }
+            : t
+        )
+      );
+    },
     onError: (_err, _vars, context) => {
       if (context?.previous) {
         queryClient.setQueryData(queryKeys.tasks(context.date), context.previous);

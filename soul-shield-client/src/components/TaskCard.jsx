@@ -6,12 +6,14 @@ import { useToast } from './Toast';
 import { useAuth } from '../context/AuthContext';
 import { fmtDate } from '../hooks/useTasks';
 import CounterWidget from './CounterWidget';
+import RewardModal from './RewardModal';
 
 export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isReadOnly = false }) {
   const { user } = useAuth();
   const { completeTask, deleteTask } = useApi();
   const toast = useToast();
   const [completing, setCompleting] = useState(false);
+  const [rewardText, setRewardText] = useState(null);
 
   const isCounter = task.task_type === 'counter';
   const isCompleted = task.status === 'completed';
@@ -29,6 +31,7 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
     try {
       const res = await completeTask(task.task_id, fmtDate(date));
       onUpdate({ ...res, status: 'completed', reward_text: res.reward_text });
+      if (res.reward_text) setRewardText(res.reward_text);
       toast.success('Nice work! 🎉');
     } catch (err) {
       toast.error(err.message);
@@ -121,7 +124,12 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
 
       {/* Counter widget */}
       {isCounter && (
-        <CounterWidget task={task} date={date} onUpdate={handleCounterUpdate} />
+        <CounterWidget
+          task={task}
+          date={date}
+          onUpdate={handleCounterUpdate}
+          onRewardEarned={setRewardText}
+        />
       )}
 
       {/* Reward text (completed normal tasks) */}
@@ -165,6 +173,13 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
           </m.button>
         </div>
       )}
+
+      <RewardModal
+        open={!!rewardText}
+        text={rewardText}
+        taskTitle={task.title}
+        onClose={() => setRewardText(null)}
+      />
     </m.div>
   );
 }

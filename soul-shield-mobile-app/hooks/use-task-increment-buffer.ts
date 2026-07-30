@@ -62,19 +62,20 @@ export function useTaskIncrementBuffer({
           setPending(pendingRef.current);
           // The backend's increment response (CompletionResponse) doesn't include the
           // updated progress_count, only status — so the new count is computed from the
-          // amount we just sent rather than read off the response.
+          // amount we just sent rather than read off the response. reward_text, on the
+          // other hand, comes straight from the response once status is 'completed'.
           queryClient.setQueryData<Task[]>(queryKeys.tasks(date), (old) =>
             old?.map((t) =>
               t.task_id === taskId
-                ? { ...t, progress_count: (t.progress_count ?? 0) + amount, status: data.status }
+                ? {
+                    ...t,
+                    progress_count: (t.progress_count ?? 0) + amount,
+                    status: data.status,
+                    reward_text: data.status === 'completed' ? data.reward_text : t.reward_text,
+                  }
                 : t
             )
           );
-          if (data.status === 'completed') {
-            // ...and it doesn't include reward_text either; refetch in the background to
-            // pick it up without disrupting the already-patched UI.
-            queryClient.invalidateQueries({ queryKey: queryKeys.tasks(date) });
-          }
         },
         onSettled: () => {
           isFlushingRef.current = false;

@@ -80,6 +80,9 @@ definitions:
       id:
         example: 10
         type: integer
+      reward_text:
+        example: Alhamdulillah! +1 for jannah
+        type: string
       status:
         example: completed
         type: string
