@@ -119,6 +119,10 @@ definitions:
         - custom
         example: custom
         type: string
+      reminder_time:
+        description: optional, "HH:MM" 24-hour format
+        example: "18:30"
+        type: string
       reward_text:
         example: Alhamdulillah! +1 for jannah
         type: string
@@ -215,7 +219,13 @@ definitions:
         type: boolean
       progress_count:
         type: integer
+      recurrence_days:
+        items:
+          type: integer
+        type: array
       recurrence_type:
+        type: string
+      reminder_time:
         type: string
       reward_text:
         type: string
@@ -248,6 +258,9 @@ definitions:
         - daily
         - weekly
         - custom
+        type: string
+      reminder_time:
+        description: '"HH:MM" 24-hour format, empty string clears it'
         type: string
       reward_text:
         type: string

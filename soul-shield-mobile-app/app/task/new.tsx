@@ -7,6 +7,7 @@ import { useAuth } from '@/context/auth-context';
 import { useCreateTask } from '@/hooks/queries/use-task-mutations';
 import { useNetworkStatus } from '@/hooks/use-network-status';
 import { getErrorMessage } from '@/lib/errors';
+import { scheduleTaskReminders } from '@/lib/notifications';
 
 export default function NewTaskScreen() {
   const { global } = useLocalSearchParams<{ global?: string }>();
@@ -20,8 +21,18 @@ export default function NewTaskScreen() {
   // TaskForm always emits a fully-populated TaskInput in create mode.
   const handleSubmit = (input: TaskInput | TaskUpdateInput) => {
     setError(null);
-    createTask.mutate(input as TaskInput, {
-      onSuccess: () => router.back(),
+    const fullInput = input as TaskInput;
+    createTask.mutate(fullInput, {
+      onSuccess: (data) => {
+        scheduleTaskReminders({
+          task_id: data.id,
+          title: fullInput.title,
+          reminder_time: fullInput.reminder_time,
+          recurrence_days: fullInput.recurrence_days,
+          is_active: true,
+        });
+        router.back();
+      },
       onError: (err) => setError(getErrorMessage(err)),
     });
     // Offline: the mutation queues silently rather than resolving, so don't

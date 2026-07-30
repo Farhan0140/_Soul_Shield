@@ -43,12 +43,21 @@ func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.ReminderTime != nil && *req.ReminderTime != "" && !reminderTimePattern.MatchString(*req.ReminderTime) {
+		util.SendError(w, map[string]string{"error": util.ErrInvalidReminderTime.Error()}, http.StatusBadRequest)
+		return
+	}
+
 	updates := repo.TaskUpdate{
 		Title:          req.Title,
 		Description:    req.Description,
 		RecurrenceType: req.RecurrenceType,
 		RecurrenceDays: req.RecurrenceDays,
 		IsActive:       req.IsActive,
+		CategoryID:     req.CategoryID,
+		RewardText:     req.RewardText,
+		TargetCount:    req.TargetCount,
+		ReminderTime:   req.ReminderTime,
 	}
 
 	updated, err := h.taskRepo.Update(id, updates, userID, role)
@@ -59,6 +68,10 @@ func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 		case util.ErrForbidden:
 			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusForbidden)
 		case util.ErrInvalidRecurrence:
+			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
+		case util.ErrCategoryNotFound:
+			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
+		case util.ErrInvalidCounterTarget:
 			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
 		default:
 			util.SendError(w, map[string]string{"error": "Failed to update task"}, http.StatusInternalServerError)

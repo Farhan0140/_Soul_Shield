@@ -35,6 +35,7 @@ type Task struct {
 	RewardText     sql.NullString `db:"reward_text" json:"reward_text,omitempty"`
 	TaskType       string         `db:"task_type" json:"task_type"`
 	TargetCount    sql.NullInt32  `db:"target_count" json:"target_count,omitempty"`
+	ReminderTime   sql.NullString `db:"reminder_time" json:"reminder_time,omitempty"`
 	CreatedAt      time.Time      `db:"created_at" json:"created_at"`
 	UpdatedAt      time.Time      `db:"updated_at" json:"updated_at"`
 }
@@ -57,6 +58,7 @@ type TaskUpdate struct {
 	CategoryID     *int64 // 0 দিলে uncategorize করা হবে বলে ধরবো (handler এ চেক করবো)
 	RewardText     *string
 	TargetCount    *int32
+	ReminderTime   *string
 }
 
 // type TaskCompletion struct {
@@ -116,6 +118,9 @@ type TaskWithStatus struct {
 	TaskType      string `json:"task_type"`
 	TargetCount   *int32 `json:"target_count,omitempty"`
 	ProgressCount int32  `json:"progress_count"`
+
+	RecurrenceDays []int64 `json:"recurrence_days,omitempty"`
+	ReminderTime   *string `json:"reminder_time,omitempty"`
 }
 
 // User Model

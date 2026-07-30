@@ -16,6 +16,7 @@ import { ApiError } from '@/lib/errors';
 import { queryKeys } from '@/lib/query-keys';
 import { setUnauthorizedHandler } from '@/lib/query-client';
 import { cachedUserStore, tokenStore } from '@/lib/secure-store';
+import { cancelAllTaskReminders } from '@/lib/notifications';
 
 type AuthStatus = 'loading' | 'signedIn' | 'signedOut';
 
@@ -88,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     await tokenStore.removeToken();
     await cachedUserStore.clear();
+    await cancelAllTaskReminders();
     setToken(null);
     setCachedUser(null);
     queryClient.clear();

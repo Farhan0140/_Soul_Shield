@@ -15,9 +15,7 @@ export type RecurrenceType = 'daily' | 'weekly' | 'custom';
 export type TaskType = 'normal' | 'counter';
 export type TaskStatus = 'pending' | 'completed' | 'missed';
 
-/** Shape returned by GET /tasks and GET /tasks/history (TaskWithStatusResponse on the backend).
- * Note: recurrence_days is NOT included here — the backend only returns it from the
- * create/update endpoints (see TaskMutationResponse), so it's unknown for list/history items. */
+/** Shape returned by GET /tasks and GET /tasks/history (TaskWithStatusResponse on the backend). */
 export interface Task {
   task_id: number;
   title: string;
@@ -35,6 +33,8 @@ export interface Task {
   target_count: number | null;
   progress_count: number | null;
   is_active?: boolean;
+  /** "HH:MM" 24-hour local time the task should remind at, on each of its recurrence_days. */
+  reminder_time?: string | null;
 }
 
 export interface TaskInput {
@@ -47,6 +47,8 @@ export interface TaskInput {
   reward_text?: string;
   task_type: TaskType;
   target_count?: number;
+  /** "HH:MM" 24-hour, or "" to clear an existing reminder. */
+  reminder_time?: string;
 }
 
 export type TaskUpdateInput = Partial<

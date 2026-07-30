@@ -66,9 +66,9 @@ func (r *taskRepo) Create(task Task) (*Task, error) {
 		INSERT INTO tasks (
 			title, description, is_global, owner_id,
 			recurrence_type, recurrence_days, created_by,
-			category_id, reward_text, task_type, target_count
+			category_id, reward_text, task_type, target_count, reminder_time
 		)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
 		RETURNING id, is_active, created_at, updated_at
 	`
 
@@ -76,7 +76,7 @@ func (r *taskRepo) Create(task Task) (*Task, error) {
 		query,
 		task.Title, task.Description, task.IsGlobal, task.OwnerID,
 		task.RecurrenceType, task.RecurrenceDays, task.CreatedBy,
-		task.CategoryID, task.RewardText, task.TaskType, task.TargetCount,
+		task.CategoryID, task.RewardText, task.TaskType, task.TargetCount, task.ReminderTime,
 	)
 
 	err := row.Scan(&task.ID, &task.IsActive, &task.CreatedAt, &task.UpdatedAt)
@@ -120,6 +120,35 @@ func (r *taskRepo) Update(id int64, updates TaskUpdate, requestingUserID int64, 
 		existing.IsActive = *updates.IsActive
 	}
 
+	if updates.CategoryID != nil {
+		if *updates.CategoryID == 0 {
+			existing.CategoryID = sql.NullInt64{}
+		} else {
+			cat, err := r.getCategoryForValidation(*updates.CategoryID)
+			if err != nil {
+				return nil, err
+			}
+			if !existing.IsGlobal && (!existing.OwnerID.Valid || cat.OwnerID != existing.OwnerID.Int64) {
+				return nil, util.ErrForbidden
+			}
+			existing.CategoryID = sql.NullInt64{Int64: *updates.CategoryID, Valid: true}
+		}
+	}
+	if updates.RewardText != nil {
+		existing.RewardText = sql.NullString{String: *updates.RewardText, Valid: *updates.RewardText != ""}
+	}
+	if updates.TargetCount != nil {
+		if existing.TaskType == "counter" {
+			if *updates.TargetCount <= 0 {
+				return nil, util.ErrInvalidCounterTarget
+			}
+			existing.TargetCount = sql.NullInt32{Int32: *updates.TargetCount, Valid: true}
+		}
+	}
+	if updates.ReminderTime != nil {
+		existing.ReminderTime = sql.NullString{String: *updates.ReminderTime, Valid: *updates.ReminderTime != ""}
+	}
+
 	query := `
 		UPDATE tasks
 		SET title = $1,
@@ -127,8 +156,12 @@ func (r *taskRepo) Update(id int64, updates TaskUpdate, requestingUserID int64, 
 		    recurrence_type = $3,
 		    recurrence_days = $4,
 		    is_active = $5,
+		    category_id = $6,
+		    reward_text = $7,
+		    target_count = $8,
+		    reminder_time = $9,
 		    updated_at = CURRENT_TIMESTAMP
-		WHERE id = $6
+		WHERE id = $10
 		RETURNING updated_at
 	`
 
@@ -139,6 +172,10 @@ func (r *taskRepo) Update(id int64, updates TaskUpdate, requestingUserID int64, 
 		existing.RecurrenceType,
 		existing.RecurrenceDays,
 		existing.IsActive,
+		existing.CategoryID,
+		existing.RewardText,
+		existing.TargetCount,
+		existing.ReminderTime,
 		existing.ID,
 	).Scan(&existing.UpdatedAt)
 
@@ -188,7 +225,7 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 			t.id, t.title, t.description, t.is_global, t.recurrence_type,
 			t.task_type, t.target_count,
 			c.id AS cat_id, c.name AS cat_name, c.color_hex AS cat_color,
-			t.reward_text,
+			t.reward_text, t.recurrence_days, t.reminder_time,
 			tc.status, tc.completed_at, tc.progress_count
 		FROM tasks t
 		LEFT JOIN categories c ON c.id = t.category_id
@@ -211,19 +248,20 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 
 	for rows.Next() {
 		var item TaskWithStatus
-		var desc, rewardText sql.NullString
+		var desc, rewardText, reminderTime sql.NullString
 		var status sql.NullString
 		var completedAt sql.NullTime
 		var catID sql.NullInt64
 		var catName, catColor sql.NullString
 		var targetCount sql.NullInt32
 		var progressCount sql.NullInt32
+		var recurrenceDays pq.Int64Array
 
 		err := rows.Scan(
 			&item.TaskID, &item.Title, &desc, &item.IsGlobal, &item.RecurrenceType,
 			&item.TaskType, &targetCount,
 			&catID, &catName, &catColor,
-			&rewardText,
+			&rewardText, &recurrenceDays, &reminderTime,
 			&status, &completedAt, &progressCount,
 		)
 		if err != nil {
@@ -232,6 +270,11 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 
 		item.Description = desc.String
 		item.Date = dateStr
+		item.RecurrenceDays = []int64(recurrenceDays)
+		if reminderTime.Valid {
+			rt := reminderTime.String
+			item.ReminderTime = &rt
+		}
 
 		if status.Valid {
 			item.Status = status.String
@@ -282,7 +325,7 @@ func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithSta
 			d.day, t.id, t.title, t.description, t.is_global, t.recurrence_type,
 			t.task_type, t.target_count,
 			c.id AS cat_id, c.name AS cat_name, c.color_hex AS cat_color,
-			t.reward_text,
+			t.reward_text, t.recurrence_days, t.reminder_time,
 			tc.status, tc.completed_at, tc.progress_count
 		FROM generate_series($1::date, $2::date, interval '1 day') AS d(day)
 		JOIN tasks t
@@ -307,19 +350,20 @@ func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithSta
 	for rows.Next() {
 		var item TaskWithStatus
 		var day time.Time
-		var desc, rewardText sql.NullString
+		var desc, rewardText, reminderTime sql.NullString
 		var status sql.NullString
 		var completedAt sql.NullTime
 		var catID sql.NullInt64
 		var catName, catColor sql.NullString
 		var targetCount sql.NullInt32
 		var progressCount sql.NullInt32
+		var recurrenceDays pq.Int64Array
 
 		err := rows.Scan(
 			&day, &item.TaskID, &item.Title, &desc, &item.IsGlobal, &item.RecurrenceType,
 			&item.TaskType, &targetCount,
 			&catID, &catName, &catColor,
-			&rewardText,
+			&rewardText, &recurrenceDays, &reminderTime,
 			&status, &completedAt, &progressCount,
 		)
 		if err != nil {
@@ -328,6 +372,11 @@ func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithSta
 
 		item.Description = desc.String
 		item.Date = day.Format("2006-01-02")
+		item.RecurrenceDays = []int64(recurrenceDays)
+		if reminderTime.Valid {
+			rt := reminderTime.String
+			item.ReminderTime = &rt
+		}
 
 		// status না থাকলে (মানে কোনো completion row নাই): তারিখটা আজকের আগে হলে "missed",
 		// আজকে বা ভবিষ্যতে হলে "pending"

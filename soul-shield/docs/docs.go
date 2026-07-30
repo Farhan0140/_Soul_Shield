@@ -1055,6 +1055,11 @@ const docTemplate = `{
                     ],
                     "example": "custom"
                 },
+                "reminder_time": {
+                    "description": "optional, \"HH:MM\" 24-hour format",
+                    "type": "string",
+                    "example": "18:30"
+                },
                 "reward_text": {
                     "type": "string",
                     "example": "Alhamdulillah! +1 for jannah"
@@ -1191,7 +1196,16 @@ const docTemplate = `{
                 "progress_count": {
                     "type": "integer"
                 },
+                "recurrence_days": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "recurrence_type": {
+                    "type": "string"
+                },
+                "reminder_time": {
                     "type": "string"
                 },
                 "reward_text": {
@@ -1240,6 +1254,10 @@ const docTemplate = `{
                         "weekly",
                         "custom"
                     ]
+                },
+                "reminder_time": {
+                    "description": "\"HH:MM\" 24-hour format, empty string clears it",
+                    "type": "string"
                 },
                 "reward_text": {
                     "type": "string"

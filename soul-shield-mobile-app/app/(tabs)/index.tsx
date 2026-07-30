@@ -18,9 +18,11 @@ import { useAuth } from '@/context/auth-context';
 import { useCategoriesQuery } from '@/hooks/queries/use-categories';
 import { useCompleteTask, useDeleteTask } from '@/hooks/queries/use-task-mutations';
 import { useTasksQuery } from '@/hooks/queries/use-tasks';
+import { useTaskRemindersSync } from '@/hooks/use-task-reminders-sync';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { addDays, todayISODate } from '@/lib/date';
 import { getErrorMessage } from '@/lib/errors';
+import { cancelTaskReminders } from '@/lib/notifications';
 
 const FIXED_SECTION_KEY = 'fixed';
 const UNCATEGORIZED_SECTION_KEY = 'uncategorized';
@@ -49,6 +51,7 @@ export default function HomeScreen() {
   const { data: categories = [] } = useCategoriesQuery();
   const completeTask = useCompleteTask();
   const deleteTask = useDeleteTask(date);
+  useTaskRemindersSync();
 
   const cardColor = useThemeColor({}, 'card');
   const borderColor = useThemeColor({}, 'border');
@@ -153,6 +156,7 @@ export default function HomeScreen() {
         style: 'destructive',
         onPress: () =>
           deleteTask.mutate(task.task_id, {
+            onSuccess: () => cancelTaskReminders(task.task_id),
             onError: (err) => Alert.alert('Could not delete task', getErrorMessage(err)),
           }),
       },

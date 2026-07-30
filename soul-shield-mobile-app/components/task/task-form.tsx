@@ -1,6 +1,7 @@
 import { useHeaderHeight } from '@react-navigation/elements';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState } from 'react';
-import { StyleSheet, Switch, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import type { RecurrenceType, Task, TaskInput, TaskType, TaskUpdateInput } from '@/api/types';
 import { ThemedText } from '@/components/themed-text';
@@ -14,6 +15,22 @@ import { useCategoriesQuery } from '@/hooks/queries/use-categories';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+const DEFAULT_REMINDER_HOUR = 20;
+
+function parseReminderTime(value?: string | null): Date {
+  const date = new Date();
+  const [hour, minute] = (value ?? '').split(':').map(Number);
+  if (Number.isFinite(hour) && Number.isFinite(minute)) {
+    date.setHours(hour, minute, 0, 0);
+  } else {
+    date.setHours(DEFAULT_REMINDER_HOUR, 0, 0, 0);
+  }
+  return date;
+}
+
+function formatReminderTime(date: Date): string {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
 
 interface TaskFormProps {
   initialTask?: Task;
@@ -36,6 +53,8 @@ export function TaskForm({
 }: TaskFormProps) {
   const { data: categories = [] } = useCategoriesQuery();
   const mutedColor = useThemeColor({}, 'muted');
+  const cardColor = useThemeColor({}, 'card');
+  const borderColor = useThemeColor({}, 'border');
   const isEditMode = Boolean(initialTask);
   const headerHeight = useHeaderHeight();
 
@@ -45,9 +64,9 @@ export function TaskForm({
   const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>(
     initialTask?.recurrence_type ?? 'daily'
   );
-  // The list/history endpoints this app reads tasks from don't return recurrence_days,
-  // so when editing a weekly/custom task the real schedule is unknown here — default to
-  // empty rather than guessing, and only send recurrence fields if the user touches them.
+  // recurrence_days may still be unknown for tasks fetched before this field was
+  // added to the list/history response — default to empty rather than guessing,
+  // and only send recurrence fields on edit if the user touches them.
   const [recurrenceDays, setRecurrenceDays] = useState<number[]>(
     initialTask?.recurrence_days ?? (recurrenceType === 'daily' ? ALL_DAYS : [])
   );
@@ -58,6 +77,9 @@ export function TaskForm({
   );
   const [rewardText, setRewardText] = useState(initialTask?.reward_text ?? '');
   const [isGlobal, setIsGlobal] = useState(initialTask?.is_global ?? defaultGlobal ?? false);
+  const [reminderEnabled, setReminderEnabled] = useState(Boolean(initialTask?.reminder_time));
+  const [reminderTime, setReminderTime] = useState(() => parseReminderTime(initialTask?.reminder_time));
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
   const handleRecurrenceChange = (value: RecurrenceType) => {
     setRecurrenceType(value);
@@ -92,6 +114,9 @@ export function TaskForm({
     if (isEditMode) {
       const input: TaskUpdateInput = {
         ...base,
+        // Always sent on edit (unlike create): '' explicitly clears an existing
+        // reminder, so turning the switch off actually removes it server-side.
+        reminder_time: reminderEnabled ? formatReminderTime(reminderTime) : '',
         ...(recurrenceTouched
           ? {
               recurrence_type: recurrenceType,
@@ -106,6 +131,7 @@ export function TaskForm({
         is_global: isAdmin ? isGlobal : false,
         recurrence_type: recurrenceType,
         recurrence_days: recurrenceType === 'daily' ? ALL_DAYS : recurrenceDays,
+        reminder_time: reminderEnabled ? formatReminderTime(reminderTime) : undefined,
       };
       onSubmit(input);
     }
@@ -173,6 +199,40 @@ export function TaskForm({
         placeholder="Optional completion message"
       />
 
+      <View style={styles.field}>
+        <View style={styles.switchRow}>
+          <View style={styles.switchLabel}>
+            <ThemedText type="defaultSemiBold">Remind me</ThemedText>
+            <ThemedText style={{ color: mutedColor }}>
+              Get a notification at this time on each scheduled day.
+            </ThemedText>
+          </View>
+          <Switch value={reminderEnabled} onValueChange={setReminderEnabled} />
+        </View>
+        {reminderEnabled ? (
+          <>
+            <Pressable
+              onPress={() => setShowTimePicker(true)}
+              style={[styles.timeButton, { backgroundColor: cardColor, borderColor }]}>
+              <ThemedText type="defaultSemiBold">
+                {reminderTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+              </ThemedText>
+            </Pressable>
+            {showTimePicker ? (
+              <DateTimePicker
+                value={reminderTime}
+                mode="time"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(_event, selected) => {
+                  if (Platform.OS === 'android') setShowTimePicker(false);
+                  if (selected) setReminderTime(selected);
+                }}
+              />
+            ) : null}
+          </>
+        ) : null}
+      </View>
+
       {isAdmin ? (
         <View style={styles.switchRow}>
           <View style={styles.switchLabel}>
@@ -203,5 +263,13 @@ const styles = StyleSheet.create({
   typeRow: { flexDirection: 'row', gap: 12 },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   switchLabel: { flex: 1, gap: 4 },
+  timeButton: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: 14,
+    borderCurve: 'continuous',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
   error: { color: '#D0342C', fontSize: 14 },
 });

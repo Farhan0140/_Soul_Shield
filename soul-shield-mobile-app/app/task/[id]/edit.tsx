@@ -8,6 +8,7 @@ import { useUpdateTask } from '@/hooks/queries/use-task-mutations';
 import { useNetworkStatus } from '@/hooks/use-network-status';
 import { getErrorMessage } from '@/lib/errors';
 import { todayISODate } from '@/lib/date';
+import { scheduleTaskReminders } from '@/lib/notifications';
 
 export default function EditTaskScreen() {
   const { id, task: taskParam } = useLocalSearchParams<{ id: string; task: string }>();
@@ -32,7 +33,18 @@ export default function EditTaskScreen() {
     updateTask.mutate(
       { id: Number(id), input },
       {
-        onSuccess: () => router.back(),
+        onSuccess: () => {
+          // Merge in case reminder_time was edited without touching recurrence
+          // (recurrence_days is only sent when the user actually changed it).
+          scheduleTaskReminders({
+            task_id: Number(id),
+            title: input.title ?? initialTask?.title ?? '',
+            reminder_time: input.reminder_time ?? initialTask?.reminder_time,
+            recurrence_days: input.recurrence_days ?? initialTask?.recurrence_days,
+            is_active: input.is_active ?? initialTask?.is_active,
+          });
+          router.back();
+        },
         onError: (err) => setError(getErrorMessage(err)),
       }
     );

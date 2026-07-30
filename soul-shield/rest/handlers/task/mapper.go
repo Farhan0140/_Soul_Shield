@@ -52,6 +52,9 @@ func toTaskWithStatusResponse(t repo.TaskWithStatus) TaskWithStatusResponse {
 		TaskType:      t.TaskType,
 		TargetCount:   t.TargetCount,
 		ProgressCount: t.ProgressCount,
+
+		RecurrenceDays: t.RecurrenceDays,
+		ReminderTime:   t.ReminderTime,
 	}
 }
 

@@ -11,10 +11,11 @@ type CreateTaskRequest struct {
 	RecurrenceDays []int64 `json:"recurrence_days" example:"1,3,5"`
 	IsGlobal       bool    `json:"is_global" example:"false"`
 
-	CategoryID  *int64 `json:"category_id,omitempty" example:"1"`
-	RewardText  string `json:"reward_text,omitempty" example:"Alhamdulillah! +1 for jannah"`
-	TaskType    string `json:"task_type,omitempty" example:"normal" enums:"normal,counter"`
-	TargetCount *int32 `json:"target_count,omitempty" example:"100"` // task_type=counter হলে required
+	CategoryID   *int64  `json:"category_id,omitempty" example:"1"`
+	RewardText   string  `json:"reward_text,omitempty" example:"Alhamdulillah! +1 for jannah"`
+	TaskType     string  `json:"task_type,omitempty" example:"normal" enums:"normal,counter"`
+	TargetCount  *int32  `json:"target_count,omitempty" example:"100"`    // task_type=counter হলে required
+	ReminderTime *string `json:"reminder_time,omitempty" example:"18:30"` // optional, "HH:MM" 24-hour format
 }
 
 type UpdateTaskRequest struct {
@@ -26,6 +27,7 @@ type UpdateTaskRequest struct {
 	CategoryID     *int64   `json:"category_id,omitempty"` // 0 পাঠালে uncategorize হবে
 	RewardText     *string  `json:"reward_text,omitempty"`
 	TargetCount    *int32   `json:"target_count,omitempty"`
+	ReminderTime   *string  `json:"reminder_time,omitempty"` // "HH:MM" 24-hour format, empty string clears it
 }
 
 type IncrementTaskRequest struct {
@@ -54,8 +56,6 @@ type CompleteTaskRequest struct {
 	// না দিলে আজকের তারিখ ধরা হবে; format: YYYY-MM-DD
 	Date string `json:"date,omitempty" example:"2026-07-04"`
 }
-
-
 
 // ---- Response DTOs ----
 
@@ -92,6 +92,9 @@ type TaskWithStatusResponse struct {
 	TaskType      string `json:"task_type"`
 	TargetCount   *int32 `json:"target_count,omitempty"`
 	ProgressCount int32  `json:"progress_count"`
+
+	RecurrenceDays []int64 `json:"recurrence_days,omitempty"`
+	ReminderTime   *string `json:"reminder_time,omitempty"`
 }
 
 // type TaskWithStatusResponse struct {

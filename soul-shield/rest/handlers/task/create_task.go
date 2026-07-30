@@ -3,9 +3,12 @@ package task
 import (
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"soulsheld/repo"
 	"soulsheld/util"
 )
+
+var reminderTimePattern = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`)
 
 // CreateTask godoc
 //
@@ -66,6 +69,11 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.ReminderTime != nil && *req.ReminderTime != "" && !reminderTimePattern.MatchString(*req.ReminderTime) {
+		util.SendError(w, map[string]string{"error": util.ErrInvalidReminderTime.Error()}, http.StatusBadRequest)
+		return
+	}
+
 	// ---- repo.Task বানানো ----
 	newTask := repo.Task{
 		Title:          req.Title,
@@ -82,6 +90,12 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	// RewardText ও optional
 	newTask.RewardText.String = req.RewardText
 	newTask.RewardText.Valid = req.RewardText != ""
+
+	// ReminderTime ও optional
+	if req.ReminderTime != nil {
+		newTask.ReminderTime.String = *req.ReminderTime
+		newTask.ReminderTime.Valid = *req.ReminderTime != ""
+	}
 
 	// personal task হলে (is_global=false) owner_id বসবে যেই লগিন করা আছে তার id
 	if !req.IsGlobal {
