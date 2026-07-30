@@ -9,15 +9,15 @@ import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 
 const STEPS = [
-  { key: 'email', title: 'Reset your password', subtitle: "Enter your email and we'll send you a code." },
-  { key: 'otp',   title: 'Verify it\'s you',    subtitle: "Enter the 6-digit code we just emailed you." },
+  { key: 'email', title: 'Reset your password', subtitle: "Enter your email to continue." },
+  // { key: 'otp',   title: 'Verify it\'s you',    subtitle: "Enter the 6-digit code we just emailed you." },
   { key: 'new',   title: 'Pick a new password', subtitle: "Choose something strong — and different from the last one." },
 ];
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
   const toast = useToast();
-  const { sendOtp, verifyOtp, resetPassword } = useApi();
+  const { /* sendOtp, verifyOtp, */ resetPassword } = useApi();
 
   const [step, setStep] = useState(0);
   const [email, setEmail] = useState('');
@@ -41,11 +41,11 @@ export default function ForgotPassword() {
     setErrors({});
     setLoading(true);
     try {
-      await sendOtp(email);
-      toast.success("Code sent! Check your inbox 📬");
+      // await sendOtp(email);
+      // toast.success("Code sent! Check your inbox 📬");
       setStep(1);
-      setCooldown(60);
-      setTimeout(() => otpRefs.current[0]?.focus(), 100);
+      // setCooldown(60);
+      // setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (err) {
       setErrors({ email: err.message });
     } finally {
@@ -53,41 +53,41 @@ export default function ForgotPassword() {
     }
   };
 
-  const handleOtpChange = (i, val) => {
-    if (!/^\d?$/.test(val)) return;
-    const next = [...otp];
-    next[i] = val;
-    setOtp(next);
-    if (val && i < 5) otpRefs.current[i + 1]?.focus();
-  };
-  const handleOtpKeyDown = (i, e) => {
-    if (e.key === 'Backspace' && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
-  };
-  const handlePaste = (e) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    const next = [...otp];
-    pasted.split('').forEach((ch, i) => (next[i] = ch));
-    setOtp(next);
-    otpRefs.current[Math.min(pasted.length, 5)]?.focus();
-  };
+  // const handleOtpChange = (i, val) => {
+  //   if (!/^\d?$/.test(val)) return;
+  //   const next = [...otp];
+  //   next[i] = val;
+  //   setOtp(next);
+  //   if (val && i < 5) otpRefs.current[i + 1]?.focus();
+  // };
+  // const handleOtpKeyDown = (i, e) => {
+  //   if (e.key === 'Backspace' && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
+  // };
+  // const handlePaste = (e) => {
+  //   e.preventDefault();
+  //   const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+  //   const next = [...otp];
+  //   pasted.split('').forEach((ch, i) => (next[i] = ch));
+  //   setOtp(next);
+  //   otpRefs.current[Math.min(pasted.length, 5)]?.focus();
+  // };
 
-  const handleVerifyOtp = async (e) => {
-    e?.preventDefault?.();
-    const code = otp.join('');
-    if (code.length !== 6) return setErrors({ otp: "Please enter all 6 digits." });
-    setErrors({});
-    setLoading(true);
-    try {
-      await verifyOtp(email, code);
-      toast.success("Verified! Now set a new password 🔐");
-      setStep(2);
-    } catch (err) {
-      setErrors({ otp: err.message });
-    } finally {
-      setLoading(false);
-    }
-  };
+  // const handleVerifyOtp = async (e) => {
+  //   e?.preventDefault?.();
+  //   const code = otp.join('');
+  //   if (code.length !== 6) return setErrors({ otp: "Please enter all 6 digits." });
+  //   setErrors({});
+  //   setLoading(true);
+  //   try {
+  //     await verifyOtp(email, code);
+  //     toast.success("Verified! Now set a new password 🔐");
+  //     setStep(2);
+  //   } catch (err) {
+  //     setErrors({ otp: err.message });
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   const handleReset = async (e) => {
     e.preventDefault();
@@ -106,16 +106,16 @@ export default function ForgotPassword() {
     }
   };
 
-  const handleResend = async () => {
-    if (cooldown > 0) return;
-    try {
-      await sendOtp(email);
-      toast.success("New code sent!");
-      setCooldown(60);
-    } catch (err) {
-      toast.error(err.message);
-    }
-  };
+  // const handleResend = async () => {
+  //   if (cooldown > 0) return;
+  //   try {
+  //     await sendOtp(email);
+  //     toast.success("New code sent!");
+  //     setCooldown(60);
+  //   } catch (err) {
+  //     toast.error(err.message);
+  //   }
+  // };
 
   const StepIndicator = () => (
     <div className="flex items-center justify-center gap-2 mb-6">
@@ -153,11 +153,12 @@ export default function ForgotPassword() {
               onChange={(e) => setEmail(e.target.value)}
             />
             <Button type="submit" loading={loading} className="w-full">
-              Send reset code <ArrowRight className="w-4 h-4" />
+              Continue <ArrowRight className="w-4 h-4" />
             </Button>
           </m.form>
         )}
 
+        {/* OTP step removed
         {step === 1 && (
           <m.form
             key="otp"
@@ -204,8 +205,9 @@ export default function ForgotPassword() {
             </div>
           </m.form>
         )}
+        */}
 
-        {step === 2 && (
+        {step === 1 && (
           <m.form
             key="new"
             initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
@@ -218,7 +220,7 @@ export default function ForgotPassword() {
               autoComplete="new-password"
             />
             <div className="flex gap-2">
-              <Button type="button" variant="secondary" onClick={() => setStep(1)} className="flex-1">
+              <Button type="button" variant="secondary" onClick={() => setStep(0)} className="flex-1">
                 <ArrowLeft className="w-4 h-4" /> Back
               </Button>
               <Button type="submit" loading={loading} className="flex-1">

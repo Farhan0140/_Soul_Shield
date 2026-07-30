@@ -20,8 +20,8 @@ export function ApiProvider({ children }) {
   const completeTask = (taskId, dateStr) => api.post(`/tasks/${taskId}/complete`, { date: dateStr });
 
   // Auth/OTP APIs
-  const sendOtp = (email) => api.post('/send-otp', { email }, { auth: false });
-  const verifyOtp = (email, otp) => api.post('/verify-otp', { email, otp }, { auth: false });
+  // const sendOtp = (email) => api.post('/send-otp', { email }, { auth: false });
+  // const verifyOtp = (email, otp) => api.post('/verify-otp', { email, otp }, { auth: false });
   const registerUser = (full_name, email, password) => api.post('/users/register', { full_name, email, password }, { auth: false });
   const resetPassword = (email, new_password) => api.post('/users/reset-password', { email, new_password }, { auth: false });
   const getMe = () => api.get('/users/me');
@@ -40,8 +40,8 @@ export function ApiProvider({ children }) {
       deleteTask,
       incrementCounter,
       completeTask,
-      sendOtp,
-      verifyOtp,
+      // sendOtp,
+      // verifyOtp,
       registerUser,
       resetPassword,
       getMe,

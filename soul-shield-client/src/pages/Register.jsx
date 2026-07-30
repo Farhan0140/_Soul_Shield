@@ -10,8 +10,8 @@ import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 
 const STEPS = [
-  { key: 'email',    title: "Let's start with your email",  subtitle: "We'll send a verification code to make sure it's really you." },
-  { key: 'otp',      title: 'Check your inbox',              subtitle: "We sent a 6-digit code. It expires in 5 minutes." },
+  { key: 'email',    title: "Let's start with your email",  subtitle: "Enter your email to get started." },
+  // { key: 'otp',      title: 'Check your inbox',              subtitle: "We sent a 6-digit code. It expires in 5 minutes." },
   { key: 'account',  title: 'Create your account',           subtitle: "Pick a name and a strong password — you're almost there!" },
 ];
 
@@ -19,7 +19,7 @@ export default function Register() {
   const navigate = useNavigate();
   const toast = useToast();
   const { login } = useAuth();
-  const { sendOtp, verifyOtp, registerUser } = useApi();
+  const { /* sendOtp, verifyOtp, */ registerUser } = useApi();
 
   const [step, setStep] = useState(0);
   const [email, setEmail] = useState('');
@@ -38,7 +38,7 @@ export default function Register() {
     return () => clearTimeout(t);
   }, [cooldown]);
 
-  // ---------- STEP 1: Send OTP ----------
+  // ---------- STEP 1: Continue with email (OTP send removed) ----------
   const handleSendOtp = async (e) => {
     e?.preventDefault?.();
     if (!email) return setErrors({ email: "We need your email to continue." });
@@ -46,11 +46,11 @@ export default function Register() {
     setErrors({});
     setLoading(true);
     try {
-      await sendOtp(email);
-      toast.success("Code sent! Check your inbox 📬");
+      // await sendOtp(email);
+      // toast.success("Code sent! Check your inbox 📬");
       setStep(1);
-      setCooldown(60);
-      setTimeout(() => otpRefs.current[0]?.focus(), 100);
+      // setCooldown(60);
+      // setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (err) {
       setErrors({ email: err.message });
     } finally {
@@ -58,53 +58,53 @@ export default function Register() {
     }
   };
 
-  // ---------- STEP 2: Verify OTP ----------
-  const handleOtpChange = (i, val) => {
-    if (!/^\d?$/.test(val)) return;
-    const next = [...otp];
-    next[i] = val;
-    setOtp(next);
-    if (val && i < 5) otpRefs.current[i + 1]?.focus();
-  };
-  const handleOtpKeyDown = (i, e) => {
-    if (e.key === 'Backspace' && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
-  };
-  const handlePaste = (e) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    const next = [...otp];
-    pasted.split('').forEach((ch, i) => (next[i] = ch));
-    setOtp(next);
-    otpRefs.current[Math.min(pasted.length, 5)]?.focus();
-  };
+  // ---------- STEP 2: Verify OTP (removed) ----------
+  // const handleOtpChange = (i, val) => {
+  //   if (!/^\d?$/.test(val)) return;
+  //   const next = [...otp];
+  //   next[i] = val;
+  //   setOtp(next);
+  //   if (val && i < 5) otpRefs.current[i + 1]?.focus();
+  // };
+  // const handleOtpKeyDown = (i, e) => {
+  //   if (e.key === 'Backspace' && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
+  // };
+  // const handlePaste = (e) => {
+  //   e.preventDefault();
+  //   const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+  //   const next = [...otp];
+  //   pasted.split('').forEach((ch, i) => (next[i] = ch));
+  //   setOtp(next);
+  //   otpRefs.current[Math.min(pasted.length, 5)]?.focus();
+  // };
 
-  const handleVerifyOtp = async (e) => {
-    e?.preventDefault?.();
-    const code = otp.join('');
-    if (code.length !== 6) return setErrors({ otp: "Please enter all 6 digits." });
-    setErrors({});
-    setLoading(true);
-    try {
-      await verifyOtp(email, code);
-      toast.success("Email verified! 🎉");
-      setStep(2);
-    } catch (err) {
-      setErrors({ otp: err.message });
-    } finally {
-      setLoading(false);
-    }
-  };
+  // const handleVerifyOtp = async (e) => {
+  //   e?.preventDefault?.();
+  //   const code = otp.join('');
+  //   if (code.length !== 6) return setErrors({ otp: "Please enter all 6 digits." });
+  //   setErrors({});
+  //   setLoading(true);
+  //   try {
+  //     await verifyOtp(email, code);
+  //     toast.success("Email verified! 🎉");
+  //     setStep(2);
+  //   } catch (err) {
+  //     setErrors({ otp: err.message });
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
-  const handleResend = async () => {
-    if (cooldown > 0) return;
-    try {
-      await sendOtp(email);
-      toast.success("New code sent!");
-      setCooldown(60);
-    } catch (err) {
-      toast.error(err.message);
-    }
-  };
+  // const handleResend = async () => {
+  //   if (cooldown > 0) return;
+  //   try {
+  //     await sendOtp(email);
+  //     toast.success("New code sent!");
+  //     setCooldown(60);
+  //   } catch (err) {
+  //     toast.error(err.message);
+  //   }
+  // };
 
   // ---------- STEP 3: Create Account ----------
   const handleCreate = async (e) => {
@@ -169,12 +169,12 @@ export default function Register() {
               autoComplete="email"
             />
             <Button type="submit" loading={loading} className="w-full">
-              Send verification code <ArrowRight className="w-4 h-4" />
+              Continue <ArrowRight className="w-4 h-4" />
             </Button>
           </m.form>
         )}
 
-        {/* ===== STEP 2: OTP ===== */}
+        {/* ===== STEP 2: OTP (removed) =====
         {step === 1 && (
           <m.form
             key="otp"
@@ -223,9 +223,10 @@ export default function Register() {
             </div>
           </m.form>
         )}
+        ===== */}
 
-        {/* ===== STEP 3: Account ===== */}
-        {step === 2 && (
+        {/* ===== STEP 2: Account ===== */}
+        {step === 1 && (
           <m.form
             key="account"
             initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
@@ -252,7 +253,7 @@ export default function Register() {
               autoComplete="new-password"
             />
             <div className="flex gap-2">
-              <Button type="button" variant="secondary" onClick={() => setStep(1)} className="flex-1">
+              <Button type="button" variant="secondary" onClick={() => setStep(0)} className="flex-1">
                 <ArrowLeft className="w-4 h-4" /> Back
               </Button>
               <Button type="submit" loading={loading} className="flex-1">

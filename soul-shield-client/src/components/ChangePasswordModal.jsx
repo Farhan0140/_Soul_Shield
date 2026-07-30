@@ -8,14 +8,14 @@ import Input from './ui/Input';
 import Button from './ui/Button';
 
 const STEPS = [
-  { key: 'send',  title: 'Verify it\'s you',         subtitle: "We'll send a code to your email before changing your password." },
-  { key: 'otp',   title: 'Enter the code',           subtitle: "A 6-digit code just landed in your inbox." },
+  { key: 'send',  title: 'Change your password',     subtitle: "Set a new password for your account." },
+  // { key: 'otp',   title: 'Enter the code',           subtitle: "A 6-digit code just landed in your inbox." },
   { key: 'new',   title: 'Pick a new password',      subtitle: "Choose something strong — and different from the last one." },
 ];
 
 export default function ChangePasswordModal({ open, onClose }) {
   const { user } = useAuth();
-  const { sendOtp, verifyOtp, resetPassword } = useApi();
+  const { /* sendOtp, verifyOtp, */ resetPassword } = useApi();
   const toast = useToast();
 
   const [step, setStep] = useState(0);
@@ -43,16 +43,16 @@ export default function ChangePasswordModal({ open, onClose }) {
     }
   }, [open]);
 
-  // Step 1: Send OTP
+  // Step 1: Send OTP (removed)
   const handleSendOtp = async () => {
     setErrors({});
     setLoading(true);
     try {
-      await sendOtp(user.email);
-      toast.success("Code sent! Check your inbox 📬");
+      // await sendOtp(user.email);
+      // toast.success("Code sent! Check your inbox 📬");
       setStep(1);
-      setCooldown(60);
-      setTimeout(() => otpRefs.current[0]?.focus(), 100);
+      // setCooldown(60);
+      // setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (err) {
       setErrors({ form: err.message });
     } finally {
@@ -60,52 +60,52 @@ export default function ChangePasswordModal({ open, onClose }) {
     }
   };
 
-  // Step 2: OTP handlers
-  const handleOtpChange = (i, val) => {
-    if (!/^\d?$/.test(val)) return;
-    const next = [...otp];
-    next[i] = val;
-    setOtp(next);
-    if (val && i < 5) otpRefs.current[i + 1]?.focus();
-  };
-  const handleOtpKeyDown = (i, e) => {
-    if (e.key === 'Backspace' && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
-  };
-  const handlePaste = (e) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    const next = [...otp];
-    pasted.split('').forEach((ch, i) => (next[i] = ch));
-    setOtp(next);
-    otpRefs.current[Math.min(pasted.length, 5)]?.focus();
-  };
+  // Step 2: OTP handlers (removed)
+  // const handleOtpChange = (i, val) => {
+  //   if (!/^\d?$/.test(val)) return;
+  //   const next = [...otp];
+  //   next[i] = val;
+  //   setOtp(next);
+  //   if (val && i < 5) otpRefs.current[i + 1]?.focus();
+  // };
+  // const handleOtpKeyDown = (i, e) => {
+  //   if (e.key === 'Backspace' && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
+  // };
+  // const handlePaste = (e) => {
+  //   e.preventDefault();
+  //   const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+  //   const next = [...otp];
+  //   pasted.split('').forEach((ch, i) => (next[i] = ch));
+  //   setOtp(next);
+  //   otpRefs.current[Math.min(pasted.length, 5)]?.focus();
+  // };
 
-  const handleVerifyOtp = async () => {
-    const code = otp.join('');
-    if (code.length !== 6) return setErrors({ otp: "Please enter all 6 digits." });
-    setErrors({});
-    setLoading(true);
-    try {
-      await verifyOtp(user.email, code);
-      toast.success("Verified! Now set your new password 🔐");
-      setStep(2);
-    } catch (err) {
-      setErrors({ otp: err.message });
-    } finally {
-      setLoading(false);
-    }
-  };
+  // const handleVerifyOtp = async () => {
+  //   const code = otp.join('');
+  //   if (code.length !== 6) return setErrors({ otp: "Please enter all 6 digits." });
+  //   setErrors({});
+  //   setLoading(true);
+  //   try {
+  //     await verifyOtp(user.email, code);
+  //     toast.success("Verified! Now set your new password 🔐");
+  //     setStep(2);
+  //   } catch (err) {
+  //     setErrors({ otp: err.message });
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
-  const handleResend = async () => {
-    if (cooldown > 0) return;
-    try {
-      await sendOtp(user.email);
-      toast.success("New code sent!");
-      setCooldown(60);
-    } catch (err) {
-      toast.error(err.message);
-    }
-  };
+  // const handleResend = async () => {
+  //   if (cooldown > 0) return;
+  //   try {
+  //     await sendOtp(user.email);
+  //     toast.success("New code sent!");
+  //     setCooldown(60);
+  //   } catch (err) {
+  //     toast.error(err.message);
+  //   }
+  // };
 
   // Step 3: Set new password
   const handleReset = async () => {
@@ -171,7 +171,7 @@ export default function ChangePasswordModal({ open, onClose }) {
 
             <div className="px-6 pb-6">
               <AnimatePresence mode="wait">
-                {/* Step 1: Send OTP */}
+                {/* Step 1: Confirm (OTP send removed) */}
                 {step === 0 && (
                   <m.div
                     key="send"
@@ -181,7 +181,7 @@ export default function ChangePasswordModal({ open, onClose }) {
                     <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center gap-3">
                       <Mail className="w-5 h-5 text-indigo-600 flex-shrink-0" />
                       <p className="text-sm text-indigo-900">
-                        We'll send a code to <strong>{user?.email}</strong>
+                        Changing password for <strong>{user?.email}</strong>
                       </p>
                     </div>
                     {errors.form && (
@@ -190,12 +190,12 @@ export default function ChangePasswordModal({ open, onClose }) {
                       </m.p>
                     )}
                     <Button onClick={handleSendOtp} loading={loading} className="w-full">
-                      Send code <ArrowRight className="w-4 h-4" />
+                      Continue <ArrowRight className="w-4 h-4" />
                     </Button>
                   </m.div>
                 )}
 
-                {/* Step 2: OTP */}
+                {/* Step 2: OTP (removed)
                 {step === 1 && (
                   <m.div
                     key="otp"
@@ -242,9 +242,10 @@ export default function ChangePasswordModal({ open, onClose }) {
                     </div>
                   </m.div>
                 )}
+                */}
 
-                {/* Step 3: New password */}
-                {step === 2 && (
+                {/* Step 2: New password */}
+                {step === 1 && (
                   <m.div
                     key="new"
                     initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
@@ -258,7 +259,7 @@ export default function ChangePasswordModal({ open, onClose }) {
                       autoFocus
                     />
                     <div className="flex gap-2">
-                      <Button variant="secondary" onClick={() => setStep(1)} className="flex-1">
+                      <Button variant="secondary" onClick={() => setStep(0)} className="flex-1">
                         <ArrowLeft className="w-4 h-4" /> Back
                       </Button>
                       <Button onClick={handleReset} loading={loading} className="flex-1">
