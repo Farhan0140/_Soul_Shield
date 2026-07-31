@@ -6,7 +6,7 @@ import { fmtDate } from '../hooks/useTasks';
 
 const QUICK_AMOUNTS = [1, 10];
 
-export default function SubTaskList({ task, date, onUpdate, onRewardEarned }) {
+export default function SubTaskList({ task, date, onUpdate, onRewardEarned, disabled = false }) {
   const { completeSubTask, incrementSubTask } = useApi();
   const toast = useToast();
   const [pendingId, setPendingId] = useState(null);
@@ -55,6 +55,7 @@ export default function SubTaskList({ task, date, onUpdate, onRewardEarned }) {
         const isCompleted = s.status === 'completed';
         const isCounter = s.task_type === 'counter';
         const isPending = pendingId === s.sub_task_id;
+        const isDisabled = disabled || isPending;
         const pct = isCounter ? Math.min(100, ((s.progress_count || 0) / (s.target_count || 1)) * 100) : 0;
 
         return (
@@ -63,7 +64,7 @@ export default function SubTaskList({ task, date, onUpdate, onRewardEarned }) {
               <button
                 type="button"
                 onClick={() => handleComplete(s)}
-                disabled={isPending}
+                disabled={isDisabled}
                 className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all
                   ${isCompleted ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 hover:border-indigo-500'}
                   disabled:cursor-not-allowed`}
@@ -97,7 +98,7 @@ export default function SubTaskList({ task, date, onUpdate, onRewardEarned }) {
                         key={amount}
                         type="button"
                         onClick={() => handleIncrement(s, amount)}
-                        disabled={isPending || isCompleted}
+                        disabled={isDisabled || isCompleted}
                         className="px-2 py-1 rounded-md bg-indigo-50 text-indigo-700 text-[11px] font-semibold hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                       >
                         +{amount}

@@ -137,12 +137,19 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
           date={date}
           onUpdate={handleCounterUpdate}
           onRewardEarned={setRewardText}
+          disabled={isReadOnly}
         />
       )}
 
       {/* Sub-tasks */}
       {hasSubTasks && (
-        <SubTaskList task={task} date={date} onUpdate={onUpdate} onRewardEarned={setRewardText} />
+        <SubTaskList
+          task={task}
+          date={date}
+          onUpdate={onUpdate}
+          onRewardEarned={setRewardText}
+          disabled={isReadOnly}
+        />
       )}
 
       {/* Reward text (completed normal/sub-tasked tasks; counter tasks show their own via CounterWidget) */}

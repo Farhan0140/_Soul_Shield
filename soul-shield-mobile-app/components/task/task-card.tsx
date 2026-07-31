@@ -8,6 +8,7 @@ import { StatusBadge } from '@/components/task/status-badge';
 import { SubTaskList } from '@/components/task/sub-task-list';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { isToday } from '@/lib/date';
 
 interface TaskCardProps {
   task: Task;
@@ -60,6 +61,11 @@ export function TaskCard({
   const hasSubTasks = Boolean(task.sub_tasks?.length);
   const accentColor = task.category_color ?? categoryFallback;
   const canManage = task.is_global ? isAdmin : true;
+  // Only today's tasks can actually be completed — browsing a past/future day
+  // via the date nav header is view-only, otherwise you could tick off a
+  // future day's task before it's even "happened" or backfill history at will.
+  const isReadOnly = !isToday(date);
+  const controlsDisabled = isMissed || isReadOnly;
 
   const backgroundColor = isCompleted
     ? completedTint
@@ -74,7 +80,7 @@ export function TaskCard({
       <View style={styles.headerRow}>
         {!isCounter && !hasSubTasks ? (
           <Pressable
-            disabled={isMissed}
+            disabled={controlsDisabled}
             onPress={onToggleComplete}
             hitSlop={8}
             style={styles.checkbox}>
@@ -116,7 +122,7 @@ export function TaskCard({
         <CounterTaskControls
           task={task}
           date={date}
-          disabled={isMissed}
+          disabled={controlsDisabled}
           accentColor={accentColor}
           onRewardEarned={onRewardEarned}
         />
@@ -127,7 +133,7 @@ export function TaskCard({
           taskId={task.task_id}
           subTasks={task.sub_tasks!}
           date={date}
-          disabled={isMissed}
+          disabled={controlsDisabled}
           onRewardEarned={onRewardEarned}
         />
       ) : null}

@@ -2,7 +2,7 @@ import { m, AnimatePresence } from 'framer-motion';
 import { Plus, Zap } from 'lucide-react';
 import { useCounter } from '../hooks/useCounter';
 
-export default function CounterWidget({ task, date, onUpdate, onRewardEarned }) {
+export default function CounterWidget({ task, date, onUpdate, onRewardEarned, disabled = false }) {
   const { localProgress, increment } = useCounter(
     task.task_id,
     task.progress_count,
@@ -37,7 +37,7 @@ export default function CounterWidget({ task, date, onUpdate, onRewardEarned }) 
           whileTap={{ scale: 0.9 }}
           whileHover={{ scale: 1.05 }}
           onClick={() => increment(1)}
-          disabled={done || task.status === 'completed'}
+          disabled={done || task.status === 'completed' || disabled}
           className="flex-1 py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-semibold text-sm
             hover:shadow-lg hover:shadow-indigo-200 transition-shadow disabled:opacity-40 disabled:cursor-not-allowed
             flex items-center justify-center gap-1"
@@ -47,7 +47,7 @@ export default function CounterWidget({ task, date, onUpdate, onRewardEarned }) 
         <m.button
           whileTap={{ scale: 0.9 }}
           onClick={() => increment(10)}
-          disabled={done || task.status === 'completed'}
+          disabled={done || task.status === 'completed' || disabled}
           className="px-3 py-2.5 rounded-xl bg-indigo-50 text-indigo-700 font-semibold text-sm
             hover:bg-indigo-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
@@ -56,7 +56,7 @@ export default function CounterWidget({ task, date, onUpdate, onRewardEarned }) 
         <m.button
           whileTap={{ scale: 0.9 }}
           onClick={() => increment(33)}
-          disabled={done || task.status === 'completed'}
+          disabled={done || task.status === 'completed' || disabled}
           className="px-3 py-2.5 rounded-xl bg-purple-50 text-purple-700 font-semibold text-sm
             hover:bg-purple-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
