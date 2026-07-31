@@ -9,14 +9,7 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "termsOfService": "http://swagger.io/terms/",
-        "contact": {
-            "name": "Farhan",
-            "email": "farhannadim0000@gmail.com"
-        },
-        "license": {
-            "name": "MIT"
-        },
+        "contact": {},
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
@@ -614,6 +607,135 @@ const docTemplate = `{
                 }
             }
         },
+        "/tasks/{taskId}/subtasks/{subTaskId}/complete": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "date না দিলে আজকের তারিখ ধরা হবে। Sub-task এর নিজের recurrence নাই - parent task যেই দিন scheduled সেই দিনেই complete করা যাবে।",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Mark a normal-type sub-task as completed for a given date",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Parent Task ID",
+                        "name": "taskId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Sub-Task ID",
+                        "name": "subTaskId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Optional date",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/task.CompleteTaskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/task.SubTaskCompletionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/{taskId}/subtasks/{subTaskId}/increment": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "amount ব্যাচ আকারে পাঠান। Sub-task এর নিজের recurrence নাই - parent task যেই দিন scheduled সেই দিনেই increment করা যাবে।",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Increment progress of a counter-type sub-task",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Parent Task ID",
+                        "name": "taskId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Sub-Task ID",
+                        "name": "subTaskId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Increment amount",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/task.IncrementTaskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/task.SubTaskCompletionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/users/login": {
             "post": {
                 "description": "Login using email and password",
@@ -1064,6 +1186,13 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Alhamdulillah! +1 for jannah"
                 },
+                "sub_tasks": {
+                    "description": "SubTasks দিলে parent task এর status এখন থেকে sub-task completion থেকে derive হবে\n(pending/partially_completed/completed) - parent নিজে সরাসরি complete করা যাবে না।",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/task.SubTaskInput"
+                    }
+                },
                 "target_count": {
                     "description": "task_type=counter হলে required",
                     "type": "integer",
@@ -1103,6 +1232,106 @@ const docTemplate = `{
                 "date": {
                     "type": "string",
                     "example": "2026-07-04"
+                }
+            }
+        },
+        "task.SubTaskCompletionResponse": {
+            "type": "object",
+            "properties": {
+                "completed_at": {
+                    "type": "string"
+                },
+                "date": {
+                    "type": "string",
+                    "example": "2026-07-04"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "parent_reward_text": {
+                    "type": "string"
+                },
+                "parent_status": {
+                    "type": "string",
+                    "example": "partially_completed"
+                },
+                "parent_task_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "progress_count": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "completed"
+                },
+                "sub_task_id": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "sub_task_title": {
+                    "type": "string",
+                    "example": "Read 1 page"
+                }
+            }
+        },
+        "task.SubTaskInput": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "update এ existing sub-task ম্যাচ করাতে; create এ omit করবেন",
+                    "type": "integer",
+                    "example": 5
+                },
+                "target_count": {
+                    "description": "task_type=counter হলে required",
+                    "type": "integer",
+                    "example": 10
+                },
+                "task_type": {
+                    "type": "string",
+                    "enum": [
+                        "normal",
+                        "counter"
+                    ],
+                    "example": "normal"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Read 1 page"
+                }
+            }
+        },
+        "task.SubTaskStatusResponse": {
+            "type": "object",
+            "properties": {
+                "completed_at": {
+                    "type": "string"
+                },
+                "progress_count": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "pending"
+                },
+                "sub_task_id": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "target_count": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "task_type": {
+                    "type": "string",
+                    "example": "normal"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Read 1 page"
                 }
             }
         },
@@ -1160,6 +1389,12 @@ const docTemplate = `{
                     "type": "string",
                     "example": "custom"
                 },
+                "sub_tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/task.SubTaskStatusResponse"
+                    }
+                },
                 "title": {
                     "type": "string",
                     "example": "Read Quran"
@@ -1214,6 +1449,12 @@ const docTemplate = `{
                 "status": {
                     "type": "string"
                 },
+                "sub_tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/task.SubTaskStatusResponse"
+                    }
+                },
                 "target_count": {
                     "type": "integer"
                 },
@@ -1261,6 +1502,13 @@ const docTemplate = `{
                 },
                 "reward_text": {
                     "type": "string"
+                },
+                "sub_tasks": {
+                    "description": "SubTasks nil হলে touch করা হবে না; দিলে (even []) পুরো লিস্ট replace হবে -\nexisting id ম্যাচ করলে update, নতুন id ছাড়া entry হলে insert, বাদ পড়া entry delete।",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/task.SubTaskInput"
+                    }
                 },
                 "target_count": {
                     "type": "integer"
@@ -1351,24 +1599,17 @@ const docTemplate = `{
                 }
             }
         }
-    },
-    "securityDefinitions": {
-        "BearerAuth": {
-            "type": "apiKey",
-            "name": "Authorization",
-            "in": "header"
-        }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "1.0",
-	Host:             "localhost:3000",
-	BasePath:         "/",
-	Schemes:          []string{"http"},
-	Title:            "Soul Shield",
-	Description:      "Your Daily Steps Towards Jannah",
+	Version:          "",
+	Host:             "",
+	BasePath:         "",
+	Schemes:          []string{},
+	Title:            "",
+	Description:      "",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

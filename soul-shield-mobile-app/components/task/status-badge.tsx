@@ -4,16 +4,18 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 
 interface StatusBadgeProps {
   label: string;
-  tone: 'neutral' | 'success' | 'danger';
+  tone: 'neutral' | 'success' | 'danger' | 'warning';
 }
 
 export function StatusBadge({ label, tone }: StatusBadgeProps) {
   const success = useThemeColor({}, 'success');
   const danger = useThemeColor({}, 'danger');
+  const warning = useThemeColor({}, 'warning');
   const muted = useThemeColor({}, 'muted');
   const card = useThemeColor({}, 'card');
 
-  const color = tone === 'success' ? success : tone === 'danger' ? danger : muted;
+  const color =
+    tone === 'success' ? success : tone === 'danger' ? danger : tone === 'warning' ? warning : muted;
 
   return (
     <View style={[styles.badge, { backgroundColor: card, borderColor: color }]}>

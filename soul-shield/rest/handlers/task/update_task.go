@@ -1,6 +1,7 @@
 package task
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"soulsheld/repo"
@@ -48,6 +49,27 @@ func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.SubTasks != nil {
+		for _, st := range *req.SubTasks {
+			if st.Title == "" {
+				util.SendError(w, map[string]string{"error": util.ErrSubTaskTitleRequired.Error()}, http.StatusBadRequest)
+				return
+			}
+			stType := st.TaskType
+			if stType == "" {
+				stType = "normal"
+			}
+			if stType != "normal" && stType != "counter" {
+				util.SendError(w, map[string]string{"error": "sub-task task_type must be 'normal' or 'counter'"}, http.StatusBadRequest)
+				return
+			}
+			if stType == "counter" && (st.TargetCount == nil || *st.TargetCount <= 0) {
+				util.SendError(w, map[string]string{"error": "target_count is required and must be > 0 for counter sub-tasks"}, http.StatusBadRequest)
+				return
+			}
+		}
+	}
+
 	updates := repo.TaskUpdate{
 		Title:          req.Title,
 		Description:    req.Description,
@@ -79,5 +101,42 @@ func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	util.SendData(w, toTaskResponse(updated), http.StatusOK)
+	var subTasks []repo.SubTask
+	if req.SubTasks != nil {
+		inputs := make([]repo.SubTask, len(*req.SubTasks))
+		for i, st := range *req.SubTasks {
+			stType := st.TaskType
+			if stType == "" {
+				stType = "normal"
+			}
+			sub := repo.SubTask{Title: st.Title, TaskType: stType}
+			if st.ID != nil {
+				sub.ID = *st.ID
+			}
+			if st.TargetCount != nil {
+				sub.TargetCount = sql.NullInt32{Int32: *st.TargetCount, Valid: true}
+			}
+			inputs[i] = sub
+		}
+
+		subTasks, err = h.subTaskRepo.ReplaceForParent(id, inputs)
+		if err != nil {
+			switch err {
+			case util.ErrSubTaskTitleRequired, util.ErrInvalidCounterTarget, util.ErrSubTaskNotFound:
+				util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
+			default:
+				util.SendError(w, map[string]string{"error": "Failed to update sub-tasks"}, http.StatusInternalServerError)
+			}
+			return
+		}
+	} else {
+		byParent, listErr := h.subTaskRepo.ListByParentIDs([]int64{id})
+		if listErr != nil {
+			util.SendError(w, map[string]string{"error": "Failed to load sub-tasks"}, http.StatusInternalServerError)
+			return
+		}
+		subTasks = byParent[id]
+	}
+
+	util.SendData(w, toTaskResponse(updated, subTasks), http.StatusOK)
 }

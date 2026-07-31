@@ -24,6 +24,7 @@ export const Colors = {
     card: '#F7F8F9',
     missedTint: '#FBEAEA',
     completedTint: '#E9F7EF',
+    partiallyCompletedTint: '#FDF3D9',
     categoryFallback: '#9CA3AF',
   },
   dark: {
@@ -41,6 +42,7 @@ export const Colors = {
     card: '#1D1F20',
     missedTint: '#2A1A1A',
     completedTint: '#16241C',
+    partiallyCompletedTint: '#2A2410',
     categoryFallback: '#6B7280',
   },
   brown: {
@@ -58,6 +60,7 @@ export const Colors = {
     card: '#FBF4EC',
     missedTint: '#F4E1D8',
     completedTint: '#EAF0E2',
+    partiallyCompletedTint: '#F5E6C8',
     categoryFallback: '#A98F73',
   },
   lemonGreen: {
@@ -75,6 +78,7 @@ export const Colors = {
     card: '#F3F8DE',
     missedTint: '#FBEAEA',
     completedTint: '#E7F3D6',
+    partiallyCompletedTint: '#F7F0C9',
     categoryFallback: '#9CAF88',
   },
 } as const;

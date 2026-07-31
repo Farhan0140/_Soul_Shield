@@ -17,6 +17,8 @@ const updateTask = (id, payload) => api.patch(`/tasks/${id}`, payload);
 const deleteTask = (id) => api.delete(`/tasks/${id}`);
 const incrementCounter = (taskId, dateStr, incrementValue) => api.post(`/tasks/${taskId}/increment`, { date: dateStr, amount: incrementValue });
 const completeTask = (taskId, dateStr) => api.post(`/tasks/${taskId}/complete`, { date: dateStr });
+const completeSubTask = (taskId, subTaskId, dateStr) => api.post(`/tasks/${taskId}/subtasks/${subTaskId}/complete`, { date: dateStr });
+const incrementSubTask = (taskId, subTaskId, dateStr, incrementValue) => api.post(`/tasks/${taskId}/subtasks/${subTaskId}/increment`, { date: dateStr, amount: incrementValue });
 
 // Auth APIs
 // Password reset is a two-step flow: verifySecurityAnswer proves identity and returns a
@@ -41,6 +43,8 @@ const apiValue = {
   deleteTask,
   incrementCounter,
   completeTask,
+  completeSubTask,
+  incrementSubTask,
   registerUser,
   verifySecurityAnswer,
   resetPassword,

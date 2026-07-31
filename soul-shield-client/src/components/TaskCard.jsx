@@ -6,6 +6,7 @@ import { useToast } from './Toast';
 import { useAuth } from '../context/AuthContext';
 import { fmtDate } from '../hooks/useTasks';
 import CounterWidget from './CounterWidget';
+import SubTaskList from './SubTaskList';
 import RewardModal from './RewardModal';
 
 export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isReadOnly = false }) {
@@ -18,6 +19,8 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
   const isCounter = task.task_type === 'counter';
   const isCompleted = task.status === 'completed';
   const isMissed = task.status === 'missed';
+  const isPartiallyCompleted = task.status === 'partially_completed';
+  const hasSubTasks = (task.sub_tasks || []).length > 0;
   const categoryColor = task.category_color || '#94a3b8';
 
   // Who can edit/delete?
@@ -26,7 +29,7 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
   );
 
   const handleToggleComplete = async () => {
-    if (isCounter || isCompleted || isMissed) return;
+    if (isCounter || hasSubTasks || isCompleted || isMissed) return;
     setCompleting(true);
     try {
       const res = await completeTask(task.task_id, fmtDate(date));
@@ -64,15 +67,17 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
       whileHover={{ y: -2 }}
       className={`relative rounded-2xl border-2 bg-white p-4 transition-all overflow-hidden
         ${isCompleted ? 'border-emerald-200 bg-emerald-50/30' : ''}
+        ${isPartiallyCompleted ? 'border-amber-200 bg-amber-50/30' : ''}
         ${isMissed ? 'border-rose-200 bg-rose-50/30 opacity-80' : ''}
-        ${!isCompleted && !isMissed ? 'border-slate-200 hover:border-slate-300 hover:shadow-md' : ''}
+        ${!isCompleted && !isPartiallyCompleted && !isMissed ? 'border-slate-200 hover:border-slate-300 hover:shadow-md' : ''}
       `}
       style={{ borderLeftWidth: '4px', borderLeftColor: categoryColor }}
     >
       {/* Header row */}
       <div className="flex items-start gap-3">
-        {/* Checkbox (normal tasks only) */}
-        {!isCounter && (
+        {/* Checkbox (normal tasks only, and only when there are no sub-tasks —
+            a sub-tasked parent's completion is derived, not directly toggled) */}
+        {!isCounter && !hasSubTasks && (
           <m.button
             whileTap={{ scale: 0.85 }}
             onClick={handleToggleComplete}
@@ -101,6 +106,9 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
                   <Shield className="w-3 h-3" /> Fixed
                 </span>
               )}
+              {isPartiallyCompleted && !isReadOnly && (
+                <span className="text-[10px] font-semibold text-amber-600 uppercase">Partially Completed</span>
+              )}
               {isMissed && !isReadOnly && (
                 <span className="text-[10px] font-semibold text-rose-500 uppercase">Missed</span>
               )}
@@ -123,7 +131,7 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
       </div>
 
       {/* Counter widget */}
-      {isCounter && (
+      {isCounter && !hasSubTasks && (
         <CounterWidget
           task={task}
           date={date}
@@ -132,7 +140,12 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
         />
       )}
 
-      {/* Reward text (completed normal tasks) */}
+      {/* Sub-tasks */}
+      {hasSubTasks && (
+        <SubTaskList task={task} date={date} onUpdate={onUpdate} onRewardEarned={setRewardText} />
+      )}
+
+      {/* Reward text (completed normal/sub-tasked tasks; counter tasks show their own via CounterWidget) */}
       <AnimatePresence>
         {isCompleted && !isCounter && task.reward_text && (
           <m.div

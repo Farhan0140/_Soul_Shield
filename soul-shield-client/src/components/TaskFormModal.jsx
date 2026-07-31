@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, Plus } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from './Toast';
@@ -8,6 +8,8 @@ import Input from './ui/Input';
 import Button from './ui/Button';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const emptySubTask = () => ({ title: '', task_type: 'normal', target_count: 10 });
 
 export default function TaskFormModal({ open, onClose, task, categories, onSaved, forceGlobal = false }) {
   const { isAdmin } = useAuth();
@@ -26,6 +28,8 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
     reward_text: '',
     is_global: forceGlobal ? true : false,
   });
+  const [subTasksEnabled, setSubTasksEnabled] = useState(false);
+  const [subTasks, setSubTasks] = useState([emptySubTask()]);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
@@ -43,16 +47,42 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
           reward_text: task.reward_text || '',
           is_global: !!task.is_global,
         });
+        const existingSubTasks = task.sub_tasks || [];
+        setSubTasksEnabled(existingSubTasks.length > 0);
+        setSubTasks(
+          existingSubTasks.length > 0
+            ? existingSubTasks.map((s) => ({
+                id: s.sub_task_id,
+                title: s.title,
+                task_type: s.task_type,
+                target_count: s.target_count || 10,
+              }))
+            : [emptySubTask()]
+        );
       } else {
         setForm({
           title: '', description: '', category_id: '',
           recurrence_type: 'daily', recurrence_days: [0,1,2,3,4,5,6],
           task_type: 'normal', target_count: 100, reward_text: '', is_global: false,
         });
+        setSubTasksEnabled(false);
+        setSubTasks([emptySubTask()]);
       }
       setErrors({});
     }
   }, [open, task]);
+
+  const updateSubTask = (index, patch) => {
+    setSubTasks((rows) => rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+  };
+
+  const removeSubTask = (index) => {
+    setSubTasks((rows) => rows.filter((_, i) => i !== index));
+  };
+
+  const addSubTask = () => {
+    setSubTasks((rows) => [...rows, emptySubTask()]);
+  };
 
   const toggleDay = (d) => {
     setForm(f => {
@@ -67,6 +97,12 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
     if (!form.title.trim()) e.title = "What's this task called?";
     if (form.task_type === 'counter' && (!form.target_count || form.target_count < 1))
       e.target_count = "How many times should it be done?";
+    if (subTasksEnabled) {
+      const hasInvalidSubTask = subTasks.length === 0 || subTasks.some((s) =>
+        !s.title.trim() || (s.task_type === 'counter' && (!s.target_count || s.target_count < 1))
+      );
+      if (hasInvalidSubTask) e.sub_tasks = 'Give every sub-task a title (and a target count if it\'s a Counter).';
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -87,6 +123,20 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
       is_global: isAdmin ? form.is_global : false,
     };
     if (form.task_type === 'counter') payload.target_count = Number(form.target_count);
+
+    if (subTasksEnabled) {
+      payload.sub_tasks = subTasks.map((s) => ({
+        ...(s.id ? { id: s.id } : {}),
+        title: s.title.trim(),
+        task_type: s.task_type,
+        target_count: s.task_type === 'counter' ? Number(s.target_count) : undefined,
+      }));
+    } else if (isEdit && (task.sub_tasks || []).length > 0) {
+      // Sub-tasks were turned off on an existing task that had them — send an
+      // empty list so the backend actually clears them (undefined would leave
+      // the existing list untouched, per PATCH /tasks/{id}'s sub_tasks semantics).
+      payload.sub_tasks = [];
+    }
 
     try {
       let saved;
@@ -251,6 +301,91 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
                   onChange={(e) => setForm({ ...form, target_count: e.target.value })}
                 />
               )}
+
+              {/* Sub-tasks */}
+              <div>
+                <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={subTasksEnabled}
+                    onChange={(e) => {
+                      const enabled = e.target.checked;
+                      setSubTasksEnabled(enabled);
+                      if (enabled && subTasks.length === 0) setSubTasks([emptySubTask()]);
+                    }}
+                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">Do you want to add sub-tasks?</p>
+                    <p className="text-xs text-slate-500">
+                      Break this task into smaller Normal or Counter sub-tasks.
+                    </p>
+                  </div>
+                </label>
+
+                {subTasksEnabled && (
+                  <div className="mt-3 space-y-3">
+                    {subTasks.map((s, i) => (
+                      <div key={i} className="p-3 rounded-xl border border-slate-200 space-y-2">
+                        <div className="flex items-end gap-2">
+                          <div className="flex-1">
+                            <Input
+                              label={`Sub-task ${i + 1}`}
+                              value={s.title}
+                              onChange={(e) => updateSubTask(i, { title: e.target.value })}
+                              placeholder="e.g. Read 1 page"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeSubTask(i)}
+                            aria-label="Remove sub-task"
+                            className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => updateSubTask(i, { task_type: 'normal' })}
+                            className={`py-2 rounded-lg text-xs font-medium border-2 transition-all
+                              ${s.task_type === 'normal' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600'}`}
+                          >
+                            Normal
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateSubTask(i, { task_type: 'counter' })}
+                            className={`py-2 rounded-lg text-xs font-medium border-2 transition-all
+                              ${s.task_type === 'counter' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-slate-200 text-slate-600'}`}
+                          >
+                            Counter
+                          </button>
+                        </div>
+                        {s.task_type === 'counter' && (
+                          <Input
+                            label="Target count"
+                            type="number"
+                            value={s.target_count}
+                            onChange={(e) => updateSubTask(i, { target_count: e.target.value })}
+                          />
+                        )}
+                      </div>
+                    ))}
+                    {errors.sub_tasks && (
+                      <p className="text-xs text-rose-600">{errors.sub_tasks}</p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={addSubTask}
+                      className="w-full py-2 rounded-xl text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors flex items-center justify-center gap-1"
+                    >
+                      <Plus className="w-4 h-4" /> Add More Sub-Tasks
+                    </button>
+                  </div>
+                )}
+              </div>
 
               <Input
                 label="Reward message (shown on completion)"

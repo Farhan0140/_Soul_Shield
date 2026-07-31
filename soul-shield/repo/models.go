@@ -121,6 +121,47 @@ type TaskWithStatus struct {
 
 	RecurrenceDays []int64 `json:"recurrence_days,omitempty"`
 	ReminderTime   *string `json:"reminder_time,omitempty"`
+
+	SubTasks []SubTaskWithStatus `json:"sub_tasks,omitempty"`
+}
+
+// ---- Sub-Tasks ----
+
+type SubTask struct {
+	ID           int64         `db:"id" json:"id"`
+	ParentTaskID int64         `db:"parent_task_id" json:"parent_task_id"`
+	Title        string        `db:"title" json:"title"`
+	TaskType     string        `db:"task_type" json:"task_type"`
+	TargetCount  sql.NullInt32 `db:"target_count" json:"target_count,omitempty"`
+	Position     int           `db:"position" json:"position"`
+	CreatedAt    time.Time     `db:"created_at" json:"created_at"`
+	UpdatedAt    time.Time     `db:"updated_at" json:"updated_at"`
+}
+
+type SubTaskCompletion struct {
+	ID                   int64         `db:"id" json:"id"`
+	SubTaskID            sql.NullInt64 `db:"sub_task_id" json:"sub_task_id,omitempty"`
+	ParentTaskID         int64         `db:"parent_task_id" json:"parent_task_id"`
+	UserID               int64         `db:"user_id" json:"user_id"`
+	SubTaskTitleSnapshot string        `db:"sub_task_title_snapshot" json:"sub_task_title"`
+	TaskDate             time.Time     `db:"task_date" json:"task_date"`
+	Status               string        `db:"status" json:"status"`
+	ProgressCount        int32         `db:"progress_count" json:"progress_count"`
+	CompletedAt          sql.NullTime  `db:"completed_at" json:"completed_at,omitempty"`
+	CreatedAt            time.Time     `db:"created_at" json:"created_at"`
+}
+
+// SubTaskWithStatus - একটা নির্দিষ্ট দিনের জন্য sub-task + তার status (list/history endpoint এ ব্যবহার হয়)
+type SubTaskWithStatus struct {
+	SubTaskID     int64      `json:"sub_task_id"`
+	ParentTaskID  int64      `json:"parent_task_id"`
+	Title         string     `json:"title"`
+	TaskType      string     `json:"task_type"`
+	TargetCount   *int32     `json:"target_count,omitempty"`
+	ProgressCount int32      `json:"progress_count"`
+	Position      int        `json:"position"`
+	Status        string     `json:"status"`
+	CompletedAt   *time.Time `json:"completed_at,omitempty"`
 }
 
 // User Model

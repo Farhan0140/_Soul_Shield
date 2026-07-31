@@ -1,7 +1,15 @@
 import type { QueryClient } from '@tanstack/react-query';
 
 import { createCategory, deleteCategory, updateCategory } from '@/api/categories';
-import { completeTask, createTask, deleteTask, incrementTask, updateTask } from '@/api/tasks';
+import {
+  completeSubTask,
+  completeTask,
+  createTask,
+  deleteTask,
+  incrementSubTask,
+  incrementTask,
+  updateTask,
+} from '@/api/tasks';
 import type { TaskInput, TaskUpdateInput } from '@/api/types';
 import { tokenStore } from '@/lib/secure-store';
 
@@ -16,6 +24,8 @@ export const mutationKeys = {
     delete: ['tasks', 'delete'] as const,
     complete: ['tasks', 'complete'] as const,
     increment: ['tasks', 'increment'] as const,
+    completeSubTask: ['tasks', 'completeSubTask'] as const,
+    incrementSubTask: ['tasks', 'incrementSubTask'] as const,
   },
   categories: {
     create: ['categories', 'create'] as const,
@@ -62,6 +72,28 @@ export const incrementTaskMutationFn = async ({
   date?: string;
 }) => incrementTask(taskId, amount, date, await tokenStore.getToken());
 
+export const completeSubTaskMutationFn = async ({
+  taskId,
+  subTaskId,
+  date,
+}: {
+  taskId: number;
+  subTaskId: number;
+  date?: string;
+}) => completeSubTask(taskId, subTaskId, date, await tokenStore.getToken());
+
+export const incrementSubTaskMutationFn = async ({
+  taskId,
+  subTaskId,
+  amount,
+  date,
+}: {
+  taskId: number;
+  subTaskId: number;
+  amount: number;
+  date?: string;
+}) => incrementSubTask(taskId, subTaskId, amount, date, await tokenStore.getToken());
+
 export const createCategoryMutationFn = async (input: { name: string; color_hex?: string }) =>
   createCategory(input, await tokenStore.getToken());
 
@@ -104,6 +136,14 @@ export function registerMutationDefaults(queryClient: QueryClient) {
   });
   queryClient.setMutationDefaults(mutationKeys.tasks.increment, {
     mutationFn: incrementTaskMutationFn,
+    onSettled: () => invalidateTaskLists(queryClient),
+  });
+  queryClient.setMutationDefaults(mutationKeys.tasks.completeSubTask, {
+    mutationFn: completeSubTaskMutationFn,
+    onSettled: () => invalidateTaskLists(queryClient),
+  });
+  queryClient.setMutationDefaults(mutationKeys.tasks.incrementSubTask, {
+    mutationFn: incrementSubTaskMutationFn,
     onSettled: () => invalidateTaskLists(queryClient),
   });
   queryClient.setMutationDefaults(mutationKeys.categories.create, {

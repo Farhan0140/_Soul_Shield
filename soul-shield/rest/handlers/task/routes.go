@@ -61,4 +61,20 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, manager *middlewares.Manage
 			mw.AuthenticateJWT,
 		),
 	)
+
+	mux.Handle(
+		"POST /tasks/{taskId}/subtasks/{subTaskId}/complete",
+		manager.With(
+			http.HandlerFunc(h.CompleteSubTask),
+			mw.AuthenticateJWT,
+		),
+	)
+
+	mux.Handle(
+		"POST /tasks/{taskId}/subtasks/{subTaskId}/increment",
+		manager.With(
+			http.HandlerFunc(h.IncrementSubTask),
+			mw.AuthenticateJWT,
+		),
+	)
 }

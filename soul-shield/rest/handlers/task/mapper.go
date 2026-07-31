@@ -6,7 +6,8 @@ import (
 )
 
 // repo.Task -> TaskResponse (একটা task এর পূর্ণ তথ্য, Create/Update এর response এ ব্যবহার হয়)
-func toTaskResponse(t *repo.Task) TaskResponse {
+// subTasks প্যারামিটার optional - দিলে response এ embed হবে (কোনো নির্দিষ্ট date এর status ছাড়াই)
+func toTaskResponse(t *repo.Task, subTasks []repo.SubTask) TaskResponse {
 	var ownerID *int64
 	if t.OwnerID.Valid {
 		id := t.OwnerID.Int64
@@ -16,7 +17,7 @@ func toTaskResponse(t *repo.Task) TaskResponse {
 	days := make([]int64, len(t.RecurrenceDays))
 	copy(days, t.RecurrenceDays)
 
-	return TaskResponse{
+	resp := TaskResponse{
 		ID:             t.ID,
 		Title:          t.Title,
 		Description:    t.Description.String,
@@ -29,11 +30,70 @@ func toTaskResponse(t *repo.Task) TaskResponse {
 		CreatedAt:      t.CreatedAt,
 		UpdatedAt:      t.UpdatedAt,
 	}
+
+	if len(subTasks) > 0 {
+		resp.SubTasks = make([]SubTaskStatusResponse, len(subTasks))
+		for i, s := range subTasks {
+			resp.SubTasks[i] = toSubTaskResponse(s)
+		}
+	}
+
+	return resp
+}
+
+// repo.SubTask -> SubTaskStatusResponse, কোনো date-scoped status ছাড়া (Create/Update এর response এ)
+func toSubTaskResponse(s repo.SubTask) SubTaskStatusResponse {
+	var targetCount *int32
+	if s.TargetCount.Valid {
+		v := s.TargetCount.Int32
+		targetCount = &v
+	}
+	return SubTaskStatusResponse{
+		SubTaskID:   s.ID,
+		Title:       s.Title,
+		TaskType:    s.TaskType,
+		TargetCount: targetCount,
+	}
+}
+
+// repo.SubTaskWithStatus -> SubTaskStatusResponse (List/History endpoint এর জন্য, নির্দিষ্ট date এর status সহ)
+func toSubTaskWithStatusResponse(s repo.SubTaskWithStatus) SubTaskStatusResponse {
+	return SubTaskStatusResponse{
+		SubTaskID:     s.SubTaskID,
+		Title:         s.Title,
+		TaskType:      s.TaskType,
+		TargetCount:   s.TargetCount,
+		ProgressCount: s.ProgressCount,
+		Status:        s.Status,
+		CompletedAt:   s.CompletedAt,
+	}
+}
+
+// repo.SubTaskCompletion -> SubTaskCompletionResponse (Complete/Increment endpoint এর response)
+func toSubTaskCompletionResponse(c *repo.SubTaskCompletion, parentStatus string, parentRewardText *string) SubTaskCompletionResponse {
+	var completedAt *time.Time
+	if c.CompletedAt.Valid {
+		t := c.CompletedAt.Time
+		completedAt = &t
+	}
+
+	return SubTaskCompletionResponse{
+		ID:               c.ID,
+		SubTaskID:        c.SubTaskID.Int64,
+		ParentTaskID:     c.ParentTaskID,
+		SubTaskTitle:     c.SubTaskTitleSnapshot,
+		Date:             c.TaskDate.Format("2006-01-02"),
+		Status:           c.Status,
+		ProgressCount:    c.ProgressCount,
+		CompletedAt:      completedAt,
+		ParentStatus:     parentStatus,
+		ParentRewardText: parentRewardText,
+	}
 }
 
 // repo.TaskWithStatus -> TaskWithStatusResponse (List/History endpoint এর জন্য, প্রতিটা item এ status+category+counter তথ্য থাকে)
 func toTaskWithStatusResponse(t repo.TaskWithStatus) TaskWithStatusResponse {
-	return TaskWithStatusResponse{
+	resp := TaskWithStatusResponse{
 		TaskID:         t.TaskID,
 		Title:          t.Title,
 		Description:    t.Description,
@@ -56,6 +116,15 @@ func toTaskWithStatusResponse(t repo.TaskWithStatus) TaskWithStatusResponse {
 		RecurrenceDays: t.RecurrenceDays,
 		ReminderTime:   t.ReminderTime,
 	}
+
+	if len(t.SubTasks) > 0 {
+		resp.SubTasks = make([]SubTaskStatusResponse, len(t.SubTasks))
+		for i, s := range t.SubTasks {
+			resp.SubTasks[i] = toSubTaskWithStatusResponse(s)
+		}
+	}
+
+	return resp
 }
 
 // repo.TaskCompletion -> CompletionResponse (Complete/Increment endpoint এর response)

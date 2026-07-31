@@ -23,6 +23,9 @@ var (
 
 	ErrInvalidIncrementAmount = errors.New("increment amount must be greater than 0")
 
+	ErrSubTaskNotFound      = errors.New("Sub-task not found")
+	ErrSubTaskTitleRequired = errors.New("sub-task title is required")
+
 	ErrSecurityAnswerMismatch = errors.New("security answer is incorrect")
 	ErrSecurityAnswerNotSet   = errors.New("security answer not set for this account")
 	ErrSecurityAnswerLocked   = errors.New("too many failed attempts, verification temporarily locked")

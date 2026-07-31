@@ -7,12 +7,14 @@ import (
 )
 
 type Handler struct {
-	taskRepo repo.TaskRepo
+	taskRepo    repo.TaskRepo
+	subTaskRepo repo.SubTaskRepo
 }
 
-func NewHandler(taskRepo repo.TaskRepo) *Handler {
+func NewHandler(taskRepo repo.TaskRepo, subTaskRepo repo.SubTaskRepo) *Handler {
 	return &Handler{
-		taskRepo: taskRepo,
+		taskRepo:    taskRepo,
+		subTaskRepo: subTaskRepo,
 	}
 }
 

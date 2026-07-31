@@ -59,6 +59,11 @@ func (h *Handler) TaskHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := h.attachSubTasksForRange(tasks, userID, from, to); err != nil {
+		util.SendError(w, map[string]string{"error": "Failed to fetch task history"}, http.StatusInternalServerError)
+		return
+	}
+
 	response := make([]TaskWithStatusResponse, len(tasks))
 	for i, t := range tasks {
 		response[i] = toTaskWithStatusResponse(t)

@@ -5,6 +5,7 @@ import { ThemedText } from '@/components/themed-text';
 import { CounterTaskControls } from '@/components/task/counter-task-controls';
 import { RewardBanner } from '@/components/task/reward-banner';
 import { StatusBadge } from '@/components/task/status-badge';
+import { SubTaskList } from '@/components/task/sub-task-list';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
@@ -49,20 +50,29 @@ export function TaskCard({
   const dangerColor = useThemeColor({}, 'danger');
   const completedTint = useThemeColor({}, 'completedTint');
   const missedTint = useThemeColor({}, 'missedTint');
+  const partiallyCompletedTint = useThemeColor({}, 'partiallyCompletedTint');
   const categoryFallback = useThemeColor({}, 'categoryFallback');
 
   const isMissed = task.status === 'missed';
   const isCompleted = task.status === 'completed';
+  const isPartiallyCompleted = task.status === 'partially_completed';
   const isCounter = task.task_type === 'counter';
+  const hasSubTasks = Boolean(task.sub_tasks?.length);
   const accentColor = task.category_color ?? categoryFallback;
   const canManage = task.is_global ? isAdmin : true;
 
-  const backgroundColor = isCompleted ? completedTint : isMissed ? missedTint : cardColor;
+  const backgroundColor = isCompleted
+    ? completedTint
+    : isPartiallyCompleted
+      ? partiallyCompletedTint
+      : isMissed
+        ? missedTint
+        : cardColor;
 
   return (
     <View style={[styles.card, { backgroundColor, borderLeftColor: accentColor }]}>
       <View style={styles.headerRow}>
-        {!isCounter ? (
+        {!isCounter && !hasSubTasks ? (
           <Pressable
             disabled={isMissed}
             onPress={onToggleComplete}
@@ -102,7 +112,7 @@ export function TaskCard({
         </View>
       ) : null}
 
-      {isCounter ? (
+      {isCounter && !hasSubTasks ? (
         <CounterTaskControls
           task={task}
           date={date}
@@ -112,7 +122,18 @@ export function TaskCard({
         />
       ) : null}
 
+      {hasSubTasks ? (
+        <SubTaskList
+          taskId={task.task_id}
+          subTasks={task.sub_tasks!}
+          date={date}
+          disabled={isMissed}
+          onRewardEarned={onRewardEarned}
+        />
+      ) : null}
+
       {isCompleted && task.reward_text ? <RewardBanner text={task.reward_text} /> : null}
+      {isPartiallyCompleted ? <StatusBadge label="Partially Completed" tone="warning" /> : null}
       {isMissed ? <StatusBadge label="Missed" tone="danger" /> : null}
 
       {canManage ? (

@@ -1,6 +1,7 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from '@/api/client';
 import type {
   CompletionResponse,
+  SubTaskCompletionResponse,
   Task,
   TaskInput,
   TaskMutationResponse,
@@ -39,6 +40,33 @@ export function incrementTask(
 ) {
   return apiPost<CompletionResponse>(
     `/tasks/${id}/increment`,
+    date ? { amount, date } : { amount },
+    token
+  );
+}
+
+export function completeSubTask(
+  taskId: number,
+  subTaskId: number,
+  date: string | undefined,
+  token: string | null
+) {
+  return apiPost<SubTaskCompletionResponse>(
+    `/tasks/${taskId}/subtasks/${subTaskId}/complete`,
+    date ? { date } : {},
+    token
+  );
+}
+
+export function incrementSubTask(
+  taskId: number,
+  subTaskId: number,
+  amount: number,
+  date: string | undefined,
+  token: string | null
+) {
+  return apiPost<SubTaskCompletionResponse>(
+    `/tasks/${taskId}/subtasks/${subTaskId}/increment`,
     date ? { amount, date } : { amount },
     token
   );

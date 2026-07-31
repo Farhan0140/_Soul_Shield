@@ -16,6 +16,10 @@ type CreateTaskRequest struct {
 	TaskType     string  `json:"task_type,omitempty" example:"normal" enums:"normal,counter"`
 	TargetCount  *int32  `json:"target_count,omitempty" example:"100"`    // task_type=counter হলে required
 	ReminderTime *string `json:"reminder_time,omitempty" example:"18:30"` // optional, "HH:MM" 24-hour format
+
+	// SubTasks দিলে parent task এর status এখন থেকে sub-task completion থেকে derive হবে
+	// (pending/partially_completed/completed) - parent নিজে সরাসরি complete করা যাবে না।
+	SubTasks []SubTaskInput `json:"sub_tasks,omitempty"`
 }
 
 type UpdateTaskRequest struct {
@@ -28,6 +32,18 @@ type UpdateTaskRequest struct {
 	RewardText     *string  `json:"reward_text,omitempty"`
 	TargetCount    *int32   `json:"target_count,omitempty"`
 	ReminderTime   *string  `json:"reminder_time,omitempty"` // "HH:MM" 24-hour format, empty string clears it
+
+	// SubTasks nil হলে touch করা হবে না; দিলে (even []) পুরো লিস্ট replace হবে -
+	// existing id ম্যাচ করলে update, নতুন id ছাড়া entry হলে insert, বাদ পড়া entry delete।
+	SubTasks *[]SubTaskInput `json:"sub_tasks,omitempty"`
+}
+
+// SubTaskInput - create/update task request এর ভেতরে sub-task এর তথ্য
+type SubTaskInput struct {
+	ID          *int64 `json:"id,omitempty" example:"5"` // update এ existing sub-task ম্যাচ করাতে; create এ omit করবেন
+	Title       string `json:"title" example:"Read 1 page"`
+	TaskType    string `json:"task_type,omitempty" example:"normal" enums:"normal,counter"`
+	TargetCount *int32 `json:"target_count,omitempty" example:"10"` // task_type=counter হলে required
 }
 
 type IncrementTaskRequest struct {
@@ -71,6 +87,19 @@ type TaskResponse struct {
 	CreatedBy      int64     `json:"created_by" example:"1"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
+
+	SubTasks []SubTaskStatusResponse `json:"sub_tasks,omitempty"`
+}
+
+// SubTaskStatusResponse - sub-task এর তথ্য + (list/history endpoint এ) একটা নির্দিষ্ট দিনের status
+type SubTaskStatusResponse struct {
+	SubTaskID     int64      `json:"sub_task_id" example:"5"`
+	Title         string     `json:"title" example:"Read 1 page"`
+	TaskType      string     `json:"task_type" example:"normal"`
+	TargetCount   *int32     `json:"target_count,omitempty" example:"10"`
+	ProgressCount int32      `json:"progress_count"`
+	Status        string     `json:"status,omitempty" example:"pending"`
+	CompletedAt   *time.Time `json:"completed_at,omitempty"`
 }
 
 type TaskWithStatusResponse struct {
@@ -95,6 +124,8 @@ type TaskWithStatusResponse struct {
 
 	RecurrenceDays []int64 `json:"recurrence_days,omitempty"`
 	ReminderTime   *string `json:"reminder_time,omitempty"`
+
+	SubTasks []SubTaskStatusResponse `json:"sub_tasks,omitempty"`
 }
 
 // type TaskWithStatusResponse struct {
@@ -116,6 +147,23 @@ type CompletionResponse struct {
 	Status      string     `json:"status" example:"completed"`
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
 	RewardText  *string    `json:"reward_text,omitempty" example:"Alhamdulillah! +1 for jannah"`
+}
+
+// SubTaskCompletionResponse - sub-task complete/increment endpoint এর response;
+// ParentStatus/ParentRewardText দিয়ে client বুঝবে parent এর aggregate status
+// এই action এর ফলে বদলালো কিনা (এবং সব sub-task শেষ হলে reward modal দেখাবে কিনা)।
+type SubTaskCompletionResponse struct {
+	ID            int64      `json:"id" example:"10"`
+	SubTaskID     int64      `json:"sub_task_id" example:"5"`
+	ParentTaskID  int64      `json:"parent_task_id" example:"1"`
+	SubTaskTitle  string     `json:"sub_task_title" example:"Read 1 page"`
+	Date          string     `json:"date" example:"2026-07-04"`
+	Status        string     `json:"status" example:"completed"`
+	ProgressCount int32      `json:"progress_count"`
+	CompletedAt   *time.Time `json:"completed_at,omitempty"`
+
+	ParentStatus     string  `json:"parent_status" example:"partially_completed"`
+	ParentRewardText *string `json:"parent_reward_text,omitempty"`
 }
 
 type SuccessResponse struct {

@@ -3,11 +3,19 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
 
-import type { RecurrenceType, Task, TaskInput, TaskType, TaskUpdateInput } from '@/api/types';
+import type {
+  RecurrenceType,
+  SubTaskInput,
+  Task,
+  TaskInput,
+  TaskType,
+  TaskUpdateInput,
+} from '@/api/types';
 import { ThemedText } from '@/components/themed-text';
 import { CategoryPicker } from '@/components/task/category-picker';
 import { DayOfWeekPicker } from '@/components/task/day-of-week-picker';
 import { RecurrencePicker } from '@/components/task/recurrence-picker';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { KeyboardAvoidingScrollView } from '@/components/ui/keyboard-avoiding-scroll-view';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { TextField } from '@/components/ui/text-field';
@@ -16,6 +24,17 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 const DEFAULT_REMINDER_HOUR = 20;
+
+interface SubTaskDraft {
+  id?: number;
+  title: string;
+  task_type: TaskType;
+  target_count: string;
+}
+
+function emptySubTaskDraft(): SubTaskDraft {
+  return { title: '', task_type: 'normal', target_count: '' };
+}
 
 function parseReminderTime(value?: string | null): Date {
   const date = new Date();
@@ -81,6 +100,36 @@ export function TaskForm({
   const [reminderTime, setReminderTime] = useState(() => parseReminderTime(initialTask?.reminder_time));
   const [showTimePicker, setShowTimePicker] = useState(false);
 
+  const initialSubTasksEnabled = Boolean(initialTask?.sub_tasks?.length);
+  const [subTasksEnabled, setSubTasksEnabled] = useState(initialSubTasksEnabled);
+  const [subTaskDrafts, setSubTaskDrafts] = useState<SubTaskDraft[]>(() =>
+    initialTask?.sub_tasks?.length
+      ? initialTask.sub_tasks.map((s) => ({
+          id: s.sub_task_id,
+          title: s.title,
+          task_type: s.task_type,
+          target_count: s.target_count != null ? String(s.target_count) : '',
+        }))
+      : [emptySubTaskDraft()]
+  );
+
+  const handleSubTasksEnabledChange = (value: boolean) => {
+    setSubTasksEnabled(value);
+    if (value && subTaskDrafts.length === 0) setSubTaskDrafts([emptySubTaskDraft()]);
+  };
+
+  const updateSubTaskDraft = (index: number, patch: Partial<SubTaskDraft>) => {
+    setSubTaskDrafts((drafts) => drafts.map((d, i) => (i === index ? { ...d, ...patch } : d)));
+  };
+
+  const removeSubTaskDraft = (index: number) => {
+    setSubTaskDrafts((drafts) => drafts.filter((_, i) => i !== index));
+  };
+
+  const addSubTaskDraft = () => {
+    setSubTaskDrafts((drafts) => [...drafts, emptySubTaskDraft()]);
+  };
+
   const handleRecurrenceChange = (value: RecurrenceType) => {
     setRecurrenceType(value);
     setRecurrenceTouched(true);
@@ -94,13 +143,34 @@ export function TaskForm({
 
   const recurrenceNeedsDays = recurrenceType !== 'daily' && (!isEditMode || recurrenceTouched);
 
+  const subTasksValid =
+    !subTasksEnabled ||
+    (subTaskDrafts.length > 0 &&
+      subTaskDrafts.every(
+        (d) =>
+          d.title.trim().length > 0 &&
+          (d.task_type === 'normal' || (Number(d.target_count) > 0 && d.target_count.trim().length > 0))
+      ));
+
   const isValid =
     title.trim().length > 0 &&
     (!recurrenceNeedsDays || recurrenceDays.length > 0) &&
-    (taskType === 'normal' || (Number(targetCount) > 0 && targetCount.trim().length > 0));
+    (taskType === 'normal' || (Number(targetCount) > 0 && targetCount.trim().length > 0)) &&
+    subTasksValid;
 
   const handleSubmit = () => {
     if (!isValid) return;
+
+    const subTasks: SubTaskInput[] | undefined = subTasksEnabled
+      ? subTaskDrafts.map((d) => ({
+          ...(d.id != null ? { id: d.id } : {}),
+          title: d.title.trim(),
+          task_type: d.task_type,
+          target_count: d.task_type === 'counter' ? Number(d.target_count) : undefined,
+        }))
+      : isEditMode && initialSubTasksEnabled
+        ? []
+        : undefined;
 
     const base = {
       title: title.trim(),
@@ -109,6 +179,7 @@ export function TaskForm({
       reward_text: rewardText.trim() || undefined,
       task_type: taskType,
       target_count: taskType === 'counter' ? Number(targetCount) : undefined,
+      sub_tasks: subTasks,
     };
 
     if (isEditMode) {
@@ -192,6 +263,69 @@ export function TaskForm({
         ) : null}
       </View>
 
+      <View style={styles.field}>
+        <View style={styles.switchRow}>
+          <View style={styles.switchLabel}>
+            <ThemedText type="defaultSemiBold">Do you want to add sub-tasks?</ThemedText>
+            <ThemedText style={{ color: mutedColor }}>
+              Break this task into smaller Normal or Counter sub-tasks. The task's status will
+              follow how many of them are done.
+            </ThemedText>
+          </View>
+          <Switch value={subTasksEnabled} onValueChange={handleSubTasksEnabledChange} />
+        </View>
+
+        {subTasksEnabled ? (
+          <View style={styles.subTasks}>
+            {subTaskDrafts.map((draft, index) => (
+              <View key={index} style={[styles.subTaskRow, { backgroundColor: cardColor, borderColor }]}>
+                <View style={styles.subTaskRowHeader}>
+                  <View style={{ flex: 1 }}>
+                    <TextField
+                      label={`Sub-task ${index + 1}`}
+                      value={draft.title}
+                      onChangeText={(text) => updateSubTaskDraft(index, { title: text })}
+                      placeholder="e.g. Read 1 page"
+                    />
+                  </View>
+                  <Pressable
+                    onPress={() => removeSubTaskDraft(index)}
+                    hitSlop={8}
+                    style={styles.subTaskRemove}>
+                    <IconSymbol name="xmark" size={18} color={mutedColor} />
+                  </Pressable>
+                </View>
+
+                <View style={styles.typeRow}>
+                  <PrimaryButton
+                    label="Normal"
+                    variant={draft.task_type === 'normal' ? 'primary' : 'secondary'}
+                    onPress={() => updateSubTaskDraft(index, { task_type: 'normal' })}
+                  />
+                  <PrimaryButton
+                    label="Counter"
+                    variant={draft.task_type === 'counter' ? 'primary' : 'secondary'}
+                    onPress={() => updateSubTaskDraft(index, { task_type: 'counter' })}
+                  />
+                </View>
+
+                {draft.task_type === 'counter' ? (
+                  <TextField
+                    label="Target Count"
+                    value={draft.target_count}
+                    onChangeText={(text) => updateSubTaskDraft(index, { target_count: text })}
+                    keyboardType="number-pad"
+                    placeholder="e.g. 10"
+                  />
+                ) : null}
+              </View>
+            ))}
+
+            <PrimaryButton label="Add More Sub-Tasks" variant="secondary" onPress={addSubTaskDraft} />
+          </View>
+        ) : null}
+      </View>
+
       <TextField
         label="Reward Text"
         value={rewardText}
@@ -263,6 +397,16 @@ const styles = StyleSheet.create({
   typeRow: { flexDirection: 'row', gap: 12 },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   switchLabel: { flex: 1, gap: 4 },
+  subTasks: { gap: 12, marginTop: 4 },
+  subTaskRow: {
+    borderWidth: 1,
+    borderRadius: 14,
+    borderCurve: 'continuous',
+    padding: 12,
+    gap: 10,
+  },
+  subTaskRowHeader: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  subTaskRemove: { padding: 8 },
   timeButton: {
     alignSelf: 'flex-start',
     borderWidth: 1,

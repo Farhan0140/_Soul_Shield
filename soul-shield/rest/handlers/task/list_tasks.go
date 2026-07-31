@@ -41,6 +41,11 @@ func (h *Handler) ListTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := h.attachSubTasksForDate(tasks, userID, date); err != nil {
+		util.SendError(w, map[string]string{"error": "Failed to fetch tasks"}, http.StatusInternalServerError)
+		return
+	}
+
 	response := make([]TaskWithStatusResponse, len(tasks))
 	for i, t := range tasks {
 		response[i] = toTaskWithStatusResponse(t)

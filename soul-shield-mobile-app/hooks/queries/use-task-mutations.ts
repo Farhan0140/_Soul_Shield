@@ -2,9 +2,11 @@ import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-q
 
 import type { Task } from '@/api/types';
 import {
+  completeSubTaskMutationFn,
   completeTaskMutationFn,
   createTaskMutationFn,
   deleteTaskMutationFn,
+  incrementSubTaskMutationFn,
   incrementTaskMutationFn,
   mutationKeys,
   updateTaskMutationFn,
@@ -36,8 +38,13 @@ export function useUpdateTask(date: string) {
       const key = queryKeys.tasks(date);
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<Task[]>(key);
+      // sub_tasks is intentionally left out of the spread: TaskUpdateInput's
+      // sub_tasks is a draft (SubTaskInput[], no id/status/progress yet) while
+      // Task's is server-shaped (SubTask[]) — the mismatch would otherwise
+      // corrupt the cached shape until onSettled's refetch fixes it anyway.
+      const { sub_tasks: _draftSubTasks, ...optimisticPatch } = input;
       queryClient.setQueryData<Task[]>(key, (old) =>
-        old?.map((t) => (t.task_id === id ? { ...t, ...input } : t))
+        old?.map((t) => (t.task_id === id ? { ...t, ...optimisticPatch } : t))
       );
       return { previous };
     },
@@ -121,5 +128,29 @@ export function useIncrementTask() {
   return useMutation({
     mutationKey: mutationKeys.tasks.increment,
     mutationFn: incrementTaskMutationFn,
+  });
+}
+
+/** Completing/incrementing a sub-task changes the *parent's* aggregate status,
+ * which is computed server-side across potentially many siblings — rather
+ * than hand-rolling optimistic patches for that nested aggregation, these
+ * just invalidate the task lists on settle so the parent card refetches with
+ * the server-confirmed status (same trade-off already made for create/update/
+ * delete above). */
+export function useCompleteSubTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: mutationKeys.tasks.completeSubTask,
+    mutationFn: completeSubTaskMutationFn,
+    onSettled: () => invalidateTaskLists(queryClient),
+  });
+}
+
+export function useIncrementSubTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: mutationKeys.tasks.incrementSubTask,
+    mutationFn: incrementSubTaskMutationFn,
+    onSettled: () => invalidateTaskLists(queryClient),
   });
 }

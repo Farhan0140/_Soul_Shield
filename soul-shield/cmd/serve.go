@@ -39,11 +39,12 @@ func Serve() {
 	userRepo := repo.NewUserRepo(dbCon)
 	otpRepo := repo.NewOtpRepo(dbCon)
 	taskRepo := repo.NewTaskRepo(dbCon)
+	subTaskRepo := repo.NewSubTaskRepo(dbCon)
 	categoryRepo := repo.NewCategoryRepo(dbCon)
 
 	userHandler := user.NewHandler(cnf, userRepo, otpRepo, middlewares)
 	otpHandler := otp.NewHandler(otpRepo)
-	taskHandler := task.NewHandler(taskRepo)
+	taskHandler := task.NewHandler(taskRepo, subTaskRepo)
 	categoryHandler := category.NewHandler(categoryRepo)
 
 	server := rest.NewServer(
