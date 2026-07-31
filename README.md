@@ -37,11 +37,16 @@ Soul Shield helps you build and keep daily routines — dhikr, prayers, reading,
 **Task tracking**
 - 🔁 Flexible recurrence — daily, weekly, or custom day-of-week schedules
 - ✅ Two task types: simple **checkbox** tasks and tally-style **counter** tasks (e.g. "recite 100x")
+- 🧩 **Sub-tasks** — break any task into an unlimited list of smaller Normal or Counter sub-tasks, added inline via a "Do you want to add sub-tasks?" toggle in the task form. Once a task has sub-tasks:
+  - it can no longer be checked off directly — its status (`pending` → `partially_completed` → `completed`) is derived from how many sub-tasks are done that day;
+  - its reward only fires once every sub-task is complete, not per sub-task;
+  - sub-tasks share the parent's recurrence and have no reminder of their own.
 - 🎁 Custom reward messages that surface the moment a task is completed
 - 🗂️ User-defined categories with color coding
 - 📌 Admin-managed **fixed tasks** that appear for every user
 - ⏰ Per-task **reminder notifications** on mobile — set a time, get nudged if you forget
 - 📊 History view with a completion heatmap over any date range
+- 🔒 Past/future days are read-only in both clients — only *today's* tasks can actually be completed, so progress can't be back- or forward-dated
 
 **Accounts & security**
 - 🔐 JWT-based authentication
@@ -131,19 +136,21 @@ Full interactive docs are served at **`/swagger/index.html`** once the backend i
 | `POST` | `/users/verify-security-answer` | Step 1 of password reset |
 | `POST` | `/users/reset-password` | Step 2 of password reset |
 | `GET` | `/users/me` | Current authenticated user |
-| `POST` | `/tasks` | Create a task |
+| `POST` | `/tasks` | Create a task, optionally with `sub_tasks` |
 | `GET` | `/tasks?date=` | List tasks + status for a given day |
 | `GET` | `/tasks/history?from=&to=` | List tasks + status across a date range |
-| `PATCH` | `/tasks/{id}` | Update a task |
-| `DELETE` | `/tasks/{id}` | Delete a task |
+| `PATCH` | `/tasks/{id}` | Update a task; `sub_tasks` replaces the sub-task list if provided |
+| `DELETE` | `/tasks/{id}` | Delete a task (cascades its sub-tasks) |
 | `POST` | `/tasks/{id}/complete` | Toggle a normal task complete for a date |
 | `POST` | `/tasks/{id}/increment` | Add progress to a counter task |
+| `POST` | `/tasks/{taskId}/subtasks/{subTaskId}/complete` | Complete a normal sub-task |
+| `POST` | `/tasks/{taskId}/subtasks/{subTaskId}/increment` | Add progress to a counter sub-task |
 | `POST` | `/categories` | Create a category |
 | `GET` | `/categories` | List categories |
 | `PATCH` | `/categories/{id}` | Update a category |
 | `DELETE` | `/categories/{id}` | Delete a category |
 
-All routes except registration/login/password-reset require `Authorization: Bearer <token>`.
+All routes except registration/login/password-reset require `Authorization: JWT <token>`.
 
 ## 🗄️ Database
 
@@ -151,8 +158,11 @@ All routes except registration/login/password-reset require `Authorization: Bear
 erDiagram
     USERS ||--o{ TASKS : owns
     USERS ||--o{ TASK_COMPLETIONS : completes
+    USERS ||--o{ SUB_TASK_COMPLETIONS : completes
     CATEGORIES ||--o{ TASKS : groups
     TASKS ||--o{ TASK_COMPLETIONS : "logged for a date"
+    TASKS ||--o{ SUB_TASKS : "broken into"
+    SUB_TASKS ||--o{ SUB_TASK_COMPLETIONS : "logged for a date"
 
     USERS {
         bigint id PK
@@ -189,7 +199,27 @@ erDiagram
         int progress_count
         timestamp completed_at
     }
+    SUB_TASKS {
+        bigint id PK
+        bigint parent_task_id FK
+        string title
+        string task_type "normal | counter"
+        int target_count
+        int position
+    }
+    SUB_TASK_COMPLETIONS {
+        bigint id PK
+        bigint sub_task_id FK
+        bigint parent_task_id FK
+        bigint user_id FK
+        date task_date
+        string status "pending | completed | missed"
+        int progress_count
+        timestamp completed_at
+    }
 ```
+
+The parent task's own status (surfaced in API responses, never stored) is a fourth value — `partially_completed` — derived at read time from its sub-tasks' completion state once it has any.
 
 ## 🚀 Getting Started
 
