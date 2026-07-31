@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { Task } from '@/api/types';
@@ -6,6 +7,7 @@ import { CounterTaskControls } from '@/components/task/counter-task-controls';
 import { RewardBanner } from '@/components/task/reward-banner';
 import { StatusBadge } from '@/components/task/status-badge';
 import { SubTaskList } from '@/components/task/sub-task-list';
+import { TaskDetailsInline } from '@/components/task/task-details-inline';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { isToday } from '@/lib/date';
@@ -66,6 +68,7 @@ export function TaskCard({
   // future day's task before it's even "happened" or backfill history at will.
   const isReadOnly = !isToday(date);
   const controlsDisabled = isMissed || isReadOnly;
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
 
   const backgroundColor = isCompleted
     ? completedTint
@@ -91,20 +94,40 @@ export function TaskCard({
             />
           </Pressable>
         ) : null}
-        <ThemedText
-          type="defaultSemiBold"
-          style={[styles.title, isMissed && styles.strikethrough]}
-          numberOfLines={2}>
-          {task.title}
-        </ThemedText>
+        {/* Only the title/description expand the inline details section —
+            checkbox above and counter/sub-task controls below are separate
+            Pressables, so tapping them never triggers it. */}
+        <Pressable
+          onPress={() => setDetailsExpanded((v) => !v)}
+          style={styles.titleTouchable}
+          hitSlop={4}>
+          <ThemedText
+            type="defaultSemiBold"
+            style={[styles.title, isMissed && styles.strikethrough]}
+            numberOfLines={2}>
+            {task.title}
+          </ThemedText>
+        </Pressable>
+        <IconSymbol
+          name="chevron.right"
+          size={16}
+          color={mutedColor}
+          style={{ transform: [{ rotate: detailsExpanded ? '90deg' : '0deg' }] }}
+        />
         {task.is_global ? <IconSymbol name="shield.fill" size={18} color={tintColor} /> : null}
       </View>
 
       {task.description ? (
-        <ThemedText style={[styles.description, { color: mutedColor }]} numberOfLines={3}>
-          {task.description}
-        </ThemedText>
+        <Pressable onPress={() => setDetailsExpanded((v) => !v)}>
+          <ThemedText
+            style={[styles.description, { color: mutedColor }]}
+            numberOfLines={detailsExpanded ? undefined : 3}>
+            {task.description}
+          </ThemedText>
+        </Pressable>
       ) : null}
+
+      {detailsExpanded ? <TaskDetailsInline task={task} /> : null}
 
       {task.category_name ? (
         <View style={[styles.categoryChip, { borderColor: accentColor }]}>
@@ -167,7 +190,8 @@ const styles = StyleSheet.create({
   },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   checkbox: { padding: 2 },
-  title: { flex: 1 },
+  titleTouchable: { flex: 1 },
+  title: {},
   strikethrough: { textDecorationLine: 'line-through' },
   description: { fontSize: 14 },
   categoryChip: {

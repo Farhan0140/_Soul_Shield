@@ -118,6 +118,15 @@ export function TaskForm({
     if (value && subTaskDrafts.length === 0) setSubTaskDrafts([emptySubTaskDraft()]);
   };
 
+  // Sub-tasks only make sense under a Normal parent — a Counter parent's own
+  // progress/target become meaningless once completion is derived from
+  // children, so switching to Counter drops any sub-tasks rather than
+  // leaving a confusing combination in place.
+  const handleTaskTypeChange = (value: TaskType) => {
+    setTaskType(value);
+    if (value === 'counter') setSubTasksEnabled(false);
+  };
+
   const updateSubTaskDraft = (index: number, patch: Partial<SubTaskDraft>) => {
     setSubTaskDrafts((drafts) => drafts.map((d, i) => (i === index ? { ...d, ...patch } : d)));
   };
@@ -244,12 +253,12 @@ export function TaskForm({
           <PrimaryButton
             label="Normal"
             variant={taskType === 'normal' ? 'primary' : 'secondary'}
-            onPress={() => setTaskType('normal')}
+            onPress={() => handleTaskTypeChange('normal')}
           />
           <PrimaryButton
             label="Counter"
             variant={taskType === 'counter' ? 'primary' : 'secondary'}
-            onPress={() => setTaskType('counter')}
+            onPress={() => handleTaskTypeChange('counter')}
           />
         </View>
         {taskType === 'counter' ? (
@@ -263,68 +272,70 @@ export function TaskForm({
         ) : null}
       </View>
 
-      <View style={styles.field}>
-        <View style={styles.switchRow}>
-          <View style={styles.switchLabel}>
-            <ThemedText type="defaultSemiBold">Do you want to add sub-tasks?</ThemedText>
-            <ThemedText style={{ color: mutedColor }}>
-              Break this task into smaller Normal or Counter sub-tasks. The task's status will
-              follow how many of them are done.
-            </ThemedText>
+      {taskType === 'normal' ? (
+        <View style={styles.field}>
+          <View style={styles.switchRow}>
+            <View style={styles.switchLabel}>
+              <ThemedText type="defaultSemiBold">Do you want to add sub-tasks?</ThemedText>
+              <ThemedText style={{ color: mutedColor }}>
+                Break this task into smaller Normal or Counter sub-tasks. The task&apos;s status will
+                follow how many of them are done.
+              </ThemedText>
+            </View>
+            <Switch value={subTasksEnabled} onValueChange={handleSubTasksEnabledChange} />
           </View>
-          <Switch value={subTasksEnabled} onValueChange={handleSubTasksEnabledChange} />
-        </View>
 
-        {subTasksEnabled ? (
-          <View style={styles.subTasks}>
-            {subTaskDrafts.map((draft, index) => (
-              <View key={index} style={[styles.subTaskRow, { backgroundColor: cardColor, borderColor }]}>
-                <View style={styles.subTaskRowHeader}>
-                  <View style={{ flex: 1 }}>
-                    <TextField
-                      label={`Sub-task ${index + 1}`}
-                      value={draft.title}
-                      onChangeText={(text) => updateSubTaskDraft(index, { title: text })}
-                      placeholder="e.g. Read 1 page"
+          {subTasksEnabled ? (
+            <View style={styles.subTasks}>
+              {subTaskDrafts.map((draft, index) => (
+                <View key={index} style={[styles.subTaskRow, { backgroundColor: cardColor, borderColor }]}>
+                  <View style={styles.subTaskRowHeader}>
+                    <View style={{ flex: 1 }}>
+                      <TextField
+                        label={`Sub-task ${index + 1}`}
+                        value={draft.title}
+                        onChangeText={(text) => updateSubTaskDraft(index, { title: text })}
+                        placeholder="e.g. Read 1 page"
+                      />
+                    </View>
+                    <Pressable
+                      onPress={() => removeSubTaskDraft(index)}
+                      hitSlop={8}
+                      style={styles.subTaskRemove}>
+                      <IconSymbol name="xmark" size={18} color={mutedColor} />
+                    </Pressable>
+                  </View>
+
+                  <View style={styles.typeRow}>
+                    <PrimaryButton
+                      label="Normal"
+                      variant={draft.task_type === 'normal' ? 'primary' : 'secondary'}
+                      onPress={() => updateSubTaskDraft(index, { task_type: 'normal' })}
+                    />
+                    <PrimaryButton
+                      label="Counter"
+                      variant={draft.task_type === 'counter' ? 'primary' : 'secondary'}
+                      onPress={() => updateSubTaskDraft(index, { task_type: 'counter' })}
                     />
                   </View>
-                  <Pressable
-                    onPress={() => removeSubTaskDraft(index)}
-                    hitSlop={8}
-                    style={styles.subTaskRemove}>
-                    <IconSymbol name="xmark" size={18} color={mutedColor} />
-                  </Pressable>
+
+                  {draft.task_type === 'counter' ? (
+                    <TextField
+                      label="Target Count"
+                      value={draft.target_count}
+                      onChangeText={(text) => updateSubTaskDraft(index, { target_count: text })}
+                      keyboardType="number-pad"
+                      placeholder="e.g. 10"
+                    />
+                  ) : null}
                 </View>
+              ))}
 
-                <View style={styles.typeRow}>
-                  <PrimaryButton
-                    label="Normal"
-                    variant={draft.task_type === 'normal' ? 'primary' : 'secondary'}
-                    onPress={() => updateSubTaskDraft(index, { task_type: 'normal' })}
-                  />
-                  <PrimaryButton
-                    label="Counter"
-                    variant={draft.task_type === 'counter' ? 'primary' : 'secondary'}
-                    onPress={() => updateSubTaskDraft(index, { task_type: 'counter' })}
-                  />
-                </View>
-
-                {draft.task_type === 'counter' ? (
-                  <TextField
-                    label="Target Count"
-                    value={draft.target_count}
-                    onChangeText={(text) => updateSubTaskDraft(index, { target_count: text })}
-                    keyboardType="number-pad"
-                    placeholder="e.g. 10"
-                  />
-                ) : null}
-              </View>
-            ))}
-
-            <PrimaryButton label="Add More Sub-Tasks" variant="secondary" onPress={addSubTaskDraft} />
-          </View>
-        ) : null}
-      </View>
+              <PrimaryButton label="Add More Sub-Tasks" variant="secondary" onPress={addSubTaskDraft} />
+            </View>
+          ) : null}
+        </View>
+      ) : null}
 
       <TextField
         label="Reward Text"

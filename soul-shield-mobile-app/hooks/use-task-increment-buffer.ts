@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
@@ -7,6 +8,10 @@ import { useIncrementTask } from '@/hooks/queries/use-task-mutations';
 import { queryKeys } from '@/lib/query-keys';
 
 const DEBOUNCE_MS = 4000;
+
+function pendingStorageKey(taskId: number, date: string) {
+  return `soulshield_pending_increment_${taskId}_${date}`;
+}
 
 interface UseTaskIncrementBufferOptions {
   taskId: number;
@@ -35,6 +40,26 @@ export function useTaskIncrementBuffer({
   const displayStatus: TaskStatus =
     targetCount > 0 && displayProgress >= targetCount ? 'completed' : 'pending';
 
+  // Backstops just the pre-dispatch window: taps sit in pendingRef (JS-only)
+  // for up to DEBOUNCE_MS before flush() ever calls mutate(). A hard app kill
+  // in that window previously lost them outright, since nothing durable knew
+  // about them yet — once mutate() actually runs, the amount becomes a real
+  // react-query mutation, which the AsyncStorage persister already dehydrates
+  // (including paused-offline mutations, see lib/persister.ts) and replays
+  // via resumePausedMutations(), so this only needs to cover getting the
+  // amount safely to that handoff point, not offline delivery itself.
+  const persistPending = useCallback(
+    (amount: number) => {
+      const key = pendingStorageKey(taskId, date);
+      if (amount > 0) {
+        AsyncStorage.setItem(key, String(amount)).catch(() => {});
+      } else {
+        AsyncStorage.removeItem(key).catch(() => {});
+      }
+    },
+    [taskId, date]
+  );
+
   const scheduleFlush = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => flushRef.current(), DEBOUNCE_MS);
@@ -50,6 +75,10 @@ export function useTaskIncrementBuffer({
     const amount = pendingRef.current;
     if (amount <= 0) return;
     isFlushingRef.current = true;
+    // The amount is about to become a real react-query mutation — from here
+    // on, durability is react-query's job (persisted + replayed), so our own
+    // backstop for it is no longer needed.
+    persistPending(0);
 
     incrementMutation.mutate(
       { taskId, amount, date },
@@ -85,11 +114,14 @@ export function useTaskIncrementBuffer({
         onSettled: () => {
           isFlushingRef.current = false;
           // Taps buffered while this mutation was in flight/paused still need to go out.
-          if (pendingRef.current > 0) scheduleFlush();
+          if (pendingRef.current > 0) {
+            persistPending(pendingRef.current);
+            scheduleFlush();
+          }
         },
       }
     );
-  }, [taskId, date, incrementMutation, queryClient, scheduleFlush, onRewardEarned]);
+  }, [taskId, date, incrementMutation, queryClient, scheduleFlush, onRewardEarned, persistPending]);
 
   flushRef.current = flush;
 
@@ -97,10 +129,32 @@ export function useTaskIncrementBuffer({
     (amount: number) => {
       pendingRef.current += amount;
       setPending(pendingRef.current);
+      persistPending(pendingRef.current);
       scheduleFlush();
     },
-    [scheduleFlush]
+    [scheduleFlush, persistPending]
   );
+
+  // Recover a buffer left behind by a previous session that got killed before
+  // its debounce timer fired (or before the AppState background flush ran) —
+  // without this, those taps would just be gone on relaunch.
+  useEffect(() => {
+    let cancelled = false;
+    AsyncStorage.getItem(pendingStorageKey(taskId, date))
+      .then((stored) => {
+        if (cancelled || !stored) return;
+        const amount = Number(stored);
+        if (Number.isFinite(amount) && amount > 0) {
+          pendingRef.current += amount;
+          setPending(pendingRef.current);
+          scheduleFlush();
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [taskId, date, scheduleFlush]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {

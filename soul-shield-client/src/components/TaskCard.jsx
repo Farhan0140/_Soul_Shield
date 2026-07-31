@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
-import { Check, Edit2, Trash2, Shield, Sparkles, Loader2 } from 'lucide-react';
+import { Check, ChevronDown, Edit2, Trash2, Shield, Sparkles, Loader2 } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { useToast } from './Toast';
 import { useAuth } from '../context/AuthContext';
@@ -8,6 +8,7 @@ import { fmtDate } from '../hooks/useTasks';
 import CounterWidget from './CounterWidget';
 import SubTaskList from './SubTaskList';
 import RewardModal from './RewardModal';
+import TaskDetailsInline from './TaskDetailsInline';
 
 export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isReadOnly = false }) {
   const { user } = useAuth();
@@ -15,6 +16,7 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
   const toast = useToast();
   const [completing, setCompleting] = useState(false);
   const [rewardText, setRewardText] = useState(null);
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
 
   const isCounter = task.task_type === 'counter';
   const isCompleted = task.status === 'completed';
@@ -96,28 +98,50 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
 
         {/* Title + meta */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className={`font-semibold text-slate-800 leading-snug ${isCompleted ? 'line-through text-slate-500' : ''}`}>
-              {task.title}
-            </h3>
-            <div className="flex items-center gap-1 flex-shrink-0">
-              {task.is_global && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-semibold uppercase tracking-wide">
-                  <Shield className="w-3 h-3" /> Fixed
-                </span>
-              )}
-              {isPartiallyCompleted && !isReadOnly && (
-                <span className="text-[10px] font-semibold text-amber-600 uppercase">Partially Completed</span>
-              )}
-              {isMissed && !isReadOnly && (
-                <span className="text-[10px] font-semibold text-rose-500 uppercase">Missed</span>
-              )}
+          {/* Only the title/description block expands the inline details
+              section below — checkbox, counter, and sub-task controls
+              above/below live outside this wrapper so tapping them never
+              triggers it. */}
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => setDetailsExpanded((v) => !v)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setDetailsExpanded((v) => !v);
+              }
+            }}
+            className="cursor-pointer"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <h3 className={`font-semibold text-slate-800 leading-snug ${isCompleted ? 'line-through text-slate-500' : ''}`}>
+                {task.title}
+              </h3>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {task.is_global && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-semibold uppercase tracking-wide">
+                    <Shield className="w-3 h-3" /> Fixed
+                  </span>
+                )}
+                {isPartiallyCompleted && !isReadOnly && (
+                  <span className="text-[10px] font-semibold text-amber-600 uppercase">Partially Completed</span>
+                )}
+                {isMissed && !isReadOnly && (
+                  <span className="text-[10px] font-semibold text-rose-500 uppercase">Missed</span>
+                )}
+                <ChevronDown
+                  className={`w-4 h-4 text-slate-400 transition-transform ${detailsExpanded ? 'rotate-180' : ''}`}
+                />
+              </div>
             </div>
-          </div>
 
-          {task.description && (
-            <p className="text-sm text-slate-500 mt-0.5 line-clamp-2">{task.description}</p>
-          )}
+            {task.description && (
+              <p className="text-sm text-slate-500 mt-0.5 line-clamp-2">{task.description}</p>
+            )}
+
+            {detailsExpanded && <TaskDetailsInline task={task} />}
+          </div>
 
           {task.category_name && (
             <span
