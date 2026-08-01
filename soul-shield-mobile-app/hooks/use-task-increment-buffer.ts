@@ -1,11 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useQueryClient } from '@tanstack/react-query';
+import { useIsRestoring, useQueryClient } from '@tanstack/react-query';
 import { persistQueryClientSave } from '@tanstack/react-query-persist-client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
 import type { Task, TaskStatus } from '@/api/types';
 import { useIncrementTask } from '@/hooks/queries/use-task-mutations';
+import { mutationKeys } from '@/lib/mutation-defaults';
 import { persistOptions } from '@/lib/persister';
 import { queryKeys } from '@/lib/query-keys';
 
@@ -43,6 +44,7 @@ export function useTaskIncrementBuffer({
   const isFlushingRef = useRef(false);
   const queryClient = useQueryClient();
   const incrementMutation = useIncrementTask();
+  const isRestoring = useIsRestoring();
 
   const displayProgress = serverProgressCount + pending;
   const displayStatus: TaskStatus =
@@ -171,6 +173,7 @@ export function useTaskIncrementBuffer({
   // its debounce timer fired (or before the AppState background flush ran) —
   // without this, those taps would just be gone on relaunch.
   useEffect(() => {
+    if (isRestoring) return;
     let cancelled = false;
     AsyncStorage.getItem(pendingStorageKey(taskId, date))
       .then((stored) => {
@@ -186,7 +189,53 @@ export function useTaskIncrementBuffer({
     return () => {
       cancelled = true;
     };
-  }, [taskId, date, scheduleFlush]);
+  }, [taskId, date, scheduleFlush, isRestoring]);
+
+  // Recover an amount that got past the point above — flush() had already
+  // called mutate() and confirmed it durably persisted, so it deliberately
+  // cleared the AsyncStorage backstop above (see the comment on
+  // persistPending's caller in flush()) in favor of react-query's own
+  // paused-mutation replay owning it. That replay correctly redelivers the
+  // amount to the server once back online, but nothing else re-derives
+  // *display* state from a paused mutation sitting in the restored cache —
+  // so without this, an increment dispatched (but not yet settled) before an
+  // offline app kill would appear to have reverted until the next reconnect.
+  useEffect(() => {
+    if (isRestoring) return;
+    const [incrementKey0, incrementKey1] = mutationKeys.tasks.increment;
+    const mutationCache = queryClient.getMutationCache();
+    const matches = mutationCache.getAll().filter((m) => {
+      if (m.state.status !== 'pending') return false;
+      const key = m.options.mutationKey;
+      if (key?.[0] !== incrementKey0 || key?.[1] !== incrementKey1) return false;
+      const vars = m.state.variables as { taskId?: number; date?: string } | undefined;
+      return vars?.taskId === taskId && vars?.date === date;
+    });
+    if (matches.length === 0) return;
+
+    const outstanding = new Set(matches);
+    let recoveredAmount = 0;
+    for (const m of matches) {
+      const vars = m.state.variables as { amount?: number };
+      recoveredAmount += vars.amount ?? 0;
+    }
+    pendingRef.current += recoveredAmount;
+    setPending(pendingRef.current);
+
+    // Once connectivity returns and a recovered mutation settles (replayed
+    // by resumePausedMutations, see app/_layout.tsx), its amount transfers
+    // into the server-confirmed progress_count via the invalidate + refetch
+    // in lib/mutation-defaults.ts — pull it back out of `pending` at that
+    // point so it isn't counted in both places.
+    const unsubscribe = mutationCache.subscribe(({ mutation }) => {
+      if (!mutation || !outstanding.has(mutation) || mutation.state.status === 'pending') return;
+      outstanding.delete(mutation);
+      const vars = mutation.state.variables as { amount?: number };
+      pendingRef.current = Math.max(pendingRef.current - (vars.amount ?? 0), 0);
+      setPending(pendingRef.current);
+    });
+    return unsubscribe;
+  }, [taskId, date, queryClient, isRestoring]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
