@@ -20,6 +20,7 @@ export function CenterFabButton({ onPress }: CenterFabButtonProps) {
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
+    // TODO this button is for opening the create action sheet (Create Task / Create Category)
     <Pressable
       onPress={onPress}
       onPressIn={() => {

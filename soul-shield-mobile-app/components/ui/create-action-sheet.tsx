@@ -34,12 +34,14 @@ export function CreateActionSheet({
             Create New
           </ThemedText>
 
+          {/* TODO this button is for navigating to the create task screen */}
           <ActionRow
             icon="checkmark.circle.fill"
             title="Create Task"
             description="Create a new task."
             onPress={onCreateTask}
           />
+          {/* TODO this button is for navigating to the create category screen */}
           <ActionRow
             icon="folder.fill"
             title="Create Category"

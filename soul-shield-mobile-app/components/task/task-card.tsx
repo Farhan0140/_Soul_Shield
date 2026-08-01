@@ -82,6 +82,7 @@ export function TaskCard({
     <View style={[styles.card, { backgroundColor, borderLeftColor: accentColor }]}>
       <View style={styles.headerRow}>
         {!isCounter && !hasSubTasks ? (
+          // TODO this button is for toggling completion of a normal type task
           <Pressable
             disabled={controlsDisabled}
             onPress={onToggleComplete}
@@ -97,6 +98,7 @@ export function TaskCard({
         {/* Only the title/description expand the inline details section —
             checkbox above and counter/sub-task controls below are separate
             Pressables, so tapping them never triggers it. */}
+        {/* TODO this button is for expanding/collapsing the task's inline details */}
         <Pressable
           onPress={() => setDetailsExpanded((v) => !v)}
           style={styles.titleTouchable}
@@ -167,9 +169,11 @@ export function TaskCard({
 
       {canManage ? (
         <View style={styles.actions}>
+          {/* TODO this button is for navigating to the edit task screen */}
           <Pressable onPress={onEdit} hitSlop={8} style={styles.actionButton}>
             <IconSymbol name="pencil" size={18} color={mutedColor} />
           </Pressable>
+          {/* TODO this button is for deleting this task */}
           <Pressable onPress={onDelete} hitSlop={8} style={styles.actionButton}>
             <IconSymbol name="trash" size={18} color={dangerColor} />
           </Pressable>

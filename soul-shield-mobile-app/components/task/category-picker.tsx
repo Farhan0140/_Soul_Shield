@@ -11,7 +11,7 @@ interface CategoryPickerProps {
 
 export function CategoryPicker({ categories, value, onChange }: CategoryPickerProps) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+    <ScrollView contentContainerStyle={styles.row}>
       <FilterChip label="None" active={value === null} onPress={() => onChange(null)} />
       {categories.map((category) => (
         <FilterChip
@@ -26,4 +26,4 @@ export function CategoryPicker({ categories, value, onChange }: CategoryPickerPr
   );
 }
 
-const styles = StyleSheet.create({ row: { flexDirection: 'row', gap: 8 } });
+const styles = StyleSheet.create({ row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 } });

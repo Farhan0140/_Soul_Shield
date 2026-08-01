@@ -57,6 +57,7 @@ export function CategoryForm({
           {SWATCHES.map((swatch) => {
             const active = swatch === color;
             return (
+              // TODO this button is for selecting this swatch as the category color
               <Pressable
                 key={swatch}
                 onPress={() => setColor(swatch)}
@@ -79,9 +80,11 @@ export function CategoryForm({
 
       <View style={styles.actions}>
         <View style={styles.actionButton}>
+          {/* TODO this button is for cancelling out of the category form without saving */}
           <PrimaryButton label="Cancel" variant="secondary" onPress={onCancel} />
         </View>
         <View style={styles.actionButton}>
+          {/* TODO this button is for submitting the form to create or update the category (label is "Create Category" or "Save") */}
           <PrimaryButton
             label={submitLabel}
             onPress={() => onSubmit({ name: name.trim(), color_hex: color })}

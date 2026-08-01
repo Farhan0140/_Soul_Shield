@@ -250,16 +250,23 @@ export function TaskForm({
       <View style={styles.field}>
         <ThemedText type="defaultSemiBold">Task Type</ThemedText>
         <View style={styles.typeRow}>
-          <PrimaryButton
-            label="Normal"
-            variant={taskType === 'normal' ? 'primary' : 'secondary'}
-            onPress={() => handleTaskTypeChange('normal')}
-          />
-          <PrimaryButton
-            label="Counter"
-            variant={taskType === 'counter' ? 'primary' : 'secondary'}
-            onPress={() => handleTaskTypeChange('counter')}
-          />
+          {/* TODO this button is for setting the task type to normal (simple checkbox completion) */}
+          <View style={{ flex: 1, borderWidth:1, borderColor: '#c7c7c7', borderRadius: 16 }}>
+            <PrimaryButton
+              label="Normal"
+              variant={taskType === 'normal' ? 'primary' : 'secondary'}
+              onPress={() => handleTaskTypeChange('normal')}
+            />
+          </View>
+
+          {/* TODO this button is for setting the task type to counter (progress towards a target count) */}
+          <View style={{ flex: 1, borderWidth:1, borderColor: '#c7c7c7', borderRadius: 16 }}>
+            <PrimaryButton
+              label="Counter"
+              variant={taskType === 'counter' ? 'primary' : 'secondary'}
+              onPress={() => handleTaskTypeChange('counter')}
+            />
+          </View>
         </View>
         {taskType === 'counter' ? (
           <TextField
@@ -298,6 +305,7 @@ export function TaskForm({
                         placeholder="e.g. Read 1 page"
                       />
                     </View>
+                    {/* TODO this button is for removing this sub-task draft from the form */}
                     <Pressable
                       onPress={() => removeSubTaskDraft(index)}
                       hitSlop={8}
@@ -307,16 +315,23 @@ export function TaskForm({
                   </View>
 
                   <View style={styles.typeRow}>
-                    <PrimaryButton
-                      label="Normal"
-                      variant={draft.task_type === 'normal' ? 'primary' : 'secondary'}
-                      onPress={() => updateSubTaskDraft(index, { task_type: 'normal' })}
-                    />
-                    <PrimaryButton
-                      label="Counter"
-                      variant={draft.task_type === 'counter' ? 'primary' : 'secondary'}
-                      onPress={() => updateSubTaskDraft(index, { task_type: 'counter' })}
-                    />
+                    {/* TODO this button is for setting this sub-task's type to normal */}
+                    <View style={{ flex: 1, borderWidth:1, borderColor: '#c7c7c7', borderRadius: 16 }}>
+                      <PrimaryButton
+                        label="Normal"
+                        variant={draft.task_type === 'normal' ? 'primary' : 'secondary'}
+                        onPress={() => updateSubTaskDraft(index, { task_type: 'normal' })}
+                      />
+                    </View>
+
+                    {/* TODO this button is for setting this sub-task's type to counter */}
+                    <View style={{ flex: 1, borderWidth:1, borderColor: '#c7c7c7', borderRadius: 16 }}>
+                      <PrimaryButton
+                        label="Counter"
+                        variant={draft.task_type === 'counter' ? 'primary' : 'secondary'}
+                        onPress={() => updateSubTaskDraft(index, { task_type: 'counter' })}
+                      />
+                    </View>
                   </View>
 
                   {draft.task_type === 'counter' ? (
@@ -331,18 +346,12 @@ export function TaskForm({
                 </View>
               ))}
 
+              {/* TODO this button is for adding another empty sub-task draft to the list */}
               <PrimaryButton label="Add More Sub-Tasks" variant="secondary" onPress={addSubTaskDraft} />
             </View>
           ) : null}
         </View>
       ) : null}
-
-      <TextField
-        label="Reward Text"
-        value={rewardText}
-        onChangeText={setRewardText}
-        placeholder="Optional completion message"
-      />
 
       <View style={styles.field}>
         <View style={styles.switchRow}>
@@ -356,6 +365,7 @@ export function TaskForm({
         </View>
         {reminderEnabled ? (
           <>
+            {/* TODO this button is for opening the time picker to set the reminder time */}
             <Pressable
               onPress={() => setShowTimePicker(true)}
               style={[styles.timeButton, { backgroundColor: cardColor, borderColor }]}>
@@ -378,6 +388,13 @@ export function TaskForm({
         ) : null}
       </View>
 
+      <TextField
+        label="Reward Text"
+        value={rewardText}
+        onChangeText={setRewardText}
+        placeholder="Optional completion message"
+      />
+
       {isAdmin ? (
         <View style={styles.switchRow}>
           <View style={styles.switchLabel}>
@@ -396,6 +413,7 @@ export function TaskForm({
         </ThemedText>
       ) : null}
 
+      {/* TODO this button is for submitting the form to create or update the task (label is "Create Task" or "Save") */}
       <PrimaryButton label={submitLabel} onPress={handleSubmit} loading={submitting} disabled={!isValid} />
     </KeyboardAvoidingScrollView>
   );

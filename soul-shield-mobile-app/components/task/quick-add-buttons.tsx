@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useThemeColor } from '@/hooks/use-theme-color';
 
-const AMOUNTS = [1, 10, 50];
+const AMOUNTS = [1, 5, 10];
 
 interface QuickAddButtonsProps {
   onAdd: (amount: number) => void;
@@ -16,6 +16,7 @@ export function QuickAddButtons({ onAdd, disabled }: QuickAddButtonsProps) {
   return (
     <View style={styles.row}>
       {AMOUNTS.map((amount) => (
+        // TODO this button is for +{amount} (quick-add) on a counter type task/sub-task
         <Pressable
           key={amount}
           disabled={disabled}
@@ -34,10 +35,14 @@ export function QuickAddButtons({ onAdd, disabled }: QuickAddButtonsProps) {
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 8 },
   button: {
+    flex: 1,
+    alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
     borderCurve: 'continuous',
+    borderWidth: 1,
+    borderColor: '#8c8c8c',
   },
   label: { fontSize: 14, fontWeight: '700' },
 });

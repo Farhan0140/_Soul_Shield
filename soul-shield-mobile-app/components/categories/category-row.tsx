@@ -22,9 +22,11 @@ export function CategoryRow({ category, onEdit, onDelete }: CategoryRowProps) {
       <ThemedText type="defaultSemiBold" style={styles.name}>
         {category.name}
       </ThemedText>
+      {/* TODO this button is for editing this category */}
       <Pressable onPress={onEdit} hitSlop={8} style={styles.actionButton}>
         <IconSymbol name="pencil" size={18} color={mutedColor} />
       </Pressable>
+      {/* TODO this button is for deleting this category */}
       <Pressable onPress={onDelete} hitSlop={8} style={styles.actionButton}>
         <IconSymbol name="trash" size={18} color={dangerColor} />
       </Pressable>

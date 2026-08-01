@@ -64,6 +64,7 @@ export function SubTaskList({ taskId, subTasks, date, disabled, onRewardEarned }
           <View key={subTask.sub_task_id} style={styles.row}>
             <View style={styles.rowHeader}>
               {!isCounter ? (
+                // TODO this button is for toggling completion of a normal type sub-task
                 <Pressable
                   disabled={disabled}
                   onPress={() => handleComplete(subTask)}

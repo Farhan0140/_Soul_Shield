@@ -34,9 +34,11 @@ export function GlobalTaskRow({ task, onEdit, onDelete }: GlobalTaskRowProps) {
           {RECURRENCE_LABEL[task.recurrence_type]} · {task.task_type === 'counter' ? 'Counter' : 'Normal'}
         </ThemedText>
       </View>
+      {/* TODO this button is for navigating to the edit screen for this global/fixed task */}
       <Pressable onPress={onEdit} hitSlop={8} style={styles.actionButton}>
         <IconSymbol name="pencil" size={18} color={mutedColor} />
       </Pressable>
+      {/* TODO this button is for deleting this global/fixed task */}
       <Pressable onPress={onDelete} hitSlop={8} style={styles.actionButton}>
         <IconSymbol name="trash" size={18} color={dangerColor} />
       </Pressable>
