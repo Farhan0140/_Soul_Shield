@@ -1,26 +1,12 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { ColorPicker } from '@/components/ui/color-picker';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { TextField } from '@/components/ui/text-field';
-import { useThemeColor } from '@/hooks/use-theme-color';
 
-export const SWATCHES = [
-  '#EF4444',
-  '#F97316',
-  '#F59E0B',
-  '#EAB308',
-  '#84CC16',
-  '#22C55E',
-  '#14B8A6',
-  '#06B6D4',
-  '#3B82F6',
-  '#6366F1',
-  '#A855F7',
-  '#EC4899',
-];
+const DEFAULT_COLOR = '#4F46E5';
 
 interface CategoryFormProps {
   initialName?: string;
@@ -42,8 +28,7 @@ export function CategoryForm({
   onCancel,
 }: CategoryFormProps) {
   const [name, setName] = useState(initialName);
-  const [color, setColor] = useState(initialColor ?? SWATCHES[0]);
-  const border = useThemeColor({}, 'border');
+  const [color, setColor] = useState(initialColor ?? DEFAULT_COLOR);
 
   const isValid = name.trim().length > 0;
 
@@ -52,24 +37,7 @@ export function CategoryForm({
       <TextField label="Name" value={name} onChangeText={setName} placeholder="e.g. Ibadah" />
 
       <View style={styles.field}>
-        <ThemedText type="defaultSemiBold">Color</ThemedText>
-        <View style={styles.swatchGrid}>
-          {SWATCHES.map((swatch) => {
-            const active = swatch === color;
-            return (
-              // TODO this button is for selecting this swatch as the category color
-              <Pressable
-                key={swatch}
-                onPress={() => setColor(swatch)}
-                style={[
-                  styles.swatch,
-                  { backgroundColor: swatch, borderColor: active ? border : 'transparent' },
-                ]}>
-                {active ? <IconSymbol name="checkmark" size={16} color="#fff" /> : null}
-              </Pressable>
-            );
-          })}
-        </View>
+        <ColorPicker value={color} onChange={setColor} />
       </View>
 
       {error ? (
@@ -100,15 +68,6 @@ export function CategoryForm({
 const styles = StyleSheet.create({
   container: { gap: 16 },
   field: { gap: 10 },
-  swatchGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  swatch: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   error: { color: '#D0342C', fontSize: 14 },
   actions: { flexDirection: 'row', gap: 12 },
   actionButton: { flex: 1 },

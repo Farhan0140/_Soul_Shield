@@ -1,26 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
-import { Palette, Check, AlertCircle } from 'lucide-react';
-
-// A curated palette of accessible, pleasant colors
-const PRESETS = [
-  '#4F46E5', // indigo
-  '#7C3AED', // violet
-  '#EC4899', // pink
-  '#EF4444', // red
-  '#F97316', // orange
-  '#F59E0B', // amber
-  '#EAB308', // yellow
-  '#84CC16', // lime
-  '#22C55E', // green
-  '#10B981', // emerald
-  '#14B8A6', // teal
-  '#06B6D4', // cyan
-  '#0EA5E9', // sky
-  '#3B82F6', // blue
-  '#8B5CF6', // purple
-  '#64748B', // slate
-];
+import { Check, AlertCircle } from 'lucide-react';
 
 function isValidHex(hex) {
   return /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/.test(hex);
@@ -51,10 +31,11 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
     }
   };
 
-  const selectPreset = (c) => {
-    setHex(c);
+  const handleNativePick = (c) => {
+    const clean = c.toUpperCase();
+    setHex(clean);
     setError('');
-    onChange(c);
+    onChange(clean);
   };
 
   return (
@@ -63,15 +44,28 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
         <label className="text-xs font-semibold text-slate-600 mb-1.5 block">{label}</label>
       )}
 
-      {/* Preview + hex input */}
+      {/* Color picker trigger + hex input */}
       <div className="flex items-center gap-2 mb-3">
-        <m.div
-          key={hex}
-          initial={{ scale: 0.8 }}
-          animate={{ scale: 1 }}
-          className="w-12 h-12 rounded-xl border-2 border-white shadow-md flex-shrink-0"
-          style={{ backgroundColor: isValidHex(hex) ? hex : '#e2e8f0' }}
-        />
+        <label
+          className="relative w-12 h-12 rounded-xl border-2 border-white shadow-md flex-shrink-0 cursor-pointer overflow-hidden block"
+          title="Pick a color"
+        >
+          <m.div
+            key={hex}
+            initial={{ scale: 0.8 }}
+            animate={{ scale: 1 }}
+            className="absolute inset-0"
+            style={{ backgroundColor: isValidHex(hex) ? hex : '#e2e8f0' }}
+          />
+          {/* Native OS/browser color picker — replaces the old curated preset palette so any color can be chosen. */}
+          <input
+            type="color"
+            value={isValidHex(hex) ? hex : '#4F46E5'}
+            onChange={(e) => handleNativePick(e.target.value)}
+            aria-label="Pick a color"
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          />
+        </label>
         <div className="flex-1 relative">
           <input
             ref={inputRef}
@@ -88,36 +82,6 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
             <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500" />
           )}
         </div>
-      </div>
-
-      {/* Preset swatches */}
-      <div className="grid grid-cols-8 gap-1.5">
-        {PRESETS.map((c) => {
-          const selected = hex.toUpperCase() === c.toUpperCase();
-          return (
-            <m.button
-              key={c}
-              type="button"
-              whileHover={{ scale: 1.15 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => selectPreset(c)}
-              className={`relative aspect-square rounded-lg transition-shadow
-                ${selected ? 'ring-2 ring-offset-2 ring-slate-800' : 'hover:ring-2 hover:ring-slate-300'}`}
-              style={{ backgroundColor: c }}
-              aria-label={`Select color ${c}`}
-            >
-              {selected && (
-                <m.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="absolute inset-0 flex items-center justify-center"
-                >
-                  <Check className="w-4 h-4 text-white drop-shadow" strokeWidth={3} />
-                </m.div>
-              )}
-            </m.button>
-          );
-        })}
       </div>
 
       {/* Error */}
