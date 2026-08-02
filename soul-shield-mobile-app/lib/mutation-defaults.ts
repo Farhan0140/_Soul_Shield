@@ -11,6 +11,7 @@ import {
   updateTask,
 } from '@/api/tasks';
 import type { TaskInput, TaskUpdateInput } from '@/api/types';
+import { cancelTaskReminders } from '@/lib/notifications';
 import { tokenStore } from '@/lib/secure-store';
 
 /** Mutation identity shared between the live hooks (hooks/queries/*) and the
@@ -128,6 +129,12 @@ export function registerMutationDefaults(queryClient: QueryClient) {
   });
   queryClient.setMutationDefaults(mutationKeys.tasks.delete, {
     mutationFn: deleteTaskMutationFn,
+    // Cancels the deleted task's scheduled reminders when this delete resumes
+    // headlessly (offline delete replayed after an app restart, with no live
+    // useDeleteTask hook mounted to run its own onSuccess) — otherwise the
+    // stale notification IDs in AsyncStorage are never cleared and fire later
+    // for a task that no longer exists.
+    onSuccess: (_data, id) => cancelTaskReminders(id),
     onSettled: () => invalidateTaskLists(queryClient),
   });
   queryClient.setMutationDefaults(mutationKeys.tasks.complete, {

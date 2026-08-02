@@ -49,6 +49,7 @@ const MAPPING = {
   'bell.fill': 'notifications',
   bell: 'notifications-none',
   'folder.fill': 'folder',
+  'externaldrive.fill': 'storage',
 } as IconMapping;
 
 /**

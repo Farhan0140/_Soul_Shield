@@ -13,6 +13,7 @@ import {
 } from '@/lib/mutation-defaults';
 import { queryKeys } from '@/lib/query-keys';
 import { todayISODate, weekdayIndex } from '@/lib/date';
+import { cancelTaskReminders } from '@/lib/notifications';
 
 function invalidateTaskLists(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -137,6 +138,12 @@ export function useDeleteTask(date: string) {
     onError: (_err, _id, context) => {
       if (context?.previous) queryClient.setQueryData(queryKeys.tasks(date), context.previous);
     },
+    // Cancels the deleted task's scheduled reminders on confirmed success —
+    // must live here (not just as a per-call `.mutate()` option) since a
+    // per-call callback is dropped when the mutation pauses offline and later
+    // replays headlessly after an app restart. See mutation-defaults.ts's
+    // durable default for that replay path.
+    onSuccess: (_data, id) => cancelTaskReminders(id),
     onSettled: () => invalidateTaskLists(queryClient),
   });
 }

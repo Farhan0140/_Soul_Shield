@@ -7,6 +7,7 @@ import { ActivityIndicator, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { AuthProvider, useAuth } from '@/context/auth-context';
+import { SyncNotificationsProvider } from '@/context/sync-notifications-context';
 import { AppThemeProvider, useAppTheme } from '@/context/theme-context';
 import '@/lib/network';
 import { getNavigationTheme } from '@/lib/navigation-theme';
@@ -48,7 +49,9 @@ function ThemedApp() {
 
   return (
     <ThemeProvider value={getNavigationTheme(resolvedTheme)}>
-      <RootNavigator />
+      <SyncNotificationsProvider>
+        <RootNavigator />
+      </SyncNotificationsProvider>
       <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
     </ThemeProvider>
   );

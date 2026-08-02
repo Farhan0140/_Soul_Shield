@@ -16,7 +16,6 @@ import {
   TAB_BAR_RADIUS,
 } from '@/constants/tab-bar';
 import { useAuth } from '@/context/auth-context';
-import { SyncNotificationsProvider } from '@/context/sync-notifications-context';
 import { useAppTheme } from '@/context/theme-context';
 
 export default function TabLayout() {
@@ -34,7 +33,7 @@ export default function TabLayout() {
   const showCenterFab = pathname === '/';
 
   return (
-    <SyncNotificationsProvider>
+    <>
       <Tabs
         screenOptions={{
           headerShown: false,
@@ -124,6 +123,6 @@ export default function TabLayout() {
           router.push('/category/new');
         }}
       />
-    </SyncNotificationsProvider>
+    </>
   );
 }
