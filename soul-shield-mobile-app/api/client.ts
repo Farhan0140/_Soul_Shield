@@ -4,15 +4,26 @@ const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
 interface RequestOptions extends RequestInit {
   token?: string | null;
+  /** Aborts the request after this many ms, surfacing as the same
+   * status-0 network error as any other unreachable-server case. Opt-in
+   * (undefined = no timeout) since interactive screens already have their own
+   * retry/loading affordances — background callers without a mounted UI to
+   * fall back on (see lib/background-sync/sync.ts) are the ones that need a
+   * hard ceiling so a stalled connection can't wedge a task indefinitely. */
+  timeoutMs?: number;
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { token, headers, ...rest } = options;
+  const { token, headers, timeoutMs, ...rest } = options;
+
+  const controller = timeoutMs ? new AbortController() : undefined;
+  const timeout = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
 
   let response: Response;
   try {
     response = await fetch(`${BASE_URL}${path}`, {
       ...rest,
+      signal: controller?.signal ?? rest.signal,
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `JWT ${token}` } : {}),
@@ -21,6 +32,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     });
   } catch {
     throw new ApiError('Network error', 0, 'NETWORK_ERROR');
+  } finally {
+    if (timeout) clearTimeout(timeout);
   }
 
   if (!response.ok) {
@@ -47,8 +60,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return response.json();
 }
 
-export const apiGet = <T,>(path: string, token?: string | null) =>
-  request<T>(path, { method: 'GET', token });
+export const apiGet = <T,>(path: string, token?: string | null, timeoutMs?: number) =>
+  request<T>(path, { method: 'GET', token, timeoutMs });
 
 export const apiPost = <T,>(path: string, body: unknown, token?: string | null) =>
   request<T>(path, { method: 'POST', body: JSON.stringify(body ?? {}), token });

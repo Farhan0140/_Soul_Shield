@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -8,7 +8,26 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { useAuth } from '@/context/auth-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { getBackgroundSyncState, type BackgroundSyncState } from '@/lib/background-sync/state';
+import { runFullBackgroundSync } from '@/lib/background-sync/sync';
 import { clearOfflineCache, countPendingMutations } from '@/lib/persister';
+
+function formatSyncStatus(state: BackgroundSyncState | null): string {
+  if (!state) return 'Not synced yet on this device';
+  if (state.lastOutcome === 'success' && state.lastSuccessAt) {
+    return `Last synced ${new Date(state.lastSuccessAt).toLocaleString()}`;
+  }
+  const lastGood = state.lastSuccessAt
+    ? ` (last success ${new Date(state.lastSuccessAt).toLocaleString()})`
+    : '';
+  if (state.lastOutcome === 'failed') {
+    return `Last attempt failed${lastGood}: ${state.lastErrorMessage ?? 'unknown error'}`;
+  }
+  if (state.lastOutcome === 'skipped-offline') {
+    return `Waiting for a connection to sync${lastGood}`;
+  }
+  return `Not synced yet${lastGood}`;
+}
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
@@ -17,6 +36,28 @@ export default function ProfileScreen() {
   const tintColor = useThemeColor({}, 'tint');
   const mutedColor = useThemeColor({}, 'muted');
   const [clearing, setClearing] = useState(false);
+  const [syncState, setSyncState] = useState<BackgroundSyncState | null>(null);
+  const [syncingNow, setSyncingNow] = useState(false);
+
+  const refreshSyncState = useCallback(() => {
+    getBackgroundSyncState().then(setSyncState);
+  }, []);
+
+  useEffect(() => {
+    refreshSyncState();
+  }, [refreshSyncState]);
+
+  const handleRunSyncNow = async () => {
+    setSyncingNow(true);
+    try {
+      await runFullBackgroundSync(queryClient);
+    } catch {
+      // Failure reason is already recorded and picked up by refreshSyncState below.
+    } finally {
+      setSyncingNow(false);
+      refreshSyncState();
+    }
+  };
 
   const handleClearCache = () => {
     const pending = countPendingMutations(queryClient);
@@ -70,12 +111,23 @@ export default function ProfileScreen() {
             Data
           </ThemedText>
         </View>
+        <ThemedText style={[styles.syncStatus, { color: mutedColor }]}>
+          {formatSyncStatus(syncState)}
+        </ThemedText>
         <PrimaryButton
           label="Clear Offline Data"
           variant="secondary"
           loading={clearing}
           onPress={handleClearCache}
         />
+        {__DEV__ ? (
+          <PrimaryButton
+            label="Run Background Sync Now (dev)"
+            variant="secondary"
+            loading={syncingNow}
+            onPress={handleRunSyncNow}
+          />
+        ) : null}
       </View>
 
       <PrimaryButton label="Log Out" variant="destructive" onPress={logout} />
@@ -97,4 +149,5 @@ const styles = StyleSheet.create({
   section: { gap: 12 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   sectionTitle: { fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5 },
+  syncStatus: { fontSize: 13 },
 });

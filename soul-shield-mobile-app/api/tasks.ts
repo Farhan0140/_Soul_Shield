@@ -8,12 +8,12 @@ import type {
   TaskUpdateInput,
 } from '@/api/types';
 
-export function getTasks(date: string, token: string | null) {
-  return apiGet<Task[]>(`/tasks?date=${date}`, token);
+export function getTasks(date: string, token: string | null, timeoutMs?: number) {
+  return apiGet<Task[]>(`/tasks?date=${date}`, token, timeoutMs);
 }
 
-export function getTaskHistory(from: string, to: string, token: string | null) {
-  return apiGet<Task[]>(`/tasks/history?from=${from}&to=${to}`, token);
+export function getTaskHistory(from: string, to: string, token: string | null, timeoutMs?: number) {
+  return apiGet<Task[]>(`/tasks/history?from=${from}&to=${to}`, token, timeoutMs);
 }
 
 export function createTask(input: TaskInput, token: string | null) {

@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import 'react-native-reanimated';
 
+import { registerBackgroundSync } from '@/lib/background-sync/task';
 import { AuthProvider, useAuth } from '@/context/auth-context';
 import { SyncNotificationsProvider } from '@/context/sync-notifications-context';
 import { AppThemeProvider, useAppTheme } from '@/context/theme-context';
@@ -60,6 +61,7 @@ function ThemedApp() {
 export default function RootLayout() {
   useEffect(() => {
     ensureNotificationSetup();
+    registerBackgroundSync();
   }, []);
 
   return (

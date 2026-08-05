@@ -18,7 +18,12 @@ export const persister = createAsyncStoragePersister({
 // Bump whenever a persisted query/mutation's data shape changes, to
 // force-invalidate stale cache instead of shipping a runtime crash from a
 // shape mismatch against old persisted data.
-const PERSIST_BUSTER = 'v1';
+// Exported so lib/background-sync/sync.ts can stamp the same buster onto the
+// PersistedClient it writes directly (bypassing PersistQueryClientProvider,
+// since that's a React component and the background task runs headlessly) —
+// a mismatched buster would make the live app discard the fresh sync on next
+// restore, thinking it came from a stale build.
+export const PERSIST_BUSTER = 'v1';
 
 export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
   persister,

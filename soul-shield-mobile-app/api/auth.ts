@@ -45,8 +45,8 @@ export function register(input: RegisterInput) {
   });
 }
 
-export function fetchMe(token: string) {
-  return apiGet<User>('/users/me', token);
+export function fetchMe(token: string, timeoutMs?: number) {
+  return apiGet<User>('/users/me', token, timeoutMs);
 }
 
 /**

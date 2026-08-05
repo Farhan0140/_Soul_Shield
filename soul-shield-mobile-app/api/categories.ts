@@ -1,8 +1,8 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from '@/api/client';
 import type { Category } from '@/api/types';
 
-export function getCategories(token: string | null) {
-  return apiGet<Category[]>('/categories', token);
+export function getCategories(token: string | null, timeoutMs?: number) {
+  return apiGet<Category[]>('/categories', token, timeoutMs);
 }
 
 export function createCategory(
