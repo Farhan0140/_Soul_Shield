@@ -8,12 +8,12 @@ import {
 } from 'react';
 import { useColorScheme as useSystemColorScheme } from 'react-native';
 
-import type { ThemeName } from '@/constants/theme';
+import { Colors, DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, type ThemeName } from '@/constants/theme';
 import { themePreferenceStore } from '@/lib/secure-store';
 
 export type ThemePreference = 'system' | ThemeName;
 
-const VALID_THEMES: ThemeName[] = ['light', 'dark', 'brown', 'lemonGreen'];
+const VALID_THEMES = Object.keys(Colors) as ThemeName[];
 
 interface ThemeContextValue {
   preference: ThemePreference;
@@ -41,7 +41,9 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
   };
 
   const resolvedTheme: ThemeName = useMemo(() => {
-    if (preference === 'system') return systemScheme === 'dark' ? 'dark' : 'light';
+    if (preference === 'system') {
+      return systemScheme === 'dark' ? DEFAULT_DARK_THEME : DEFAULT_LIGHT_THEME;
+    }
     return preference;
   }, [preference, systemScheme]);
 

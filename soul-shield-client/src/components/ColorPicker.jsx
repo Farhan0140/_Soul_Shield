@@ -41,7 +41,7 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
   return (
     <div>
       {label && (
-        <label className="text-xs font-semibold text-slate-600 mb-1.5 block">{label}</label>
+        <label className="text-xs font-semibold text-muted mb-1.5 block">{label}</label>
       )}
 
       {/* Color picker trigger + hex input */}
@@ -76,10 +76,10 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
             placeholder="#4F46E5"
             aria-label="Hex color code"
             className={`w-full px-3 py-2.5 rounded-xl border-2 font-mono text-sm uppercase outline-none transition-colors
-              ${error ? 'border-rose-400' : 'border-slate-200 focus:border-indigo-500'}`}
+              ${error ? 'border-danger' : 'border-border focus:border-primary'}`}
           />
           {isValidHex(hex) && !error && (
-            <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500" />
+            <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-success" />
           )}
         </div>
       </div>
@@ -91,7 +91,7 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="mt-2 flex items-center gap-1 text-xs text-rose-500"
+            className="mt-2 flex items-center gap-1 text-xs text-danger"
           >
             <AlertCircle className="w-3.5 h-3.5" />
             {error}

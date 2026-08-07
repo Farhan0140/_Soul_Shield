@@ -13,28 +13,28 @@ export default function DayGroup({ date, tasks, onNavigateToDay }) {
   const isToday = fmtDate(date) === fmtDate(new Date());
 
   const statusIcon = pct === 100
-    ? <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+    ? <CheckCircle2 className="w-4 h-4 text-success" />
     : pct === 0
-    ? <XCircle className="w-4 h-4 text-rose-400" />
-    : <Clock className="w-4 h-4 text-amber-500" />;
+    ? <XCircle className="w-4 h-4 text-danger/70" />
+    : <Clock className="w-4 h-4 text-warning" />;
 
   return (
     <m.div
       layout
-      className="bg-white rounded-2xl border border-slate-200 overflow-hidden"
+      className="bg-surface rounded-2xl border border-border overflow-hidden"
     >
       {/* Day header */}
       <m.button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors text-left"
+        className="w-full flex items-center gap-3 p-4 hover:bg-bg transition-colors text-left"
       >
         <m.div animate={{ rotate: open ? 0 : -90 }}>
-          <ChevronDown className="w-4 h-4 text-slate-400" />
+          <ChevronDown className="w-4 h-4 text-muted" />
         </m.div>
 
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center flex-shrink-0
-            ${isToday ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white' : 'bg-slate-100 text-slate-700'}`}>
+            ${isToday ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white' : 'bg-bg text-fg'}`}>
             <span className="text-[9px] font-semibold uppercase leading-none">
               {new Date(date).toLocaleDateString('en-US', { weekday: 'short' })}
             </span>
@@ -44,21 +44,21 @@ export default function DayGroup({ date, tasks, onNavigateToDay }) {
           </div>
 
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-slate-800 truncate">
+            <p className="text-sm font-semibold text-fg truncate">
               {prettyDate(date)}
-              {isToday && <span className="ml-2 text-[10px] font-bold uppercase text-indigo-600">Today</span>}
+              {isToday && <span className="ml-2 text-[10px] font-bold uppercase text-primary">Today</span>}
             </p>
             <div className="flex items-center gap-2 mt-1">
-              <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden max-w-[120px]">
+              <div className="flex-1 h-1.5 bg-bg rounded-full overflow-hidden max-w-[120px]">
                 <m.div
                   className={`h-full rounded-full ${
-                    pct === 100 ? 'bg-emerald-500' : pct > 0 ? 'bg-indigo-500' : 'bg-slate-300'
+                    pct === 100 ? 'bg-success' : pct > 0 ? 'bg-primary' : 'bg-border'
                   }`}
                   animate={{ width: `${pct}%` }}
                   transition={{ type: 'spring', stiffness: 100 }}
                 />
               </div>
-              <span className="text-xs text-slate-500 tabular-nums">
+              <span className="text-xs text-muted tabular-nums">
                 {completed}/{total}
               </span>
             </div>
@@ -76,7 +76,7 @@ export default function DayGroup({ date, tasks, onNavigateToDay }) {
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="border-t border-slate-100"
+            className="border-t border-border"
           >
             <div className="p-4 pt-3 grid gap-2 md:grid-cols-2">
               {tasks.map(t => (

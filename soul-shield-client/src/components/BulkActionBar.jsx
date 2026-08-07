@@ -14,7 +14,7 @@ export default function BulkActionBar({ count, onClear, onDeleteSelected }) {
           className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white rounded-2xl shadow-2xl px-5 py-3 flex items-center gap-4"
         >
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-sm font-bold">
+            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-sm font-bold">
               {count}
             </div>
             <span className="text-sm font-medium">
@@ -27,7 +27,7 @@ export default function BulkActionBar({ count, onClear, onDeleteSelected }) {
           <Button
             variant="danger"
             onClick={onDeleteSelected}
-            className="!py-2 !px-3 !bg-rose-500 hover:!bg-rose-600"
+            className="!py-2 !px-3 !bg-danger hover:!bg-danger/90"
           >
             <Trash2 className="w-4 h-4" /> Delete selected
           </Button>

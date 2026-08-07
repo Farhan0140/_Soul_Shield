@@ -67,11 +67,11 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       whileHover={{ y: -2 }}
-      className={`relative rounded-2xl border-2 bg-white p-4 transition-all overflow-hidden
-        ${isCompleted ? 'border-emerald-200 bg-emerald-50/30' : ''}
-        ${isPartiallyCompleted ? 'border-amber-200 bg-amber-50/30' : ''}
-        ${isMissed ? 'border-rose-200 bg-rose-50/30 opacity-80' : ''}
-        ${!isCompleted && !isPartiallyCompleted && !isMissed ? 'border-slate-200 hover:border-slate-300 hover:shadow-md' : ''}
+      className={`relative rounded-2xl border-2 bg-surface p-4 transition-all overflow-hidden
+        ${isCompleted ? 'border-success/30 bg-success/10' : ''}
+        ${isPartiallyCompleted ? 'border-warning/30 bg-warning/10' : ''}
+        ${isMissed ? 'border-danger/30 bg-danger/10 opacity-80' : ''}
+        ${!isCompleted && !isPartiallyCompleted && !isMissed ? 'border-border hover:border-border hover:shadow-md' : ''}
       `}
       style={{ borderLeftWidth: '4px', borderLeftColor: categoryColor }}
     >
@@ -85,11 +85,11 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
             onClick={handleToggleComplete}
             disabled={isCompleted || isMissed || completing || isReadOnly}
             className={`mt-0.5 flex-shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all
-              ${isCompleted ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 hover:border-indigo-500'}
+              ${isCompleted ? 'bg-success border-success' : 'border-border hover:border-primary'}
               disabled:cursor-not-allowed`}
           >
             {completing ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
             ) : isCompleted ? (
               <Check className="w-4 h-4 text-white" strokeWidth={3} />
             ) : null}
@@ -115,29 +115,29 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
             className="cursor-pointer"
           >
             <div className="flex items-start justify-between gap-2">
-              <h3 className={`font-semibold text-slate-800 leading-snug ${isCompleted ? 'line-through text-slate-500' : ''}`}>
+              <h3 className={`font-semibold text-fg leading-snug ${isCompleted ? 'line-through text-muted' : ''}`}>
                 {task.title}
               </h3>
               <div className="flex items-center gap-1 flex-shrink-0">
                 {task.is_global && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-semibold uppercase tracking-wide">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning/10 text-warning text-[10px] font-semibold uppercase tracking-wide">
                     <Shield className="w-3 h-3" /> Fixed
                   </span>
                 )}
                 {isPartiallyCompleted && !isReadOnly && (
-                  <span className="text-[10px] font-semibold text-amber-600 uppercase">Partially Completed</span>
+                  <span className="text-[10px] font-semibold text-warning uppercase">Partially Completed</span>
                 )}
                 {isMissed && !isReadOnly && (
-                  <span className="text-[10px] font-semibold text-rose-500 uppercase">Missed</span>
+                  <span className="text-[10px] font-semibold text-danger uppercase">Missed</span>
                 )}
                 <ChevronDown
-                  className={`w-4 h-4 text-slate-400 transition-transform ${detailsExpanded ? 'rotate-180' : ''}`}
+                  className={`w-4 h-4 text-muted transition-transform ${detailsExpanded ? 'rotate-180' : ''}`}
                 />
               </div>
             </div>
 
             {task.description && (
-              <p className="text-sm text-slate-500 mt-0.5 line-clamp-2">{task.description}</p>
+              <p className="text-sm text-muted mt-0.5 line-clamp-2">{task.description}</p>
             )}
 
             {detailsExpanded && <TaskDetailsInline task={task} />}
@@ -183,27 +183,27 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="mt-3 flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200"
+            className="mt-3 flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 border border-warning/30"
           >
             <m.div
               animate={{ rotate: [0, -10, 10, -10, 0] }}
               transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 2 }}
             >
-              <Sparkles className="w-4 h-4 text-amber-500" fill="currentColor" />
+              <Sparkles className="w-4 h-4 text-warning" fill="currentColor" />
             </m.div>
-            <span className="text-sm font-medium text-amber-800">{task.reward_text}</span>
+            <span className="text-sm font-medium text-warning">{task.reward_text}</span>
           </m.div>
         )}
       </AnimatePresence>
 
       {/* Action buttons */}
       {canManage && (
-        <div className="flex items-center justify-end gap-1 mt-3 pt-3 border-t border-slate-100">
+        <div className="flex items-center justify-end gap-1 mt-3 pt-3 border-t border-border">
           <m.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => onEdit(task)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted hover:bg-bg transition-colors"
           >
             <Edit2 className="w-3.5 h-3.5" /> Edit
           </m.button>
@@ -211,7 +211,7 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleDelete}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-danger hover:bg-danger/10 transition-colors"
           >
             <Trash2 className="w-3.5 h-3.5" /> Delete
           </m.button>

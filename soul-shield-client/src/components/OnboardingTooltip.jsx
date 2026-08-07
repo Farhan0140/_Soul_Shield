@@ -69,7 +69,7 @@ export default function OnboardingTooltip() {
             exit={{ y: 40, scale: 0.95, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden"
+            className="w-full max-w-sm bg-surface rounded-2xl shadow-2xl overflow-hidden"
           >
             {/* Progress dots */}
             <div className="flex items-center justify-center gap-1.5 pt-4">
@@ -77,7 +77,7 @@ export default function OnboardingTooltip() {
                 <div
                   key={i}
                   className={`h-1.5 rounded-full transition-all ${
-                    i === step ? 'w-6 bg-indigo-500' : 'w-1.5 bg-slate-200'
+                    i === step ? 'w-6 bg-primary' : 'w-1.5 bg-border'
                   }`}
                 />
               ))}
@@ -87,10 +87,10 @@ export default function OnboardingTooltip() {
             <button
               type="button"
               onClick={() => dismiss()}
-              className="absolute top-3 right-3 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              className="absolute top-3 right-3 p-1.5 rounded-lg hover:bg-bg transition-colors"
               aria-label="Close"
             >
-              <X className="w-4 h-4 text-slate-400" />
+              <X className="w-4 h-4 text-muted" />
             </button>
 
             {/* Content */}
@@ -103,8 +103,8 @@ export default function OnboardingTooltip() {
               >
                 {tip.emoji}
               </m.div>
-              <h3 className="text-lg font-bold text-slate-800 mb-1.5">{tip.title}</h3>
-              <p className="text-sm text-slate-600 leading-relaxed">{tip.body}</p>
+              <h3 className="text-lg font-bold text-fg mb-1.5">{tip.title}</h3>
+              <p className="text-sm text-muted leading-relaxed">{tip.body}</p>
             </div>
 
             {/* Actions */}
@@ -113,7 +113,7 @@ export default function OnboardingTooltip() {
                 <button
                   type="button"
                   onClick={() => setStep(s => s - 1)}
-                  className="px-3 py-2 text-sm text-slate-500 hover:text-slate-700 font-medium"
+                  className="px-3 py-2 text-sm text-muted hover:text-fg font-medium"
                 >
                   Back
                 </button>
@@ -122,7 +122,7 @@ export default function OnboardingTooltip() {
               <button
                 type="button"
                 onClick={() => dismiss()}
-                className="px-3 py-2 text-sm text-slate-500 hover:text-slate-700 font-medium"
+                className="px-3 py-2 text-sm text-muted hover:text-fg font-medium"
               >
                 Skip
               </button>

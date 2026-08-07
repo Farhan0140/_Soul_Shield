@@ -3,9 +3,9 @@ import { Loader2 } from 'lucide-react';
 
 const variants = {
   primary:   'bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:shadow-lg hover:shadow-indigo-200 hover:scale-[1.02]',
-  secondary: 'bg-white border-2 border-slate-200 text-slate-700 hover:border-indigo-300 hover:text-indigo-600',
-  ghost:     'bg-transparent text-slate-600 hover:bg-slate-100',
-  danger:    'bg-rose-500 text-white hover:bg-rose-600 hover:shadow-lg hover:shadow-rose-200',
+  secondary: 'bg-surface border-2 border-border text-fg hover:border-primary hover:text-primary',
+  ghost:     'bg-transparent text-muted hover:bg-bg',
+  danger:    'bg-danger text-white hover:bg-danger/90 hover:shadow-lg hover:shadow-rose-200',
 };
 
 export default function Button({

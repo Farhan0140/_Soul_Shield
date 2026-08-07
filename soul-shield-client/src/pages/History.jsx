@@ -37,11 +37,11 @@ export default function History() {
       {/* Header */}
       <m.div variants={child} className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-800 flex items-center gap-2">
-            <CalendarDays className="w-7 h-7 text-indigo-500" />
+          <h1 className="text-2xl md:text-3xl font-bold text-fg flex items-center gap-2">
+            <CalendarDays className="w-7 h-7 text-primary" />
             History
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-muted mt-1">
             Look back at your progress and see how you've been doing ✨
           </p>
         </div>
@@ -50,9 +50,9 @@ export default function History() {
 
       {/* Error */}
       {error && (
-        <m.div variants={child} className="p-6 rounded-2xl bg-rose-50 border border-rose-200 text-center">
-          <AlertCircle className="w-8 h-8 text-rose-500 mx-auto mb-2" />
-          <p className="text-sm text-rose-700 mb-3">{error}</p>
+        <m.div variants={child} className="p-6 rounded-2xl bg-danger/10 border border-danger/20 text-center">
+          <AlertCircle className="w-8 h-8 text-danger mx-auto mb-2" />
+          <p className="text-sm text-danger mb-3">{error}</p>
           <Button variant="secondary" onClick={reload}>Try again</Button>
         </m.div>
       )}
@@ -62,15 +62,15 @@ export default function History() {
         <>
           <m.div variants={child} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {[1, 2, 3, 4].map(i => (
-              <div key={i} className="bg-white rounded-2xl border border-slate-200 p-4 animate-pulse">
-                <div className="w-9 h-9 rounded-xl bg-slate-200 mb-3" />
-                <div className="h-3 bg-slate-200 rounded w-1/2 mb-2" />
-                <div className="h-6 bg-slate-200 rounded w-3/4" />
+              <div key={i} className="bg-surface rounded-2xl border border-border p-4 animate-pulse">
+                <div className="w-9 h-9 rounded-xl bg-border mb-3" />
+                <div className="h-3 bg-border rounded w-1/2 mb-2" />
+                <div className="h-6 bg-border rounded w-3/4" />
               </div>
             ))}
           </m.div>
-          <m.div variants={child} className="bg-white rounded-2xl border border-slate-200 p-5 animate-pulse">
-            <div className="h-32 bg-slate-100 rounded" />
+          <m.div variants={child} className="bg-surface rounded-2xl border border-border p-5 animate-pulse">
+            <div className="h-32 bg-bg rounded" />
           </m.div>
         </>
       )}
@@ -93,8 +93,8 @@ export default function History() {
           {/* Day groups */}
           {sortedDates.length > 0 ? (
             <m.div variants={child} className="space-y-3">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-                <span className="w-6 h-0.5 bg-slate-300" />
+              <h2 className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-2">
+                <span className="w-6 h-0.5 bg-border" />
                 Daily breakdown
               </h2>
               {sortedDates.map(date => (
@@ -108,17 +108,17 @@ export default function History() {
           ) : (
             <m.div
               variants={child}
-              className="text-center py-16 bg-white rounded-2xl border border-slate-200"
+              className="text-center py-16 bg-surface rounded-2xl border border-border"
             >
               <m.div
                 animate={{ y: [0, -8, 0] }}
                 transition={{ duration: 2, repeat: Infinity }}
                 className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 mb-4"
               >
-                <Inbox className="w-8 h-8 text-indigo-500" />
+                <Inbox className="w-8 h-8 text-primary" />
               </m.div>
-              <h3 className="text-lg font-semibold text-slate-800 mb-1">No history yet</h3>
-              <p className="text-sm text-slate-500">
+              <h3 className="text-lg font-semibold text-fg mb-1">No history yet</h3>
+              <p className="text-sm text-muted">
                 Complete some tasks and your progress will show up here.
               </p>
             </m.div>

@@ -19,14 +19,14 @@ export default function CounterWidget({ task, date, onUpdate, onRewardEarned, di
     <div className="mt-3 space-y-2">
       {/* Progress bar */}
       <div className="flex items-center gap-2">
-        <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+        <div className="flex-1 h-2.5 bg-bg rounded-full overflow-hidden">
           <m.div
             className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
             animate={{ width: `${pct}%` }}
             transition={{ type: 'spring', stiffness: 120, damping: 20 }}
           />
         </div>
-        <span className="text-xs font-semibold text-slate-600 tabular-nums min-w-[60px] text-right">
+        <span className="text-xs font-semibold text-muted tabular-nums min-w-[60px] text-right">
           {localProgress} / {task.target_count}
         </span>
       </div>
@@ -48,8 +48,8 @@ export default function CounterWidget({ task, date, onUpdate, onRewardEarned, di
           whileTap={{ scale: 0.9 }}
           onClick={() => increment(10)}
           disabled={done || task.status === 'completed' || disabled}
-          className="px-3 py-2.5 rounded-xl bg-indigo-50 text-indigo-700 font-semibold text-sm
-            hover:bg-indigo-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-3 py-2.5 rounded-xl bg-primary/10 text-primary font-semibold text-sm
+            hover:bg-primary/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           +10
         </m.button>
@@ -71,15 +71,15 @@ export default function CounterWidget({ task, date, onUpdate, onRewardEarned, di
             initial={{ opacity: 0, scale: 0.8, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8 }}
-            className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200"
+            className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 border border-warning/30"
           >
             <m.div
               animate={{ rotate: [0, -10, 10, -10, 0] }}
               transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 2 }}
             >
-              <Zap className="w-4 h-4 text-amber-500" fill="currentColor" />
+              <Zap className="w-4 h-4 text-warning" fill="currentColor" />
             </m.div>
-            <span className="text-sm font-medium text-amber-800">
+            <span className="text-sm font-medium text-warning">
               {task.reward_text || 'Target reached! ✨'}
             </span>
           </m.div>

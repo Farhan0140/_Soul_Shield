@@ -1,14 +1,15 @@
 import { DarkTheme, DefaultTheme, type Theme } from '@react-navigation/native';
 
-import { Colors, type ThemeName } from '@/constants/theme';
+import { Colors, ThemeScheme, type ThemeName } from '@/constants/theme';
 
 export function getNavigationTheme(themeName: ThemeName): Theme {
-  const base = themeName === 'dark' ? DarkTheme : DefaultTheme;
+  const isDark = ThemeScheme[themeName] === 'dark';
+  const base = isDark ? DarkTheme : DefaultTheme;
   const palette = Colors[themeName];
 
   return {
     ...base,
-    dark: themeName === 'dark',
+    dark: isDark,
     colors: {
       ...base.colors,
       primary: palette.tint,

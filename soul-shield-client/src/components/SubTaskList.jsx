@@ -50,7 +50,7 @@ export default function SubTaskList({ task, date, onUpdate, onRewardEarned, disa
   };
 
   return (
-    <div className="mt-3 pt-3 border-t border-slate-100 space-y-2.5">
+    <div className="mt-3 pt-3 border-t border-border space-y-2.5">
       {task.sub_tasks.map((s) => {
         const isCompleted = s.status === 'completed';
         const isCounter = s.task_type === 'counter';
@@ -66,11 +66,11 @@ export default function SubTaskList({ task, date, onUpdate, onRewardEarned, disa
                 onClick={() => handleComplete(s)}
                 disabled={isDisabled}
                 className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all
-                  ${isCompleted ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 hover:border-indigo-500'}
+                  ${isCompleted ? 'bg-success border-success' : 'border-border hover:border-primary'}
                   disabled:cursor-not-allowed`}
               >
                 {isPending ? (
-                  <Loader2 className="w-3 h-3 animate-spin text-indigo-500" />
+                  <Loader2 className="w-3 h-3 animate-spin text-primary" />
                 ) : isCompleted ? (
                   <Check className="w-3 h-3 text-white" strokeWidth={3} />
                 ) : null}
@@ -78,17 +78,17 @@ export default function SubTaskList({ task, date, onUpdate, onRewardEarned, disa
             )}
 
             <div className="flex-1 min-w-0">
-              <p className={`text-sm ${isCompleted ? 'line-through text-slate-400' : 'text-slate-700'}`}>
+              <p className={`text-sm ${isCompleted ? 'line-through text-muted' : 'text-fg'}`}>
                 {s.title}
               </p>
 
               {isCounter && (
                 <div className="mt-1 space-y-1.5">
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${pct}%` }} />
+                    <div className="flex-1 h-1.5 bg-bg rounded-full overflow-hidden">
+                      <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
                     </div>
-                    <span className="text-[11px] text-slate-500 tabular-nums">
+                    <span className="text-[11px] text-muted tabular-nums">
                       {s.progress_count || 0}/{s.target_count}
                     </span>
                   </div>
@@ -99,7 +99,7 @@ export default function SubTaskList({ task, date, onUpdate, onRewardEarned, disa
                         type="button"
                         onClick={() => handleIncrement(s, amount)}
                         disabled={isDisabled || isCompleted}
-                        className="px-2 py-1 rounded-md bg-indigo-50 text-indigo-700 text-[11px] font-semibold hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        className="px-2 py-1 rounded-md bg-primary/10 text-primary text-[11px] font-semibold hover:bg-primary/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                       >
                         +{amount}
                       </button>

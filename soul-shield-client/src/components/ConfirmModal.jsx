@@ -31,30 +31,30 @@ export default function ConfirmModal({
             exit={{ scale: 0.95, y: 20, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden"
+            className="w-full max-w-md bg-surface rounded-2xl shadow-2xl overflow-hidden"
           >
             <div className="p-6">
               {/* Header */}
               <div className="flex items-start gap-4">
                 <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center
-                  ${variant === 'danger' ? 'bg-rose-100' : 'bg-indigo-100'}`}>
+                  ${variant === 'danger' ? 'bg-danger/10' : 'bg-primary/10'}`}>
                   {(() => {
                     const Icon = icon;
-                    return <Icon className={`w-6 h-6 ${variant === 'danger' ? 'text-rose-600' : 'text-indigo-600'}`} />;
+                    return <Icon className={`w-6 h-6 ${variant === 'danger' ? 'text-danger' : 'text-primary'}`} />;
                   })()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-bold text-slate-800">{title}</h3>
-                  <p className="text-sm text-slate-600 mt-1">{message}</p>
+                  <h3 className="text-lg font-bold text-fg">{title}</h3>
+                  <p className="text-sm text-muted mt-1">{message}</p>
                   {children && <div className="mt-3">{children}</div>}
                 </div>
                 <button
                   type="button"
                   onClick={onClose}
                   aria-label="Close"
-                  className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors -mr-1 -mt-1"
+                  className="p-1.5 rounded-lg hover:bg-bg transition-colors -mr-1 -mt-1"
                 >
-                  <X className="w-5 h-5 text-slate-400" />
+                  <X className="w-5 h-5 text-muted" />
                 </button>
               </div>
 

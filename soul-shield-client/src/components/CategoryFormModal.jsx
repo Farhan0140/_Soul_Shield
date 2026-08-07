@@ -59,32 +59,32 @@ export default function CategoryFormModal({ open, onClose, onCreated }) {
             exit={{ scale: 0.95, y: 20, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-white rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-md bg-surface rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
           >
-            <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-800">New category</h2>
+            <div className="sticky top-0 bg-surface border-b border-border px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-fg">New category</h2>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="Close"
-                className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                className="p-1.5 rounded-lg hover:bg-bg transition-colors"
               >
-                <X className="w-5 h-5 text-slate-500" />
+                <X className="w-5 h-5 text-muted" />
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-5">
               {/* Live preview */}
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-bg border border-border">
                 <m.div
                   animate={{ backgroundColor: color }}
                   className="w-12 h-12 rounded-xl shadow-md flex-shrink-0"
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-800 truncate">
+                  <p className="text-sm font-semibold text-fg truncate">
                     {name.trim() || 'Your category name'}
                   </p>
-                  <p className="text-xs text-slate-500 font-mono">{color}</p>
+                  <p className="text-xs text-muted font-mono">{color}</p>
                 </div>
               </div>
 

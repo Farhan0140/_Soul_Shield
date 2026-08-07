@@ -16,7 +16,7 @@ export default function RewardModal({ open, text, taskTitle, onClose }) {
             exit={{ scale: 0.85, y: 20, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 320, damping: 24 }}
             onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl p-7 text-center overflow-hidden"
+            className="relative w-full max-w-sm bg-surface rounded-3xl shadow-2xl p-7 text-center overflow-hidden"
           >
             {/* Decorative gradient glow */}
             <div className="pointer-events-none absolute -top-16 left-1/2 -translate-x-1/2 w-56 h-56 rounded-full bg-gradient-to-br from-amber-200 via-yellow-100 to-transparent opacity-70 blur-2xl" />
@@ -25,7 +25,7 @@ export default function RewardModal({ open, text, taskTitle, onClose }) {
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              className="absolute top-3 right-3 p-1.5 rounded-lg text-muted hover:text-fg hover:bg-bg transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -39,14 +39,14 @@ export default function RewardModal({ open, text, taskTitle, onClose }) {
               <PartyPopper className="w-8 h-8 text-white" />
             </m.div>
 
-            <h2 className="relative mt-4 text-lg font-bold text-slate-800">Well done!</h2>
+            <h2 className="relative mt-4 text-lg font-bold text-fg">Well done!</h2>
             {taskTitle && (
-              <p className="relative mt-0.5 text-xs font-medium text-slate-400 uppercase tracking-wide">
+              <p className="relative mt-0.5 text-xs font-medium text-muted uppercase tracking-wide">
                 {taskTitle}
               </p>
             )}
 
-            <p className="relative mt-3 text-sm font-medium text-amber-800 bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-xl px-4 py-3">
+            <p className="relative mt-3 text-sm font-medium text-warning bg-gradient-to-r from-amber-50 to-yellow-50 border border-warning/20 rounded-xl px-4 py-3">
               {text}
             </p>
 

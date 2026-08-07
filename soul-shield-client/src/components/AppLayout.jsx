@@ -10,7 +10,7 @@ export default function AppLayout() {
       <Sidebar />
 
       {/* Mobile header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-surface/95 backdrop-blur-md border-b border-border">
         <div className="flex items-center gap-2 px-4 py-3">
           <m.div
             animate={{ rotate: [0, 10, -10, 0] }}

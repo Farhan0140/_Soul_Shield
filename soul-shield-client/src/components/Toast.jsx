@@ -5,9 +5,9 @@ import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 const ToastContext = createContext(null);
 
 const icons = {
-  success: <CheckCircle2 className="w-5 h-5 text-emerald-500" />,
-  error:   <AlertCircle className="w-5 h-5 text-rose-500" />,
-  info:    <Info className="w-5 h-5 text-indigo-500" />,
+  success: <CheckCircle2 className="w-5 h-5 text-success" />,
+  error:   <AlertCircle className="w-5 h-5 text-danger" />,
+  info:    <Info className="w-5 h-5 text-primary" />,
 };
 
 export function ToastProvider({ children }) {
@@ -36,16 +36,16 @@ export function ToastProvider({ children }) {
               initial={{ opacity: 0, x: 40, scale: 0.95 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 40, scale: 0.95 }}
-              className="bg-white rounded-xl shadow-lg border border-slate-200 p-3 flex items-start gap-3"
+              className="bg-surface rounded-xl shadow-lg border border-border p-3 flex items-start gap-3"
             >
               {icons[t.type]}
-              <p className="text-sm text-slate-700 flex-1">{t.message}</p>
+              <p className="text-sm text-fg flex-1">{t.message}</p>
               <button
                 type="button"
                 onClick={() => setToasts(ts => ts.filter(x => x.id !== t.id))}
                 aria-label="Dismiss notification"
               >
-                <X className="w-4 h-4 text-slate-400 hover:text-slate-600" />
+                <X className="w-4 h-4 text-muted hover:text-fg" />
               </button>
             </m.div>
           ))}

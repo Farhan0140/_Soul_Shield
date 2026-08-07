@@ -23,12 +23,12 @@ function StepIndicator({ step }) {
           <m.div
             animate={{ scale: i === step ? 1.1 : 1 }}
             className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-colors
-              ${i < step ? 'bg-emerald-500 text-white' : i === step ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}
+              ${i < step ? 'bg-success text-white' : i === step ? 'bg-primary text-white' : 'bg-bg text-muted'}`}
           >
             {i < step ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
           </m.div>
           {i < STEPS.length - 1 && (
-            <div className={`w-8 h-0.5 ${i < step ? 'bg-emerald-400' : 'bg-slate-200'}`} />
+            <div className={`w-8 h-0.5 ${i < step ? 'bg-success/70' : 'bg-border'}`} />
           )}
         </div>
       ))}
@@ -241,7 +241,7 @@ export default function Register() {
             {errors.form && (
               <m.div
                 initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
-                className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-600 flex items-center gap-2"
+                className="p-3 rounded-xl bg-danger/10 border border-danger/30 text-sm text-danger flex items-center gap-2"
               >
                 <ShieldCheck className="w-4 h-4 flex-shrink-0" /> {errors.form}
               </m.div>
@@ -266,7 +266,7 @@ export default function Register() {
                 placeholder="Please enter a personal answer that you will always remember."
                 autoComplete="off"
               />
-              <p className="text-xs text-slate-500 mt-1.5">
+              <p className="text-xs text-muted mt-1.5">
                 This can be your nickname, your favorite thing, your pet's name, your father's name, your mother's
                 name, your favorite place, or any personal word or phrase that only you know. You'll be asked for
                 this answer if you ever need to reset your password. Choose something memorable but difficult for
@@ -285,9 +285,9 @@ export default function Register() {
         )}
       </AnimatePresence>
 
-      <p className="text-center text-sm text-slate-500 mt-6">
+      <p className="text-center text-sm text-muted mt-6">
         Already have an account?{' '}
-        <Link to="/login" className="text-indigo-600 hover:text-indigo-700 font-semibold">
+        <Link to="/login" className="text-primary hover:text-primary/80 font-semibold">
           Sign in
         </Link>
       </p>

@@ -16,16 +16,16 @@ const Input = forwardRef(function Input(
   return (
     <div className={`relative ${className}`}>
       <div
-        className={`relative flex items-center rounded-xl border-2 transition-all duration-200 bg-white
-          ${error ? 'border-rose-400 focus-within:border-rose-500' : ''}
-          ${!error && focused ? 'border-indigo-500 shadow-sm shadow-indigo-100' : ''}
-          ${!error && !focused ? 'border-slate-200 hover:border-slate-300' : ''}
+        className={`relative flex items-center rounded-xl border-2 transition-all duration-200 bg-surface
+          ${error ? 'border-danger focus-within:border-danger' : ''}
+          ${!error && focused ? 'border-primary shadow-sm shadow-indigo-100' : ''}
+          ${!error && !focused ? 'border-border/70 hover:border-border' : ''}
         `}
       >
         {Icon && (
           <Icon
             className={`w-5 h-5 ml-3 transition-colors ${
-              error ? 'text-rose-400' : focused ? 'text-indigo-500' : 'text-slate-400'
+              error ? 'text-danger' : focused ? 'text-primary' : 'text-muted'
             }`}
           />
         )}
@@ -35,7 +35,7 @@ const Input = forwardRef(function Input(
           type={isPassword ? (showPwd ? 'text' : 'password') : type}
           onFocus={(e) => { setFocused(true); props.onFocus?.(e); }}
           onBlur={(e) => { setFocused(false); props.onBlur?.(e); }}
-          className="w-full px-3 py-3.5 bg-transparent outline-none text-slate-800 placeholder-transparent"
+          className="w-full px-3 py-3.5 bg-transparent outline-none text-fg placeholder-transparent"
           placeholder={label}
           {...props}
         />
@@ -44,7 +44,7 @@ const Input = forwardRef(function Input(
             type="button"
             onClick={() => setShowPwd(s => !s)}
             aria-label={showPwd ? 'Hide password' : 'Show password'}
-            className="px-3 text-slate-400 hover:text-slate-600 transition-colors"
+            className="px-3 text-muted hover:text-fg transition-colors"
             tabIndex={-1}
           >
             {showPwd ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -57,8 +57,8 @@ const Input = forwardRef(function Input(
         htmlFor={inputId}
         className={`absolute left-3 pointer-events-none transition-all duration-200 px-1
           ${Icon ? 'left-10' : 'left-3'}
-          ${active ? 'top-0 text-xs bg-white text-indigo-600' : 'top-3.5 text-sm text-slate-400'}
-          ${error ? (active ? 'text-rose-500' : 'text-rose-400') : ''}
+          ${active ? 'top-0 text-xs bg-surface text-primary' : 'top-3.5 text-sm text-muted'}
+          ${error ? 'text-danger' : ''}
         `}
       >
         {label}
@@ -71,7 +71,7 @@ const Input = forwardRef(function Input(
             initial={{ opacity: 0, y: -4, height: 0 }}
             animate={{ opacity: 1, y: 0, height: 'auto' }}
             exit={{ opacity: 0, y: -4, height: 0 }}
-            className="mt-1.5 flex items-center gap-1 text-xs text-rose-500"
+            className="mt-1.5 flex items-center gap-1 text-xs text-danger"
           >
             <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
             <span>{error}</span>

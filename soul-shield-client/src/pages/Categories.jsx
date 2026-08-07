@@ -116,11 +116,11 @@ export default function Categories() {
       {/* Header */}
       <m.div variants={child} className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-800 flex items-center gap-2">
-            <Tags className="w-7 h-7 text-indigo-500" />
+          <h1 className="text-2xl md:text-3xl font-bold text-fg flex items-center gap-2">
+            <Tags className="w-7 h-7 text-primary" />
             Categories
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-muted mt-1">
             Organize your tasks with colors and labels — makes them easier to find.
           </p>
         </div>
@@ -132,12 +132,12 @@ export default function Categories() {
       {/* Info banner */}
       <m.div
         variants={child}
-        className="flex items-start gap-3 p-4 rounded-2xl bg-indigo-50 border border-indigo-100"
+        className="flex items-start gap-3 p-4 rounded-2xl bg-primary/10 border border-primary/20"
       >
-        <Info className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
-        <div className="text-sm text-indigo-900">
+        <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+        <div className="text-sm text-primary">
           <p className="font-semibold mb-0.5">Deleting is safe</p>
-          <p className="text-indigo-700">
+          <p className="text-primary/80">
             If you delete a category, its tasks won't disappear — they'll just become "Uncategorized".
           </p>
         </div>
@@ -145,9 +145,9 @@ export default function Categories() {
 
       {/* Error */}
       {error && (
-        <m.div variants={child} className="p-6 rounded-2xl bg-rose-50 border border-rose-200 text-center">
-          <AlertCircle className="w-8 h-8 text-rose-500 mx-auto mb-2" />
-          <p className="text-sm text-rose-700 mb-3">{error}</p>
+        <m.div variants={child} className="p-6 rounded-2xl bg-danger/10 border border-danger/20 text-center">
+          <AlertCircle className="w-8 h-8 text-danger mx-auto mb-2" />
+          <p className="text-sm text-danger mb-3">{error}</p>
           <Button variant="secondary" onClick={load}>Try again</Button>
         </m.div>
       )}
@@ -180,17 +180,17 @@ export default function Categories() {
           ) : (
             <m.div
               variants={child}
-              className="text-center py-16 bg-white rounded-2xl border border-slate-200"
+              className="text-center py-16 bg-surface rounded-2xl border border-border"
             >
               <m.div
                 animate={{ y: [0, -8, 0] }}
                 transition={{ duration: 2, repeat: Infinity }}
                 className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 mb-4"
               >
-                <Inbox className="w-8 h-8 text-indigo-500" />
+                <Inbox className="w-8 h-8 text-primary" />
               </m.div>
-              <h3 className="text-lg font-semibold text-slate-800 mb-1">No categories yet</h3>
-              <p className="text-sm text-slate-500 mb-4 max-w-sm mx-auto">
+              <h3 className="text-lg font-semibold text-fg mb-1">No categories yet</h3>
+              <p className="text-sm text-muted mb-4 max-w-sm mx-auto">
                 Categories help you group similar tasks together — like "Ibadah", "Work", or "Health".
               </p>
               <Button onClick={() => setCreateOpen(true)}>
@@ -220,8 +220,8 @@ export default function Categories() {
         variant="danger"
       >
         {deleting && (usageCounts[deleting.id] || 0) > 0 && (
-          <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
-            <p className="text-sm text-amber-800">
+          <div className="p-3 rounded-xl bg-warning/10 border border-warning/20">
+            <p className="text-sm text-warning">
               <strong>{usageCounts[deleting.id]}</strong> task
               {usageCounts[deleting.id] === 1 ? '' : 's'} using this category will become{' '}
               <strong>Uncategorized</strong>. They won't be deleted.

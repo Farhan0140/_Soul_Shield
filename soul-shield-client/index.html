@@ -5,19 +5,30 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' fill='rgb(99, 230, 190)'><path d='M256 32c2.6 0 5.2 .6 7.5 1.7L421.7 104c10.4 4.4 17.2 14.6 17.2 25.9c-.3 73.1-29.4 159.2-167 282.8c-4.7 4.2-11 6.5-17.4 6.5s-12.7-2.3-17.4-6.5C102.4 289.2 73.3 203.1 73.1 129.9c0-11.3 6.8-21.5 17.2-25.9L248.5 33.7c2.3-1.1 4.9-1.7 7.5-1.7m0-32c-4.6 0-9.2 1-13.4 2.9L84.3 73.2C62.3 82.5 45.9 104.2 46 131.1c.5 95.1 41.7 206.5 223.1 366.1c10 8.8 23.3 13.7 36.9 13.7s26.9-4.9 36.9-13.7C495.3 337.2 536.5 225.8 537 130.7c.1-26.9-16.3-48.6-38.3-57.9L340.6 2.9C336.4 1 331.8 0 327.2 0H256z'/></svg>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Soul Shield</title>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.0/index.css" />
 
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.0/index.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/manrope@5.0.0/index.css" />
+
+    <!-- Default theme colors, applied before React mounts to avoid a flash of unstyled content. ThemeProvider overrides data-theme once it reads the saved preference. -->
     <style>
-      body { font-family: 'Inter', sans-serif; }
+      :root {
+        --bg: #F6F7F9;
+        --surface: #FCFDFF;
+        --primary: #5A6BD8;
+        --border-c: #E5E9F0;
+        --success: #37946B;
+        --danger: #C86A6A;
+        --warning: #C08A2E;
+        --fg: #253248;
+        --muted: #6A7A90;
+        color-scheme: light;
+      }
       /* Smooth page transitions */
       .page-enter { opacity: 0; transform: translateY(8px); }
       .page-enter-active { opacity: 1; transform: translateY(0); transition: all .35s ease; }
     </style>
   </head>
-  <body>
-    <body class="bg-slate-50 text-slate-800">
+  <body class="bg-bg text-fg">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

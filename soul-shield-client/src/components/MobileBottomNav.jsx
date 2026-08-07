@@ -20,7 +20,7 @@ export default function MobileBottomNav() {
       {/* Spacer so content doesn't get hidden behind the nav */}
       <div className="lg:hidden h-20" />
 
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-lg">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface/95 backdrop-blur-md border-t border-border shadow-lg">
         <div className="flex items-center justify-around px-2 py-2">
           {LINKS.map(link => {
             const Icon = link.icon;
@@ -31,7 +31,7 @@ export default function MobileBottomNav() {
                 end={link.to === '/'}
                 className={({ isActive }) =>
                   `relative flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-colors min-w-[60px]
-                    ${isActive ? 'text-indigo-600' : 'text-slate-500'}`
+                    ${isActive ? 'text-primary' : 'text-muted'}`
                 }
               >
                 {({ isActive }) => (
@@ -39,7 +39,7 @@ export default function MobileBottomNav() {
                     {isActive && (
                       <m.div
                         layoutId="mobile-nav-pill"
-                        className="absolute inset-0 bg-indigo-50 rounded-xl -z-0"
+                        className="absolute inset-0 bg-primary/10 rounded-xl -z-0"
                         transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                       />
                     )}
@@ -57,7 +57,7 @@ export default function MobileBottomNav() {
           {isAdmin && isAdminRoute && (
             <NavLink
               to="/admin/tasks"
-              className="relative flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl text-amber-600 min-w-[60px]"
+              className="relative flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl text-warning min-w-[60px]"
             >
               <Shield className="w-5 h-5" />
               <span className="text-[10px] font-semibold">Admin</span>

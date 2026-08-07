@@ -22,12 +22,12 @@ function StepIndicator({ step }) {
           <m.div
             animate={{ scale: i === step ? 1.1 : 1 }}
             className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-colors
-              ${i < step ? 'bg-emerald-500 text-white' : i === step ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}
+              ${i < step ? 'bg-success text-white' : i === step ? 'bg-primary text-white' : 'bg-bg text-muted'}`}
           >
             {i < step ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
           </m.div>
           {i < STEPS.length - 1 && (
-            <div className={`w-8 h-0.5 ${i < step ? 'bg-emerald-400' : 'bg-slate-200'}`} />
+            <div className={`w-8 h-0.5 ${i < step ? 'bg-success/70' : 'bg-border'}`} />
           )}
         </div>
       ))}
@@ -180,9 +180,9 @@ export default function ForgotPassword() {
             initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
             onSubmit={handleVerifyAnswer} className="space-y-4"
           >
-            <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-100 flex items-start gap-3">
-              <ShieldCheck className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-indigo-900">
+            <div className="p-3 rounded-xl bg-primary/10 border border-primary/20 flex items-start gap-3">
+              <ShieldCheck className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-primary">
                 For security purposes, please enter the personal security answer you created when you registered
                 your account.
               </p>
@@ -230,9 +230,9 @@ export default function ForgotPassword() {
         )}
       </AnimatePresence>
 
-      <p className="text-center text-sm text-slate-500 mt-6">
+      <p className="text-center text-sm text-muted mt-6">
         Remembered it?{' '}
-        <Link to="/login" className="text-indigo-600 hover:text-indigo-700 font-semibold">
+        <Link to="/login" className="text-primary hover:text-primary/80 font-semibold">
           Back to sign in
         </Link>
       </p>

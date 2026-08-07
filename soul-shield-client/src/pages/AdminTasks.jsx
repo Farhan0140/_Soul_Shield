@@ -188,11 +188,11 @@ export default function AdminTasks() {
       {/* Header */}
       <m.div variants={child} className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-800 flex items-center gap-2">
-            <Shield className="w-7 h-7 text-amber-500" />
+          <h1 className="text-2xl md:text-3xl font-bold text-fg flex items-center gap-2">
+            <Shield className="w-7 h-7 text-warning" />
             Admin Panel
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-muted mt-1">
             Manage Fixed Tasks — these are visible to every user in the system.
           </p>
         </div>
@@ -203,31 +203,31 @@ export default function AdminTasks() {
 
       {/* Summary cards */}
       <m.div variants={child} className="grid grid-cols-3 gap-3">
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3">
+        <div className="bg-surface rounded-2xl border border-border p-4 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
             <Shield className="w-5 h-5 text-white" />
           </div>
           <div>
-            <p className="text-xs font-medium text-slate-500">Fixed Tasks</p>
-            <p className="text-xl font-bold text-slate-800 tabular-nums">{summaryStats.totalTasks}</p>
+            <p className="text-xs font-medium text-muted">Fixed Tasks</p>
+            <p className="text-xl font-bold text-fg tabular-nums">{summaryStats.totalTasks}</p>
           </div>
         </div>
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3">
+        <div className="bg-surface rounded-2xl border border-border p-4 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
             <CheckCircle2 className="w-5 h-5 text-white" />
           </div>
           <div>
-            <p className="text-xs font-medium text-slate-500">Completions (30d)</p>
-            <p className="text-xl font-bold text-slate-800 tabular-nums">{summaryStats.totalCompletions}</p>
+            <p className="text-xs font-medium text-muted">Completions (30d)</p>
+            <p className="text-xl font-bold text-fg tabular-nums">{summaryStats.totalCompletions}</p>
           </div>
         </div>
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3">
+        <div className="bg-surface rounded-2xl border border-border p-4 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
             <TrendingUp className="w-5 h-5 text-white" />
           </div>
           <div>
-            <p className="text-xs font-medium text-slate-500">Avg. completion rate</p>
-            <p className="text-xl font-bold text-slate-800 tabular-nums">{summaryStats.avgRate}%</p>
+            <p className="text-xs font-medium text-muted">Avg. completion rate</p>
+            <p className="text-xl font-bold text-fg tabular-nums">{summaryStats.avgRate}%</p>
           </div>
         </div>
       </m.div>
@@ -236,30 +236,30 @@ export default function AdminTasks() {
       <m.div variants={child} className="space-y-3">
         {/* Search bar */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search fixed tasks by title, description, or category..."
             aria-label="Search fixed tasks"
-            className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 outline-none text-sm transition-colors"
+            className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-border focus:border-primary outline-none text-sm transition-colors"
           />
           {search && (
             <button
               type="button"
               onClick={() => setSearch('')}
               aria-label="Clear search"
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-slate-100"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-bg"
             >
-              <XCircle className="w-4 h-4 text-slate-400" />
+              <XCircle className="w-4 h-4 text-muted" />
             </button>
           )}
         </div>
 
         {/* Filter row */}
         <div className="flex items-center gap-2 flex-wrap">
-          <Filter className="w-4 h-4 text-slate-400" />
+          <Filter className="w-4 h-4 text-muted" />
 
           {/* Type filter */}
           {STATUS_FILTERS.map(f => {
@@ -270,7 +270,7 @@ export default function AdminTasks() {
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setTypeFilter(f.key)}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-all
-                  ${active ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}
+                  ${active ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted hover:border-border'}
                 `}
               >
                 {f.label}
@@ -279,12 +279,12 @@ export default function AdminTasks() {
           })}
 
           <div className="ml-auto flex items-center gap-2">
-            <ArrowUpDown className="w-4 h-4 text-slate-400" />
+            <ArrowUpDown className="w-4 h-4 text-muted" />
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
               aria-label="Sort fixed tasks"
-              className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium bg-white outline-none focus:border-indigo-500"
+              className="px-3 py-1.5 rounded-lg border border-border text-xs font-medium bg-surface outline-none focus:border-primary"
             >
               {SORT_OPTIONS.map(o => (
                 <option key={o.key} value={o.key}>{o.label}</option>
@@ -296,9 +296,9 @@ export default function AdminTasks() {
 
       {/* Error */}
       {error && (
-        <m.div variants={child} className="p-6 rounded-2xl bg-rose-50 border border-rose-200 text-center">
-          <AlertCircle className="w-8 h-8 text-rose-500 mx-auto mb-2" />
-          <p className="text-sm text-rose-700 mb-3">{error}</p>
+        <m.div variants={child} className="p-6 rounded-2xl bg-danger/10 border border-danger/20 text-center">
+          <AlertCircle className="w-8 h-8 text-danger mx-auto mb-2" />
+          <p className="text-sm text-danger mb-3">{error}</p>
           <Button variant="secondary" onClick={reload}>Try again</Button>
         </m.div>
       )}
@@ -332,17 +332,17 @@ export default function AdminTasks() {
           ) : tasks.length === 0 ? (
             <m.div
               variants={child}
-              className="text-center py-16 bg-white rounded-2xl border border-slate-200"
+              className="text-center py-16 bg-surface rounded-2xl border border-border"
             >
               <m.div
                 animate={{ y: [0, -8, 0] }}
                 transition={{ duration: 2, repeat: Infinity }}
                 className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 mb-4"
               >
-                <Inbox className="w-8 h-8 text-amber-500" />
+                <Inbox className="w-8 h-8 text-warning" />
               </m.div>
-              <h3 className="text-lg font-semibold text-slate-800 mb-1">No fixed tasks yet</h3>
-              <p className="text-sm text-slate-500 mb-4 max-w-sm mx-auto">
+              <h3 className="text-lg font-semibold text-fg mb-1">No fixed tasks yet</h3>
+              <p className="text-sm text-muted mb-4 max-w-sm mx-auto">
                 Fixed tasks appear on every user's dashboard — great for daily reminders, ibadah routines, or company-wide goals.
               </p>
               <Button onClick={openCreate}>
@@ -352,7 +352,7 @@ export default function AdminTasks() {
           ) : (
             <m.div
               variants={child}
-              className="text-center py-12 text-sm text-slate-500"
+              className="text-center py-12 text-sm text-muted"
             >
               No fixed tasks match these filters.
             </m.div>
@@ -361,8 +361,8 @@ export default function AdminTasks() {
           {/* Leaderboard */}
           {!loading && tasks.length > 0 && (
             <m.div variants={child}>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-2">
-                <span className="w-6 h-0.5 bg-slate-300" />
+              <h2 className="text-xs font-bold uppercase tracking-wider text-muted mb-3 flex items-center gap-2">
+                <span className="w-6 h-0.5 bg-border" />
                 Community
               </h2>
               <LeaderboardPreview />
@@ -393,14 +393,14 @@ export default function AdminTasks() {
         variant="danger"
       >
         {deletingTask && usage[deletingTask.task_id] && (
-          <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
+          <div className="p-3 rounded-xl bg-warning/10 border border-warning/20">
             <div className="flex items-start gap-2">
-              <Users className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-amber-800">
+              <Users className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-warning">
                 <p>
                   <strong>{usage[deletingTask.task_id].completions}</strong> completions recorded in the last 30 days.
                 </p>
-                <p className="text-xs text-amber-700 mt-1">
+                <p className="text-xs text-warning/80 mt-1">
                   Past completion history is preserved — only the task itself will be removed.
                 </p>
               </div>

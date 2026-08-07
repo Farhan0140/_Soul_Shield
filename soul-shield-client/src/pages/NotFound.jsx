@@ -5,12 +5,12 @@ import Button from '../components/ui/Button';
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-50 via-white to-purple-50 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-primary/10 via-bg to-primary/5 relative overflow-hidden">
       {/* Animated blobs */}
       <m.div
         animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
         transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
-        className="absolute -top-20 -left-20 w-96 h-96 bg-indigo-200 rounded-full mix-blend-multiply filter blur-3xl opacity-40"
+        className="absolute -top-20 -left-20 w-96 h-96 bg-primary/20 rounded-full mix-blend-multiply filter blur-3xl opacity-40"
       />
       <m.div
         animate={{ x: [0, -30, 0], y: [0, 20, 0] }}
@@ -40,14 +40,14 @@ export default function NotFound() {
             transition={{ duration: 2, repeat: Infinity }}
             className="absolute top-4 -right-4"
           >
-            <Sparkles className="w-6 h-6 text-amber-400" fill="currentColor" />
+            <Sparkles className="w-6 h-6 text-warning" fill="currentColor" />
           </m.div>
           <m.div
             animate={{ y: [0, 10, 0], rotate: [0, -15, 0] }}
             transition={{ duration: 2.5, repeat: Infinity, delay: 0.5 }}
             className="absolute bottom-8 -left-4"
           >
-            <Sparkles className="w-5 h-5 text-indigo-400" fill="currentColor" />
+            <Sparkles className="w-5 h-5 text-primary/60" fill="currentColor" />
           </m.div>
         </m.div>
 
@@ -57,13 +57,13 @@ export default function NotFound() {
           transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
           className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 mb-6"
         >
-          <Search className="w-10 h-10 text-indigo-600" />
+          <Search className="w-10 h-10 text-primary" />
         </m.div>
 
-        <h2 className="text-2xl font-bold text-slate-800 mb-2">
+        <h2 className="text-2xl font-bold text-fg mb-2">
           Oops — you've wandered off the path
         </h2>
-        <p className="text-slate-500 mb-6">
+        <p className="text-muted mb-6">
           The page you're looking for doesn't exist, or maybe it moved. Let's get you back on track.
         </p>
 

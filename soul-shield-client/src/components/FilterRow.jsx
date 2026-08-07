@@ -12,14 +12,14 @@ export default function FilterRow({ categories, activeCategory, setActiveCategor
   return (
     <div className="space-y-3">
       {/* Status tabs */}
-      <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl w-fit">
+      <div className="flex items-center gap-1 p-1 bg-bg rounded-xl w-fit">
         {STATUS_TABS.map(tab => (
           <m.button
             key={tab.key}
             whileTap={{ scale: 0.95 }}
             onClick={() => setActiveStatus(tab.key)}
             className={`relative px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors
-              ${activeStatus === tab.key ? 'text-white' : 'text-slate-600 hover:text-slate-900'}`}
+              ${activeStatus === tab.key ? 'text-white' : 'text-muted hover:text-fg'}`}
           >
             {activeStatus === tab.key && (
               <m.div
@@ -35,12 +35,12 @@ export default function FilterRow({ categories, activeCategory, setActiveCategor
 
       {/* Category chips */}
       <div className="flex items-center gap-2 flex-wrap">
-        <Filter className="w-4 h-4 text-slate-400" />
+        <Filter className="w-4 h-4 text-muted" />
         <m.button
           whileTap={{ scale: 0.95 }}
           onClick={() => setActiveCategory(null)}
           className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-all
-            ${!activeCategory ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
+            ${!activeCategory ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted hover:border-border'}`}
         >
           All
         </m.button>

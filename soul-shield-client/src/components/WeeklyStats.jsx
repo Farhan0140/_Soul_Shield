@@ -57,7 +57,7 @@ export default function WeeklyStats({ stats }) {
       value: `${stats.completionRate}%`,
       sub: `${stats.completed} of ${stats.totalTasks}`,
       gradient: 'from-indigo-500 to-purple-600',
-      bg: 'bg-indigo-50',
+      bg: 'bg-primary/10',
     },
     {
       icon: Flame,
@@ -73,7 +73,7 @@ export default function WeeklyStats({ stats }) {
       value: stats.completed,
       sub: `${stats.missed} missed`,
       gradient: 'from-emerald-500 to-teal-500',
-      bg: 'bg-emerald-50',
+      bg: 'bg-success/10',
     },
     {
       icon: TrendingUp,
@@ -97,16 +97,16 @@ export default function WeeklyStats({ stats }) {
           key={c.label}
           variants={item}
           whileHover={{ y: -4, scale: 1.02 }}
-          className="relative bg-white rounded-2xl border border-slate-200 p-4 overflow-hidden group"
+          className="relative bg-surface rounded-2xl border border-border p-4 overflow-hidden group"
         >
           <div className={`absolute -right-4 -top-4 w-20 h-20 rounded-full ${c.bg} opacity-60 group-hover:scale-125 transition-transform duration-500`} />
           <div className="relative">
             <div className={`inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br ${c.gradient} mb-3`}>
               <c.icon className="w-5 h-5 text-white" />
             </div>
-            <p className="text-xs font-medium text-slate-500">{c.label}</p>
-            <p className="text-2xl font-bold text-slate-800 mt-0.5">{c.value}</p>
-            <p className="text-xs text-slate-500 mt-1">{c.sub}</p>
+            <p className="text-xs font-medium text-muted">{c.label}</p>
+            <p className="text-2xl font-bold text-fg mt-0.5">{c.value}</p>
+            <p className="text-xs text-muted mt-1">{c.sub}</p>
           </div>
         </m.div>
       ))}

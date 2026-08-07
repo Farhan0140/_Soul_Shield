@@ -12,11 +12,11 @@ function intensity(pct) {
 }
 
 const COLORS = [
-  'bg-slate-100',
-  'bg-indigo-100',
-  'bg-indigo-300',
-  'bg-indigo-500',
-  'bg-indigo-700',
+  'bg-bg',
+  'bg-primary/10',
+  'bg-primary/40',
+  'bg-primary/70',
+  'bg-primary',
 ];
 
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -74,15 +74,15 @@ export default function Heatmap({ byDate, range, onDateClick }) {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5">
+    <div className="bg-surface rounded-2xl border border-border p-5">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-sm font-bold text-slate-800">Activity</h3>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <h3 className="text-sm font-bold text-fg">Activity</h3>
+          <p className="text-xs text-muted mt-0.5">
             {Object.values(byDate).flat().filter(t => t.status === 'completed').length} tasks completed
           </p>
         </div>
-        <div className="flex items-center gap-1 text-[10px] text-slate-500">
+        <div className="flex items-center gap-1 text-[10px] text-muted">
           <span>Less</span>
           {COLORS.map((c, i) => (
             <div key={i} className={`w-3 h-3 rounded-sm ${c}`} />
@@ -96,7 +96,7 @@ export default function Heatmap({ byDate, range, onDateClick }) {
         {/* Day labels column */}
         <div className="flex flex-col gap-1 mr-1 flex-shrink-0">
           {DAY_LABELS.map((d, i) => (
-            <div key={i} className="h-3.5 text-[10px] text-slate-400 flex items-center">
+            <div key={i} className="h-3.5 text-[10px] text-muted flex items-center">
               {i % 2 === 1 ? d : ''}
             </div>
           ))}
@@ -128,8 +128,8 @@ export default function Heatmap({ byDate, range, onDateClick }) {
                   whileHover={{ scale: 1.3 }}
                   whileTap={{ scale: 0.9 }}
                   className={`w-3.5 h-3.5 rounded-sm transition-colors ${COLORS[lvl]}
-                    ${isToday ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}
-                    ${isHovered ? 'ring-2 ring-slate-400' : ''}
+                    ${isToday ? 'ring-2 ring-primary ring-offset-1' : ''}
+                    ${isHovered ? 'ring-2 ring-border' : ''}
                   `}
                   aria-label={`${prettyDate(date)}: ${completed}/${total} completed`}
                 />

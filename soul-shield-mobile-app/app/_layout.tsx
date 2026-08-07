@@ -10,6 +10,7 @@ import { registerBackgroundSync } from '@/lib/background-sync/task';
 import { AuthProvider, useAuth } from '@/context/auth-context';
 import { SyncNotificationsProvider } from '@/context/sync-notifications-context';
 import { AppThemeProvider, useAppTheme } from '@/context/theme-context';
+import { ThemeScheme } from '@/constants/theme';
 import '@/lib/network';
 import { getNavigationTheme } from '@/lib/navigation-theme';
 import { ensureNotificationSetup } from '@/lib/notifications';
@@ -53,7 +54,7 @@ function ThemedApp() {
       <SyncNotificationsProvider>
         <RootNavigator />
       </SyncNotificationsProvider>
-      <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
+      <StatusBar style={ThemeScheme[resolvedTheme] === 'dark' ? 'light' : 'dark'} />
     </ThemeProvider>
   );
 }

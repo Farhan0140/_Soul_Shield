@@ -138,21 +138,21 @@ export default function ChangePasswordModal({ open, onClose }) {
             exit={{ scale: 0.95, y: 20, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden"
+            className="w-full max-w-md bg-surface rounded-2xl shadow-2xl overflow-hidden"
           >
             {/* Header */}
             <div className="px-6 pt-6 pb-4 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold text-slate-800">{STEPS[step].title}</h2>
-                <p className="text-xs text-slate-500 mt-0.5">{STEPS[step].subtitle}</p>
+                <h2 className="text-lg font-bold text-fg">{STEPS[step].title}</h2>
+                <p className="text-xs text-muted mt-0.5">{STEPS[step].subtitle}</p>
               </div>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="Close"
-                className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                className="p-1.5 rounded-lg hover:bg-bg transition-colors"
               >
-                <X className="w-5 h-5 text-slate-500" />
+                <X className="w-5 h-5 text-muted" />
               </button>
             </div>
 
@@ -163,12 +163,12 @@ export default function ChangePasswordModal({ open, onClose }) {
                   <m.div
                     animate={{ scale: i === step ? 1.1 : 1 }}
                     className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors
-                      ${i < step ? 'bg-emerald-500 text-white' : i === step ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}
+                      ${i < step ? 'bg-success text-white' : i === step ? 'bg-primary text-white' : 'bg-bg text-muted'}`}
                   >
                     {i < step ? <CheckCircle2 className="w-3.5 h-3.5" /> : i + 1}
                   </m.div>
                   {i < STEPS.length - 1 && (
-                    <div className={`w-6 h-0.5 ${i < step ? 'bg-emerald-400' : 'bg-slate-200'}`} />
+                    <div className={`w-6 h-0.5 ${i < step ? 'bg-success' : 'bg-border'}`} />
                   )}
                 </div>
               ))}
@@ -183,14 +183,14 @@ export default function ChangePasswordModal({ open, onClose }) {
                     initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
                     className="space-y-4"
                   >
-                    <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center gap-3">
-                      <Mail className="w-5 h-5 text-indigo-600 flex-shrink-0" />
-                      <p className="text-sm text-indigo-900">
+                    <div className="p-3 rounded-xl bg-primary/5 border border-primary/10 flex items-center gap-3">
+                      <Mail className="w-5 h-5 text-primary flex-shrink-0" />
+                      <p className="text-sm text-primary">
                         Changing password for <strong>{user?.email}</strong>
                       </p>
                     </div>
                     {errors.form && (
-                      <m.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-rose-500">
+                      <m.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-danger">
                         {errors.form}
                       </m.p>
                     )}

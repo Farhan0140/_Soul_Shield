@@ -53,7 +53,7 @@ export default function CategoryCard({ category, taskCount, onUpdate, onDelete, 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className="bg-white rounded-2xl border-2 border-slate-200 overflow-hidden hover:border-slate-300 hover:shadow-md transition-all"
+      className="bg-surface rounded-2xl border-2 border-border overflow-hidden hover:border-border hover:shadow-md transition-all"
     >
       <div className="p-5">
         {editing ? (
@@ -87,7 +87,7 @@ export default function CategoryCard({ category, taskCount, onUpdate, onDelete, 
                 whileTap={{ scale: 0.95 }}
                 onClick={handleCancel}
                 disabled={loading}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border-2 border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border-2 border-border text-sm font-medium text-muted hover:bg-bg transition-colors disabled:opacity-50"
               >
                 <X className="w-4 h-4" /> Cancel
               </m.button>
@@ -95,7 +95,7 @@ export default function CategoryCard({ category, taskCount, onUpdate, onDelete, 
                 whileTap={{ scale: 0.95 }}
                 onClick={handleSave}
                 disabled={loading}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-medium hover:shadow-lg hover:shadow-indigo-200 transition-shadow disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-medium hover:shadow-lg hover:shadow-primary/20 transition-shadow disabled:opacity-50"
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                 Save
@@ -116,7 +116,7 @@ export default function CategoryCard({ category, taskCount, onUpdate, onDelete, 
 
             {/* Info */}
             <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-slate-800 text-lg truncate">{category.name}</h3>
+              <h3 className="font-bold text-fg text-lg truncate">{category.name}</h3>
               <div className="flex items-center gap-3 mt-1.5">
                 <span
                   className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-mono font-semibold"
@@ -128,7 +128,7 @@ export default function CategoryCard({ category, taskCount, onUpdate, onDelete, 
                   <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: category.color_hex }} />
                   {category.color_hex}
                 </span>
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-muted">
                   {taskCount === 0
                     ? 'No tasks yet'
                     : `${taskCount} task${taskCount === 1 ? '' : 's'} using this`}
@@ -142,7 +142,7 @@ export default function CategoryCard({ category, taskCount, onUpdate, onDelete, 
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setEditing(true)}
-                className="p-2 rounded-lg text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                className="p-2 rounded-lg text-muted hover:bg-primary/10 hover:text-primary transition-colors"
                 aria-label="Edit category"
               >
                 <Edit2 className="w-4 h-4" />
@@ -151,7 +151,7 @@ export default function CategoryCard({ category, taskCount, onUpdate, onDelete, 
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => onRequestDelete(category)}
-                className="p-2 rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                className="p-2 rounded-lg text-muted hover:bg-danger/10 hover:text-danger transition-colors"
                 aria-label="Delete category"
               >
                 <Trash2 className="w-4 h-4" />

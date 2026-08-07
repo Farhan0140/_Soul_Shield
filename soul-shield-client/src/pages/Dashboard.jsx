@@ -58,34 +58,34 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-800">
+          <h1 className="text-2xl md:text-3xl font-bold text-fg">
             {isToday ? "Today's Tasks" : prettyDate(date)}
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-muted mt-1">
             {isToday ? "Let's make today count ✨" : fmtDate(date)}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center bg-white border border-slate-200 rounded-xl overflow-hidden">
+          <div className="flex items-center bg-surface border border-border rounded-xl overflow-hidden">
             <m.button
               whileTap={{ scale: 0.9 }}
               onClick={() => shiftDate(-1)}
-              className="p-2.5 hover:bg-slate-50 transition-colors"
+              className="p-2.5 hover:bg-bg transition-colors"
               aria-label="Previous day"
             >
-              <ChevronLeft className="w-5 h-5 text-slate-600" />
+              <ChevronLeft className="w-5 h-5 text-muted" />
             </m.button>
-            <div className="px-3 py-2 border-x border-slate-200 min-w-[110px] text-center">
-              <p className="text-sm font-semibold text-slate-800">{prettyDate(date)}</p>
+            <div className="px-3 py-2 border-x border-border min-w-[110px] text-center">
+              <p className="text-sm font-semibold text-fg">{prettyDate(date)}</p>
             </div>
             <m.button
               whileTap={{ scale: 0.9 }}
               onClick={() => shiftDate(1)}
-              className="p-2.5 hover:bg-slate-50 transition-colors"
+              className="p-2.5 hover:bg-bg transition-colors"
               aria-label="Next day"
             >
-              <ChevronRight className="w-5 h-5 text-slate-600" />
+              <ChevronRight className="w-5 h-5 text-muted" />
             </m.button>
           </div>
 
@@ -117,10 +117,10 @@ export default function Dashboard() {
       {error && (
         <m.div
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-          className="p-6 rounded-2xl bg-rose-50 border border-rose-200 text-center"
+          className="p-6 rounded-2xl bg-danger/10 border border-danger/30 text-center"
         >
-          <AlertCircle className="w-8 h-8 text-rose-500 mx-auto mb-2" />
-          <p className="text-sm text-rose-700 mb-3">{error}</p>
+          <AlertCircle className="w-8 h-8 text-danger mx-auto mb-2" />
+          <p className="text-sm text-danger mb-3">{error}</p>
           <Button variant="secondary" onClick={reload}>Try again</Button>
         </m.div>
       )}
@@ -138,8 +138,8 @@ export default function Dashboard() {
           {/* Fixed Tasks section */}
           {fixedTasks.length > 0 && (
             <section>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-amber-700 mb-3 flex items-center gap-2">
-                <span className="w-6 h-0.5 bg-amber-400" />
+              <h2 className="text-xs font-bold uppercase tracking-wider text-warning mb-3 flex items-center gap-2">
+                <span className="w-6 h-0.5 bg-warning" />
                 Fixed Tasks
               </h2>
               <div className="grid gap-3 md:grid-cols-2">
@@ -163,8 +163,8 @@ export default function Dashboard() {
           {/* My Tasks section */}
           {myTasks.length > 0 && (
             <section>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-indigo-700 mb-3 flex items-center gap-2">
-                <span className="w-6 h-0.5 bg-indigo-400" />
+              <h2 className="text-xs font-bold uppercase tracking-wider text-primary mb-3 flex items-center gap-2">
+                <span className="w-6 h-0.5 bg-primary" />
                 My Tasks
               </h2>
               <div className="grid gap-3 md:grid-cols-2">
@@ -196,10 +196,10 @@ export default function Dashboard() {
                 transition={{ duration: 2, repeat: Infinity }}
                 className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 mb-4"
               >
-                <Inbox className="w-8 h-8 text-indigo-500" />
+                <Inbox className="w-8 h-8 text-primary" />
               </m.div>
-              <h3 className="text-lg font-semibold text-slate-800 mb-1">No tasks yet</h3>
-              <p className="text-sm text-slate-500 mb-4">Your day is a blank canvas — add your first task!</p>
+              <h3 className="text-lg font-semibold text-fg mb-1">No tasks yet</h3>
+              <p className="text-sm text-muted mb-4">Your day is a blank canvas — add your first task!</p>
               <Button onClick={openCreate}>
                 <Plus className="w-4 h-4" /> Add a task
               </Button>
@@ -209,7 +209,7 @@ export default function Dashboard() {
           {filteredTasks.length === 0 && tasks.length > 0 && (
             <m.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              className="text-center py-12 text-sm text-slate-500"
+              className="text-center py-12 text-sm text-muted"
             >
               No tasks match these filters. Try clearing them.
             </m.div>

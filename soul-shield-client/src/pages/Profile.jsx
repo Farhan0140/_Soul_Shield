@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { m } from 'framer-motion';
 import {
   User, Mail, Shield, LogOut, KeyRound, Target, Flame, Trophy,
-  Sparkles, Calendar, AlertTriangle, Settings, Trash2, Info
+  Sparkles, Calendar, AlertTriangle, Settings, Trash2, Info, Palette
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
@@ -12,6 +12,7 @@ import StatCard from '../components/StatCard';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import ConfirmModal from '../components/ConfirmModal';
 import Button from '../components/ui/Button';
+import ThemePicker from '../components/ThemePicker';
 
 const pageVariants = {
   initial: { opacity: 0, y: 10 },
@@ -41,11 +42,11 @@ export default function Profile() {
     >
       {/* Header */}
       <m.div variants={child}>
-        <h1 className="text-2xl md:text-3xl font-bold text-slate-800 flex items-center gap-2">
-          <User className="w-7 h-7 text-indigo-500" />
+        <h1 className="text-2xl md:text-3xl font-bold text-fg flex items-center gap-2">
+          <User className="w-7 h-7 text-primary" />
           Profile
         </h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <p className="text-sm text-muted mt-1">
           This is you — take a look at your journey so far ✨
         </p>
       </m.div>
@@ -53,7 +54,7 @@ export default function Profile() {
       {/* User info card */}
       <m.div
         variants={child}
-        className="bg-white rounded-2xl border border-slate-200 overflow-hidden"
+        className="bg-surface rounded-2xl border border-border overflow-hidden"
       >
         {/* Gradient banner */}
         <div className="h-24 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 relative">
@@ -67,16 +68,16 @@ export default function Profile() {
             </div>
             <div className="flex-1 min-w-0 pb-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-xl font-bold text-slate-800 truncate">{user?.full_name}</h2>
+                <h2 className="text-xl font-bold text-fg truncate">{user?.full_name}</h2>
                 {isAdmin && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wide">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning/15 text-warning text-[10px] font-bold uppercase tracking-wide">
                     <Shield className="w-3 h-3" /> Admin
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-4 mt-1.5 text-sm text-slate-600 flex-wrap">
+              <div className="flex items-center gap-4 mt-1.5 text-sm text-muted flex-wrap">
                 <span className="flex items-center gap-1.5">
-                  <Mail className="w-4 h-4 text-slate-400" />
+                  <Mail className="w-4 h-4 text-muted" />
                   {user?.email}
                 </span>
               </div>
@@ -85,20 +86,40 @@ export default function Profile() {
         </div>
       </m.div>
 
+      {/* Appearance */}
+      <m.div variants={child}>
+        <h3 className="text-xs font-bold uppercase tracking-wider text-muted mb-3 flex items-center gap-2">
+          <span className="w-6 h-0.5 bg-border" />
+          Appearance
+        </h3>
+        <div className="bg-surface rounded-2xl border border-border p-4 flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Palette className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <p className="font-semibold text-fg">Theme</p>
+              <p className="text-xs text-muted">Pick an eye-comfort color theme</p>
+            </div>
+          </div>
+          <ThemePicker />
+        </div>
+      </m.div>
+
       {/* Personal stats */}
       <m.div variants={child}>
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-2">
-          <span className="w-6 h-0.5 bg-slate-300" />
+        <h3 className="text-xs font-bold uppercase tracking-wider text-muted mb-3 flex items-center gap-2">
+          <span className="w-6 h-0.5 bg-border" />
           Your journey
         </h3>
 
         {statsLoading || !stats ? (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {[1, 2, 3, 4].map(i => (
-              <div key={i} className="bg-white rounded-2xl border border-slate-200 p-5 animate-pulse">
-                <div className="w-10 h-10 rounded-xl bg-slate-200 mb-3" />
-                <div className="h-3 bg-slate-200 rounded w-1/2 mb-2" />
-                <div className="h-7 bg-slate-200 rounded w-3/4" />
+              <div key={i} className="bg-surface rounded-2xl border border-border p-5 animate-pulse">
+                <div className="w-10 h-10 rounded-xl bg-bg mb-3" />
+                <div className="h-3 bg-bg rounded w-1/2 mb-2" />
+                <div className="h-7 bg-bg rounded w-3/4" />
               </div>
             ))}
           </div>
@@ -145,10 +166,10 @@ export default function Profile() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
-            className="mt-3 p-3 rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 flex items-center gap-3"
+            className="mt-3 p-3 rounded-xl bg-primary/5 border border-primary/20 flex items-center gap-3"
           >
-            <Calendar className="w-5 h-5 text-indigo-600 flex-shrink-0" />
-            <p className="text-sm text-indigo-900">
+            <Calendar className="w-5 h-5 text-primary flex-shrink-0" />
+            <p className="text-sm text-fg">
               Your most productive day is <strong>{stats.bestDay}</strong> — maybe schedule important tasks then?
             </p>
           </m.div>
@@ -157,52 +178,52 @@ export default function Profile() {
 
       {/* Account settings */}
       <m.div variants={child}>
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-2">
-          <span className="w-6 h-0.5 bg-slate-300" />
+        <h3 className="text-xs font-bold uppercase tracking-wider text-muted mb-3 flex items-center gap-2">
+          <span className="w-6 h-0.5 bg-border" />
           Account settings
         </h3>
 
-        <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100">
+        <div className="bg-surface rounded-2xl border border-border divide-y divide-border">
           {/* Change password */}
           <button
             type="button"
             onClick={() => setPasswordModalOpen(true)}
-            className="w-full flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors text-left group"
+            className="w-full flex items-center gap-4 p-4 hover:bg-bg transition-colors text-left group"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center group-hover:scale-105 transition-transform">
-              <KeyRound className="w-5 h-5 text-indigo-600" />
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:scale-105 transition-transform">
+              <KeyRound className="w-5 h-5 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-slate-800">Change password</p>
-              <p className="text-xs text-slate-500">We'll send a verification code to your email</p>
+              <p className="font-semibold text-fg">Change password</p>
+              <p className="text-xs text-muted">We'll send a verification code to your email</p>
             </div>
-            <span className="text-xs font-medium text-indigo-600 group-hover:translate-x-1 transition-transform">
+            <span className="text-xs font-medium text-primary group-hover:translate-x-1 transition-transform">
               Update →
             </span>
           </button>
 
           {/* Email (read-only with info) */}
           <div className="flex items-center gap-4 p-4">
-            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
-              <Mail className="w-5 h-5 text-slate-500" />
+            <div className="w-10 h-10 rounded-xl bg-bg flex items-center justify-center">
+              <Mail className="w-5 h-5 text-muted" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-slate-800">Email address</p>
-              <p className="text-xs text-slate-500">{user?.email}</p>
+              <p className="font-semibold text-fg">Email address</p>
+              <p className="text-xs text-muted">{user?.email}</p>
             </div>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-success/15 text-success text-[10px] font-bold uppercase">
               Verified
             </span>
           </div>
 
           {/* Role (read-only) */}
           <div className="flex items-center gap-4 p-4">
-            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
-              <Shield className="w-5 h-5 text-slate-500" />
+            <div className="w-10 h-10 rounded-xl bg-bg flex items-center justify-center">
+              <Shield className="w-5 h-5 text-muted" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-slate-800">Role</p>
-              <p className="text-xs text-slate-500">
+              <p className="font-semibold text-fg">Role</p>
+              <p className="text-xs text-muted">
                 {isAdmin ? 'Administrator — you can manage fixed tasks for all users' : 'Standard user'}
               </p>
             </div>
@@ -212,40 +233,40 @@ export default function Profile() {
 
       {/* Danger zone */}
       <m.div variants={child}>
-        <h3 className="text-xs font-bold uppercase tracking-wider text-rose-500 mb-3 flex items-center gap-2">
-          <span className="w-6 h-0.5 bg-rose-300" />
+        <h3 className="text-xs font-bold uppercase tracking-wider text-danger mb-3 flex items-center gap-2">
+          <span className="w-6 h-0.5 bg-danger/50" />
           Danger zone
         </h3>
 
-        <div className="bg-white rounded-2xl border-2 border-rose-200 overflow-hidden">
+        <div className="bg-surface rounded-2xl border-2 border-danger/30 overflow-hidden">
           {/* Logout */}
           <button
             type="button"
             onClick={() => setLogoutConfirmOpen(true)}
-            className="w-full flex items-center gap-4 p-4 hover:bg-rose-50 transition-colors text-left group"
+            className="w-full flex items-center gap-4 p-4 hover:bg-danger/5 transition-colors text-left group"
           >
-            <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center group-hover:scale-105 transition-transform">
-              <LogOut className="w-5 h-5 text-rose-600" />
+            <div className="w-10 h-10 rounded-xl bg-danger/10 flex items-center justify-center group-hover:scale-105 transition-transform">
+              <LogOut className="w-5 h-5 text-danger" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-slate-800">Log out</p>
-              <p className="text-xs text-slate-500">You'll need to sign in again to access your tasks</p>
+              <p className="font-semibold text-fg">Log out</p>
+              <p className="text-xs text-muted">You'll need to sign in again to access your tasks</p>
             </div>
           </button>
 
           {/* Delete account (placeholder) */}
-          <div className="border-t-2 border-rose-100 flex items-center gap-4 p-4 bg-rose-50/30">
-            <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center">
-              <Trash2 className="w-5 h-5 text-rose-600" />
+          <div className="border-t-2 border-danger/20 flex items-center gap-4 p-4 bg-danger/5">
+            <div className="w-10 h-10 rounded-xl bg-danger/10 flex items-center justify-center">
+              <Trash2 className="w-5 h-5 text-danger" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-slate-800">Delete account</p>
-              <p className="text-xs text-slate-500">Permanently remove your account and all data</p>
+              <p className="font-semibold text-fg">Delete account</p>
+              <p className="text-xs text-muted">Permanently remove your account and all data</p>
             </div>
             <button
               type="button"
               disabled
-              className="px-3 py-1.5 rounded-lg bg-rose-100 text-rose-400 text-xs font-semibold cursor-not-allowed"
+              className="px-3 py-1.5 rounded-lg bg-danger/10 text-danger/50 text-xs font-semibold cursor-not-allowed"
               title="Coming soon"
             >
               Coming soon
@@ -257,7 +278,7 @@ export default function Profile() {
       {/* Footer note */}
       <m.p
         variants={child}
-        className="text-center text-xs text-slate-400 pt-4"
+        className="text-center text-xs text-muted pt-4"
       >
         SoulShield · Guarding your daily deeds ✨
       </m.p>
@@ -278,9 +299,9 @@ export default function Profile() {
         variant="primary"
         icon={LogOut}
       >
-        <div className="flex items-start gap-2 p-3 rounded-xl bg-indigo-50 border border-indigo-100 mt-1">
-          <Info className="w-4 h-4 text-indigo-600 flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-indigo-800">
+        <div className="flex items-start gap-2 p-3 rounded-xl bg-primary/5 border border-primary/20 mt-1">
+          <Info className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-fg">
             Your tasks, categories, and history will all be here when you come back.
           </p>
         </div>

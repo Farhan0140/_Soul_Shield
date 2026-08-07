@@ -64,11 +64,11 @@ export default function Login() {
         />
 
         <div className="flex items-center justify-between text-sm">
-          <label className="flex items-center gap-2 text-slate-600 cursor-pointer">
-            <input type="checkbox" className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+          <label className="flex items-center gap-2 text-muted cursor-pointer">
+            <input type="checkbox" className="rounded border-border text-primary focus:ring-primary/30" />
             Remember me
           </label>
-          <Link to="/forgot-password" className="text-indigo-600 hover:text-indigo-700 font-medium">
+          <Link to="/forgot-password" className="text-primary hover:text-primary/80 font-medium">
             Forgot password?
           </Link>
         </div>
@@ -79,9 +79,9 @@ export default function Login() {
         </Button>
       </form>
 
-      <p className="text-center text-sm text-slate-500 mt-6">
+      <p className="text-center text-sm text-muted mt-6">
         New here?{' '}
-        <Link to="/register" className="text-indigo-600 hover:text-indigo-700 font-semibold">
+        <Link to="/register" className="text-primary hover:text-primary/80 font-semibold">
           Create an account
         </Link>
       </p>
