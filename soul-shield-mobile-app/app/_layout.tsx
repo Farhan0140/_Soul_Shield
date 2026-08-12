@@ -1,5 +1,6 @@
 import { ThemeProvider } from '@react-navigation/native';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -13,6 +14,7 @@ import { AuthProvider, useAuth } from '@/context/auth-context';
 import { SyncNotificationsProvider } from '@/context/sync-notifications-context';
 import { AppThemeProvider, useAppTheme } from '@/context/theme-context';
 import { ThemeScheme } from '@/constants/theme';
+import { ARABIC_FONT_FAMILY } from '@/lib/arabic';
 import '@/lib/network';
 import { getNavigationTheme } from '@/lib/navigation-theme';
 import { ensureNotificationSetup } from '@/lib/notifications';
@@ -63,6 +65,15 @@ function ThemedApp() {
 }
 
 export default function RootLayout() {
+  // Registered once here so every ThemedText in the app can reference it by
+  // name (see components/themed-text.tsx's Arabic-script auto-detection) —
+  // gating the initial render on this (same pattern as the auth-loading
+  // spinner below) avoids a flash of the wrong font on any text that needs
+  // it before the local asset finishes registering.
+  const [fontsLoaded] = useFonts({
+    [ARABIC_FONT_FAMILY]: require('@/assets/fonts/KFGQPCUthmanTahaNaskh-Regular.ttf'),
+  });
+
   useEffect(() => {
     ensureNotificationSetup();
     ensureTimerNotificationChannel();
@@ -78,6 +89,14 @@ export default function RootLayout() {
     });
     return () => appStateSubscription.remove();
   }, []);
+
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
 
   return (
     <PersistQueryClientProvider
