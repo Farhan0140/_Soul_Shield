@@ -13,8 +13,6 @@ interface DurationPickerProps {
   selection: TimerSelection;
   onChange: (selection: TimerSelection) => void;
   disabled?: boolean;
-  /** Forwarded to each wheel's selected-value color — see wheel-picker.tsx. */
-  selectedColor?: string;
 }
 
 /** The three wheel-style hours/minutes/seconds columns below the timer ring,
@@ -22,7 +20,7 @@ interface DurationPickerProps {
  * matches the reference screenshot's layout. Disabled (and dimmed, see
  * wheel-picker.tsx) once the timer leaves 'idle', since editing a duration
  * mid-countdown doesn't map to anything meaningful. */
-export function DurationPicker({ selection, onChange, disabled, selectedColor }: DurationPickerProps) {
+export function DurationPicker({ selection, onChange, disabled }: DurationPickerProps) {
   const mutedColor = useThemeColor({}, 'muted');
 
   return (
@@ -32,7 +30,6 @@ export function DurationPicker({ selection, onChange, disabled, selectedColor }:
           values={HOURS}
           selected={selection.hours}
           disabled={disabled}
-          selectedColor={selectedColor}
           onChange={(hours) => onChange({ ...selection, hours })}
         />
         <ThemedText style={[styles.separator, { color: mutedColor }]}>:</ThemedText>
@@ -40,7 +37,6 @@ export function DurationPicker({ selection, onChange, disabled, selectedColor }:
           values={MINUTES_OR_SECONDS}
           selected={selection.minutes}
           disabled={disabled}
-          selectedColor={selectedColor}
           onChange={(minutes) => onChange({ ...selection, minutes })}
         />
         <ThemedText style={[styles.separator, { color: mutedColor }]}>:</ThemedText>
@@ -48,7 +44,6 @@ export function DurationPicker({ selection, onChange, disabled, selectedColor }:
           values={MINUTES_OR_SECONDS}
           selected={selection.seconds}
           disabled={disabled}
-          selectedColor={selectedColor}
           onChange={(seconds) => onChange({ ...selection, seconds })}
         />
       </View>

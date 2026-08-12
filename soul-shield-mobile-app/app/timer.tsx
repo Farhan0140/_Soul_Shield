@@ -1,6 +1,5 @@
 import { router } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -9,8 +8,7 @@ import { TankFill } from '@/components/timer/tank-fill';
 import { TimerControls } from '@/components/timer/timer-controls';
 import { TimerRing } from '@/components/timer/timer-ring';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts, ThemeScheme } from '@/constants/theme';
-import { useAppTheme } from '@/context/theme-context';
+import { Fonts } from '@/constants/theme';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { useTimer } from '@/hooks/use-timer';
 
@@ -21,27 +19,11 @@ import { useTimer } from '@/hooks/use-timer';
  * ring + duration picker → bottom controls. */
 export default function TimerScreen() {
   const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
   const background = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
-  const { resolvedTheme } = useAppTheme();
   const timer = useTimer();
 
   const isIdle = timer.status === 'idle';
-
-  // Once the rising tank-fill water reaches the duration picker's on-screen
-  // position, its selected digits switch to a flat black/white contrast
-  // color (picked from the light/dark-ness of the current theme) instead of
-  // the normal theme text color, so they stay readable against the tinted
-  // water rather than blending into it.
-  const pickerRef = useRef<View>(null);
-  const [pickerTopY, setPickerTopY] = useState<number | null>(null);
-  const handlePickerLayout = useCallback(() => {
-    pickerRef.current?.measureInWindow((_x, y) => setPickerTopY(y));
-  }, []);
-  const waterTopY = windowHeight * (1 - timer.progress);
-  const isSubmerged = pickerTopY != null && waterTopY <= pickerTopY;
-  const contrastColor = ThemeScheme[resolvedTheme] === 'dark' ? '#FFFFFF' : '#000000';
 
   const handlePlayPause = () => {
     if (timer.status === 'running') timer.pause();
@@ -62,14 +44,7 @@ export default function TimerScreen() {
 
       <View style={styles.content}>
         <TimerRing remainingMs={timer.remainingMs} />
-        <View ref={pickerRef} onLayout={handlePickerLayout}>
-          <DurationPicker
-            selection={timer.selection}
-            onChange={timer.setSelection}
-            disabled={!isIdle}
-            selectedColor={isSubmerged ? contrastColor : undefined}
-          />
-        </View>
+        <DurationPicker selection={timer.selection} onChange={timer.setSelection} disabled={!isIdle} />
       </View>
 
       <View style={[styles.controls, { paddingBottom: insets.bottom + 16 }]}>

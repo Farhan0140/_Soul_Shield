@@ -53,11 +53,6 @@ interface WheelPickerProps {
   selected: number;
   onChange: (value: number) => void;
   disabled?: boolean;
-  /** Overrides the centered/selected value's color — used once the rising
-   * tank-fill water reaches this picker (see app/timer.tsx), so the
-   * selected digits stay readable against the tinted water instead of
-   * blending into it. Defaults to the normal theme text color. */
-  selectedColor?: string;
 }
 
 /** A single scrolling, snapping wheel column (hours, minutes, or seconds —
@@ -66,9 +61,8 @@ interface WheelPickerProps {
  * Reanimated's own scroll-driven style interpolation (no third-party picker
  * library — see color-picker.tsx's doc comment on why this codebase avoids
  * those with Reanimated 4's worklets runtime). */
-export function WheelPicker({ values, selected, onChange, disabled, selectedColor }: WheelPickerProps) {
-  const themeTextColor = useThemeColor({}, 'text');
-  const textColor = selectedColor ?? themeTextColor;
+export function WheelPicker({ values, selected, onChange, disabled }: WheelPickerProps) {
+  const textColor = useThemeColor({}, 'text');
   const mutedColor = useThemeColor({}, 'muted');
   const scrollY = useSharedValue(0);
   const listRef = useRef<Animated.FlatList<number>>(null);

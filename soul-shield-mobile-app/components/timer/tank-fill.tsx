@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, {
   useAnimatedProps,
@@ -7,6 +7,7 @@ import Animated, {
   useSharedValue,
   withTiming,
   Easing,
+  type FrameInfo,
 } from 'react-native-reanimated';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
@@ -50,7 +51,6 @@ const MAIN_TERM_FACTORS = [
   { ampFactor: 0.009, wavelengthFactor: 0.47, speed: -0.58, phase: 2.35 },
 ];
 const BACK_TERM_FACTORS = [{ ampFactor: 0.02, wavelengthFactor: 1.3, speed: 0.36, phase: 0.9 }];
-const FRONT_TERM_FACTORS = [{ ampFactor: 0.011, wavelengthFactor: 0.33, speed: -1.05, phase: 4.1 }];
 
 function buildTerms(
   factors: { ampFactor: number; wavelengthFactor: number; speed: number; phase: number }[],
@@ -140,7 +140,7 @@ interface TankFillProps {
  * what makes the surface genuinely reshape itself over time rather than just
  * repeat. Every visible edge on screen is one of these computed wave paths;
  * nothing here is ever a flat animated rectangle. */
-export function TankFill({ progress }: TankFillProps) {
+export const TankFill = memo(function TankFill({ progress }: TankFillProps) {
   const { width, height } = useWindowDimensions();
   const tint = useThemeColor({}, 'tint');
 
@@ -161,15 +161,37 @@ export function TankFill({ progress }: TankFillProps) {
   // below reactively recomputes from) is only advanced — and therefore only
   // triggers a recompute — at UPDATE_INTERVAL_MS, not the display's native
   // frame rate.
-  const frameCallback = useFrameCallback((frameInfo) => {
-    const delta = frameInfo.timeSincePreviousFrame;
-    if (!delta) return;
-    pendingMs.value += delta;
-    if (pendingMs.value >= UPDATE_INTERVAL_MS) {
-      time.value += pendingMs.value / 1000;
-      pendingMs.value = 0;
-    }
-  }, false);
+  //
+  // Wrapped in useCallback with a stable dependency array ([pendingMs, time]
+  // are useSharedValue refs, whose identity never changes across renders):
+  // useFrameCallback's own effect re-registers the entire native frame loop
+  // whenever this callback's identity changes, so an inline arrow function
+  // here would tear down and restart the animation on every re-render of
+  // this component — including ones caused by unrelated state elsewhere on
+  // the screen (e.g. the duration picker's water-contrast color swap) —
+  // which is exactly what made the wave visibly stutter/pause.
+  //
+  // Needs an explicit 'worklet' directive: Reanimated's babel plugin only
+  // auto-detects a worklet from a function literal written directly inline
+  // at a recognized hook call site (e.g. useFrameCallback(() => {...})) —
+  // routing it through useCallback first means the plugin no longer sees it
+  // that way, so without this directive it's passed to the UI thread as a
+  // plain (non-worklet) closure, which is what caused the
+  // "callback is not a function (it is object)" crash.
+  const onFrame = useCallback(
+    (frameInfo: FrameInfo) => {
+      'worklet';
+      const delta = frameInfo.timeSincePreviousFrame;
+      if (!delta) return;
+      pendingMs.value += delta;
+      if (pendingMs.value >= UPDATE_INTERVAL_MS) {
+        time.value += pendingMs.value / 700;
+        pendingMs.value = 0;
+      }
+    },
+    [pendingMs, time]
+  );
+  const frameCallback = useFrameCallback(onFrame, false);
 
   useEffect(() => {
     if (progress > 0 && !frameCallback.isActive) frameCallback.setActive(true);
@@ -177,13 +199,9 @@ export function TankFill({ progress }: TankFillProps) {
 
   const mainTerms = useMemo(() => buildTerms(MAIN_TERM_FACTORS, width, height), [width, height]);
   const backTerms = useMemo(() => buildTerms(BACK_TERM_FACTORS, width, height), [width, height]);
-  const frontTerms = useMemo(() => buildTerms(FRONT_TERM_FACTORS, width, height), [width, height]);
 
   const mainPoints = useDerivedValue(() =>
     buildWavePoints(width, height * (1 - fillLevel.value), time.value, mainTerms)
-  );
-  const frontPoints = useDerivedValue(() =>
-    buildWavePoints(width, height * (1 - fillLevel.value) + 5, time.value, frontTerms)
   );
 
   const backProps = useAnimatedProps(() => {
@@ -191,32 +209,28 @@ export function TankFill({ progress }: TankFillProps) {
     return { d: pointsToPath(points, height) };
   });
   const mainFillProps = useAnimatedProps(() => ({ d: pointsToPath(mainPoints.value, height) }));
-  const frontProps = useAnimatedProps(() => ({ d: pointsToPath(frontPoints.value, height) }));
-  const frontCrestProps = useAnimatedProps(() => ({ d: pointsToPath(frontPoints.value) }));
-
   const gradientId = 'timerTankMainGradient';
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {/* Each layer's path fills all the way down to the bottom of the
+          screen (not just a thin band at its own wave crest), so they
+          overlap almost completely everywhere except right at the surface —
+          three semi-transparent fills stacked on top of each other there
+          compound multiplicatively (alpha compositing), which is why the
+          "solid" body of water reads much darker than any single layer's
+          alpha suggests. Each alpha below is kept low enough that the
+          *combined* stacked look is what stays light and theme-tinted. */}
       <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
         <Defs>
           <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={hexToRgba(tint, 0.1)} />
-            <Stop offset="1" stopColor={hexToRgba(tint, 0.05)} />
+            <Stop offset="0" stopColor={hexToRgba(tint, 0.022)} />
+            <Stop offset="1" stopColor={hexToRgba(tint, 0.7)} />
           </LinearGradient>
         </Defs>
-        <AnimatedPath animatedProps={backProps} fill={hexToRgba(tint, 0.06)} />
+        <AnimatedPath animatedProps={backProps} fill={hexToRgba(tint, 0.4)} />
         <AnimatedPath animatedProps={mainFillProps} fill={`url(#${gradientId})`} />
-        <AnimatedPath animatedProps={frontProps} fill={hexToRgba(tint, 0.11)} />
-        <AnimatedPath
-          animatedProps={frontCrestProps}
-          stroke={hexToRgba(tint, 0.22)}
-          strokeWidth={1.5}
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
       </Svg>
     </View>
   );
-}
+});
