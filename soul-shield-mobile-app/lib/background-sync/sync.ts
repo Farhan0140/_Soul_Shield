@@ -7,7 +7,7 @@ import { getTaskHistory, getTasks } from '@/api/tasks';
 import { recordSyncOutcome } from '@/lib/background-sync/state';
 import { currentDhakaDateString } from '@/lib/background-sync/time';
 import { assertCategoryArray, assertTaskArray, assertUser } from '@/lib/background-sync/validate';
-import { addDays } from '@/lib/date';
+import { addDays, dateRange, todayISODate } from '@/lib/date';
 import { syncAllTaskReminders } from '@/lib/notifications';
 import { PERSIST_BUSTER, persister } from '@/lib/persister';
 import { queryKeys } from '@/lib/query-keys';
@@ -18,19 +18,27 @@ import { cachedUserStore, tokenStore } from '@/lib/secure-store';
  * week) without pulling the user's entire history nightly. */
 const HISTORY_WINDOW_DAYS = 6;
 
+/** How many days beyond today to keep pre-fetched so the app stays fully
+ * usable (view/add/edit/delete) for that long without connectivity — the
+ * offline guarantee lives entirely in this number: whatever's cached here is
+ * what's available offline, nothing more. */
+const FORWARD_WINDOW_DAYS = 2;
+
 /** Hard ceiling per request so a stalled/slow connection fails fast instead
  * of leaving the background task (and the OS's wake-lock budget for it)
  * hanging indefinitely. */
 const REQUEST_TIMEOUT_MS = 20_000;
 
-/** Full nightly refresh: pulls categories, today's tasks, and a rolling
- * history window fresh from the API, then re-derives reminders from that same
- * fresh data so notifications self-heal too. Called from three places: the
- * scheduled background task (task.ts) runs headlessly with no live app open,
- * so it merges the fresh data straight into the on-disk persisted cache
- * (wholesale-replacing the read-through query cache there, since nothing is
- * watching it live); the reconnect-triggered catch-up (network.ts) and the
- * dev-only manual trigger (profile.tsx) both run with the app in the
+/** Full refresh: pulls categories, today + the next FORWARD_WINDOW_DAYS days
+ * of tasks, and a rolling backward history window fresh from the API, then
+ * re-derives reminders from that same fresh data so notifications self-heal
+ * too. Called from four places: the scheduled background task (task.ts) runs
+ * headlessly with no live app open, so it merges the fresh data straight into
+ * the on-disk persisted cache (wholesale-replacing the read-through query
+ * cache there, since nothing is watching it live); the reconnect-triggered
+ * catch-up (network.ts), the app-open/foreground trigger
+ * (runForegroundSyncIfDue below, wired from app/_layout.tsx), and the
+ * dev-only manual trigger (profile.tsx) all run with the app in the
  * foreground, so they pass the app's actual mounted QueryClient so every
  * already-rendered screen picks up the refresh immediately via its normal
  * subscription — merged additively there instead of wholesale-replaced, since
@@ -69,22 +77,32 @@ export async function runFullBackgroundSync(liveClient?: QueryClient): Promise<v
   }
 
   try {
-    const today = currentDhakaDateString();
-    const from = addDays(today, -HISTORY_WINDOW_DAYS);
+    const dhakaToday = currentDhakaDateString();
+    const from = addDays(dhakaToday, -HISTORY_WINDOW_DAYS);
 
-    // All four requests must succeed for any of them to be written — a
-    // partial batch (e.g. categories refreshed but tasks failed) would leave
-    // the local cache internally inconsistent, which is worse than just
-    // leaving last night's snapshot in place until the next attempt.
-    const [categoriesRaw, tasksRaw, historyRaw, meRaw] = await Promise.all([
+    // Forward window is keyed on the device-local calendar date
+    // (todayISODate), not the Dhaka-anchored date above — that's what the
+    // dashboard's date nav and useTasksQuery actually key their cache reads
+    // on (app/(tabs)/index.tsx, lib/query-keys.ts), so this must match it
+    // exactly or the prefetch would land under a key nothing ever reads.
+    const forwardDates = dateRange(todayISODate(), addDays(todayISODate(), FORWARD_WINDOW_DAYS));
+
+    // All requests must succeed for any of them to be written — a partial
+    // batch (e.g. categories refreshed but tasks failed) would leave the
+    // local cache internally inconsistent, which is worse than just leaving
+    // last night's snapshot in place until the next attempt.
+    const [categoriesRaw, forwardTasksRaw, historyRaw, meRaw] = await Promise.all([
       getCategories(token, REQUEST_TIMEOUT_MS),
-      getTasks(today, token, REQUEST_TIMEOUT_MS),
-      getTaskHistory(from, today, token, REQUEST_TIMEOUT_MS),
+      Promise.all(forwardDates.map((date) => getTasks(date, token, REQUEST_TIMEOUT_MS))),
+      getTaskHistory(from, dhakaToday, token, REQUEST_TIMEOUT_MS),
       fetchMe(token, REQUEST_TIMEOUT_MS),
     ]);
 
     const categories = assertCategoryArray(categoriesRaw);
-    const tasks = assertTaskArray(tasksRaw, 'tasks');
+    const forwardTasksByDate = forwardDates.map((date, i) => ({
+      date,
+      tasks: assertTaskArray(forwardTasksRaw[i], `tasks ${date}`),
+    }));
     const history = assertTaskArray(historyRaw, 'task history');
     const me = assertUser(meRaw);
 
@@ -95,17 +113,21 @@ export async function runFullBackgroundSync(liveClient?: QueryClient): Promise<v
       // persists this to disk the same way any other query update already
       // does; no separate write needed here.
       liveClient.setQueryData(queryKeys.categories, categories);
-      liveClient.setQueryData(queryKeys.tasks(today), tasks);
-      liveClient.setQueryData(queryKeys.taskHistory(from, today), history);
+      for (const { date, tasks } of forwardTasksByDate) {
+        liveClient.setQueryData(queryKeys.tasks(date), tasks);
+      }
+      liveClient.setQueryData(queryKeys.taskHistory(from, dhakaToday), history);
     } else {
       // No live client — dehydrating a throwaway one guarantees the fresh
-      // snapshot contains exactly these three queries and nothing left over
-      // from a previous run, then it replaces the on-disk read-through cache
+      // snapshot contains exactly these queries and nothing left over from a
+      // previous run, then it replaces the on-disk read-through cache
       // wholesale (preserving only the paused-mutation queue, see above).
       const freshClient = new QueryClient();
       freshClient.setQueryData(queryKeys.categories, categories);
-      freshClient.setQueryData(queryKeys.tasks(today), tasks);
-      freshClient.setQueryData(queryKeys.taskHistory(from, today), history);
+      for (const { date, tasks } of forwardTasksByDate) {
+        freshClient.setQueryData(queryKeys.tasks(date), tasks);
+      }
+      freshClient.setQueryData(queryKeys.taskHistory(from, dhakaToday), history);
       const fresh = dehydrate(freshClient);
 
       const previous = await persister.restoreClient();
@@ -133,4 +155,29 @@ export async function runFullBackgroundSync(liveClient?: QueryClient): Promise<v
     await recordSyncOutcome('failed', error instanceof Error ? error.message : String(error));
     throw error;
   }
+}
+
+/** Minimum gap between opportunistic foreground syncs — cold app launch and
+ * every subsequent AppState resume both call runForegroundSyncIfDue (see
+ * app/_layout.tsx), which would otherwise re-run the full sync on every tab
+ * switch back into the app. Module-level (not persisted) is fine: it only
+ * needs to survive for the lifetime of one app session. */
+const FOREGROUND_SYNC_COOLDOWN_MS = 5 * 60 * 1000;
+let lastForegroundSyncAttemptAt = 0;
+
+/** Entry point for "whenever I open the app / bring it to the foreground
+ * with an internet connection" — the once-a-day gate on the scheduled
+ * background task and the reconnect catch-up (see task.ts, network.ts) is
+ * right for a full nightly refresh, but it would leave a same-day reopen
+ * hours later showing stale data with no other trigger to refresh it. This
+ * runs unconditionally on that cooldown instead, swallowing failures the same
+ * way the reconnect catch-up does — nothing here should crash the caller's
+ * own flow, and the next open/resume/reconnect gets another chance. */
+export function runForegroundSyncIfDue(liveClient: QueryClient): void {
+  const now = Date.now();
+  if (now - lastForegroundSyncAttemptAt < FOREGROUND_SYNC_COOLDOWN_MS) return;
+  lastForegroundSyncAttemptAt = now;
+  runFullBackgroundSync(liveClient).catch(() => {
+    // Failure is already recorded by runFullBackgroundSync itself.
+  });
 }

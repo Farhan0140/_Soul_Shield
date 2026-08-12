@@ -3,9 +3,10 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, AppState, View } from 'react-native';
 import 'react-native-reanimated';
 
+import { runForegroundSyncIfDue } from '@/lib/background-sync/sync';
 import { registerBackgroundSync } from '@/lib/background-sync/task';
 import { AuthProvider, useAuth } from '@/context/auth-context';
 import { SyncNotificationsProvider } from '@/context/sync-notifications-context';
@@ -63,6 +64,16 @@ export default function RootLayout() {
   useEffect(() => {
     ensureNotificationSetup();
     registerBackgroundSync();
+
+    // "Fetch today + the next couple of days whenever I open the app with a
+    // connection" (see lib/background-sync/sync.ts) needs a trigger beyond
+    // the once-a-day scheduled task and reconnect catch-up: a cold launch or
+    // a resume from background while already online is neither of those.
+    runForegroundSyncIfDue(queryClient);
+    const appStateSubscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') runForegroundSyncIfDue(queryClient);
+    });
+    return () => appStateSubscription.remove();
   }, []);
 
   return (

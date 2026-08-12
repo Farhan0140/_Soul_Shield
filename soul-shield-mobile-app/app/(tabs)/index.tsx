@@ -18,6 +18,7 @@ import { useAuth } from '@/context/auth-context';
 import { useCategoriesQuery } from '@/hooks/queries/use-categories';
 import { useCompleteTask, useDeleteTask } from '@/hooks/queries/use-task-mutations';
 import { useTasksQuery } from '@/hooks/queries/use-tasks';
+import { useNetworkStatus } from '@/hooks/use-network-status';
 import { useTaskRemindersSync } from '@/hooks/use-task-reminders-sync';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { addDays, todayISODate } from '@/lib/date';
@@ -47,6 +48,7 @@ export default function HomeScreen() {
   const [reward, setReward] = useState<{ text: string; taskTitle: string } | null>(null);
 
   const tasksQuery = useTasksQuery(date);
+  const { isOnline } = useNetworkStatus();
   const { data: categories = [] } = useCategoriesQuery();
   const completeTask = useCompleteTask();
   const deleteTask = useDeleteTask(date);
@@ -194,7 +196,16 @@ export default function HomeScreen() {
         <SourceFilterRow value={source} onChange={setSource} />
       </View>
 
-      {tasksQuery.isLoading ? (
+      {tasksQuery.isPending && !isOnline ? (
+        // Distinct from the isLoading skeleton below: with no connection and
+        // nothing cached for this date, no fetch is actually in flight (it's
+        // paused, not loading) and never will be until connectivity returns —
+        // an indefinite spinner would be misleading, and falling through to
+        // the empty-list view would look like "no tasks today" instead of
+        // "not downloaded yet". Only today + the next couple of days are
+        // pre-fetched for offline use (see lib/background-sync/sync.ts).
+        <ErrorState message="You're offline and haven't downloaded tasks for this date yet. Connect to the internet to load them." />
+      ) : tasksQuery.isLoading ? (
         <View style={styles.skeletons}>
           <SkeletonCard />
           <SkeletonCard />
