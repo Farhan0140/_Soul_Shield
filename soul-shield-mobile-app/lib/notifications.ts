@@ -17,13 +17,21 @@ LogBox.ignoreLogs(['Android Push notifications']);
 // Module-level side effect: controls how a notification is presented while
 // the app is in the foreground. Imported for its side effect at the top of
 // app/_layout.tsx, same pattern as lib/network.ts.
+//
+// Timer notifications (lib/timer/notifications.ts) are tagged with
+// `data.type === 'timer'` and must stay silent per that feature's spec, while
+// task reminders keep their existing sound — this one shared handler covers
+// both since expo-notifications only allows a single global handler.
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
+  handleNotification: async (notification) => {
+    const isTimerNotification = notification.request.content.data?.type === 'timer';
+    return {
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: !isTimerNotification,
+      shouldSetBadge: false,
+    };
+  },
 });
 
 /** Requests notification permission (iOS + Android 13+) and creates the

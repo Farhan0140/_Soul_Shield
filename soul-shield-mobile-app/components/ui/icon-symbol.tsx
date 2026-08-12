@@ -50,6 +50,10 @@ const MAPPING = {
   bell: 'notifications-none',
   'folder.fill': 'folder',
   'externaldrive.fill': 'storage',
+  'play.fill': 'play-arrow',
+  'pause.fill': 'pause',
+  'arrow.counterclockwise': 'replay',
+  'iphone.radiowaves.left.and.right': 'vibration',
 } as IconMapping;
 
 /**

@@ -69,3 +69,12 @@ export function hsvToHex(h: number, s: number, v: number): string {
   const { r, g, b } = hsvToRgb(h, s, v);
   return rgbToHex(r, g, b);
 }
+
+/** Converts a `#RRGGBB`/`#RGB` theme color (see constants/theme.ts — every
+ * palette stores colors as plain hex, with no alpha channel) into an rgba()
+ * string, since translucent fills (e.g. the timer's liquid tank) need an
+ * alpha component the theme tokens don't carry on their own. */
+export function hexToRgba(hex: string, alpha: number): string {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}

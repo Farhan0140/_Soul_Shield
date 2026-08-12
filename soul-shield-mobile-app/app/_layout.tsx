@@ -8,6 +8,7 @@ import 'react-native-reanimated';
 
 import { runForegroundSyncIfDue } from '@/lib/background-sync/sync';
 import { registerBackgroundSync } from '@/lib/background-sync/task';
+import { ensureTimerNotificationChannel } from '@/lib/timer/notifications';
 import { AuthProvider, useAuth } from '@/context/auth-context';
 import { SyncNotificationsProvider } from '@/context/sync-notifications-context';
 import { AppThemeProvider, useAppTheme } from '@/context/theme-context';
@@ -42,6 +43,7 @@ function RootNavigator() {
           name="sync-notifications"
           options={{ presentation: 'modal', title: 'Sync Issues' }}
         />
+        <Stack.Screen name="timer" options={{ presentation: 'modal', headerShown: false }} />
       </Stack.Protected>
     </Stack>
   );
@@ -63,6 +65,7 @@ function ThemedApp() {
 export default function RootLayout() {
   useEffect(() => {
     ensureNotificationSetup();
+    ensureTimerNotificationChannel();
     registerBackgroundSync();
 
     // "Fetch today + the next couple of days whenever I open the app with a

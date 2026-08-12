@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemePicker } from '@/components/profile/theme-picker';
@@ -106,6 +107,28 @@ export default function ProfileScreen() {
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
+          <IconSymbol name="clock" size={16} color={mutedColor} />
+          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+            Tools
+          </ThemedText>
+        </View>
+        <Pressable
+          onPress={() => router.push('/timer')}
+          style={({ pressed }) => [styles.toolRow, { backgroundColor: cardColor, opacity: pressed ? 0.7 : 1 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Timer">
+          <View style={[styles.toolIconCircle, { backgroundColor: `${tintColor}1A` }]}>
+            <IconSymbol name="clock" size={22} color={tintColor} />
+          </View>
+          <ThemedText type="defaultSemiBold" style={styles.toolLabel}>
+            Timer
+          </ThemedText>
+          <IconSymbol name="chevron.right" size={18} color={mutedColor} />
+        </Pressable>
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
           <IconSymbol name="externaldrive.fill" size={16} color={mutedColor} />
           <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
             Data
@@ -150,4 +173,14 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   sectionTitle: { fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5 },
   syncStatus: { fontSize: 13 },
+  toolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 12,
+    borderRadius: 16,
+    borderCurve: 'continuous',
+  },
+  toolIconCircle: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  toolLabel: { flex: 1 },
 });
