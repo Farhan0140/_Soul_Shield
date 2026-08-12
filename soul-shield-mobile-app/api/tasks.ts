@@ -1,6 +1,7 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from '@/api/client';
 import type {
   CompletionResponse,
+  PaginatedTasks,
   SubTaskCompletionResponse,
   Task,
   TaskInput,
@@ -14,6 +15,22 @@ export function getTasks(date: string, token: string | null, timeoutMs?: number)
 
 export function getTaskHistory(from: string, to: string, token: string | null, timeoutMs?: number) {
   return apiGet<Task[]>(`/tasks/history?from=${from}&to=${to}`, token, timeoutMs);
+}
+
+const CATEGORY_TASKS_PAGE_SIZE = 10;
+
+export function getTasksByCategory(
+  categoryId: number,
+  date: string,
+  page: number,
+  token: string | null,
+  timeoutMs?: number
+) {
+  return apiGet<PaginatedTasks>(
+    `/categories/${categoryId}/tasks?date=${date}&page=${page}&page_size=${CATEGORY_TASKS_PAGE_SIZE}`,
+    token,
+    timeoutMs
+  );
 }
 
 export function createTask(input: TaskInput, token: string | null) {

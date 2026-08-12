@@ -7,17 +7,20 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 
 interface CategoryRowProps {
   category: Category;
+  onPress: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }
 
-export function CategoryRow({ category, onEdit, onDelete }: CategoryRowProps) {
+export function CategoryRow({ category, onPress, onEdit, onDelete }: CategoryRowProps) {
   const cardColor = useThemeColor({}, 'card');
   const mutedColor = useThemeColor({}, 'muted');
   const dangerColor = useThemeColor({}, 'danger');
 
   return (
-    <View style={[styles.row, { backgroundColor: cardColor }]}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.row, { backgroundColor: cardColor, opacity: pressed ? 0.85 : 1 }]}>
       <View style={[styles.dot, { backgroundColor: category.color_hex }]} />
       <ThemedText type="defaultSemiBold" style={styles.name}>
         {category.name}
@@ -30,7 +33,7 @@ export function CategoryRow({ category, onEdit, onDelete }: CategoryRowProps) {
       <Pressable onPress={onDelete} hitSlop={8} style={styles.actionButton}>
         <IconSymbol name="trash" size={18} color={dangerColor} />
       </Pressable>
-    </View>
+    </Pressable>
   );
 }
 

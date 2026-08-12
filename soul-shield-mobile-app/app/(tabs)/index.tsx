@@ -99,12 +99,14 @@ export default function HomeScreen() {
     return [
       ...categories.map((cat) => ({
         key: String(cat.id),
+        categoryId: cat.id as number | null,
         title: cat.name,
         accentColor: cat.color_hex,
         tasks: byCategory.get(cat.id) ?? [],
       })),
       {
         key: UNCATEGORIZED_SECTION_KEY,
+        categoryId: null,
         title: 'Uncategorized',
         accentColor: categoryFallback,
         tasks: uncategorized,
@@ -236,11 +238,22 @@ export default function HomeScreen() {
               title={section.title}
               count={section.tasks.length}
               accentColor={section.accentColor}
-              expanded={expandedKey === section.key}
-              onToggle={() => toggleSection(section.key)}
               tasks={section.tasks}
               date={date}
               isAdmin={isAdmin}
+              // Real categories (not Uncategorized) open their dedicated
+              // page instead of expanding inline — see category-section.tsx.
+              onPress={
+                section.categoryId != null
+                  ? () =>
+                      router.push({
+                        pathname: '/category/[id]',
+                        params: { id: String(section.categoryId), name: section.title, date },
+                      })
+                  : undefined
+              }
+              expanded={expandedKey === section.key}
+              onToggle={() => toggleSection(section.key)}
               onToggleComplete={handleToggleComplete}
               onEdit={handleEdit}
               onDelete={handleDelete}

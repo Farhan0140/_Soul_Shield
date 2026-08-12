@@ -37,6 +37,15 @@ export interface SubTaskInput {
   target_count?: number;
 }
 
+/** Shape returned by GET /categories/{id}/tasks (PaginatedTasksResponse on the backend). */
+export interface PaginatedTasks {
+  tasks: Task[];
+  page: number;
+  page_size: number;
+  total_items: number;
+  total_pages: number;
+}
+
 /** Shape returned by GET /tasks and GET /tasks/history (TaskWithStatusResponse on the backend). */
 export interface Task {
   task_id: number;

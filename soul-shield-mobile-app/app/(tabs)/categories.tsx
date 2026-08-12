@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
@@ -126,6 +127,12 @@ export default function CategoriesScreen() {
             <CategoryRow
               key={category.id}
               category={category}
+              onPress={() =>
+                router.push({
+                  pathname: '/category/[id]',
+                  params: { id: String(category.id), name: category.name },
+                })
+              }
               onEdit={() => setEditing(category)}
               onDelete={() => handleDelete(category)}
             />

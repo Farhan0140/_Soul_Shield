@@ -18,6 +18,7 @@ import { cancelTaskReminders } from '@/lib/notifications';
 function invalidateTaskLists(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ['tasks'] });
   queryClient.invalidateQueries({ queryKey: ['taskHistory'] });
+  queryClient.invalidateQueries({ queryKey: ['categoryTasks'] });
 }
 
 /** Client-side mirror of the backend's parent-status aggregation

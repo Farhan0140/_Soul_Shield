@@ -12,8 +12,12 @@ interface CategorySectionProps {
   count: number;
   accentColor: string;
   icon?: IconSymbolName;
-  expanded: boolean;
-  onToggle: () => void;
+  /** Omit both `expanded`/`onToggle` when passing `onPress` — the section then
+   * behaves as a navigation link (e.g. to the category's dedicated page)
+   * instead of an inline accordion, and never renders its task list body. */
+  expanded?: boolean;
+  onToggle?: () => void;
+  onPress?: () => void;
   tasks: Task[];
   date: string;
   isAdmin: boolean;
@@ -32,8 +36,9 @@ export function CategorySection({
   count,
   accentColor,
   icon,
-  expanded,
+  expanded = false,
   onToggle,
+  onPress,
   tasks,
   date,
   isAdmin,
@@ -46,19 +51,20 @@ export function CategorySection({
 }: CategorySectionProps) {
   const mutedColor = useThemeColor({}, 'muted');
   const cardColor = useThemeColor({}, 'card');
+  const isLink = !!onPress;
 
   return (
     <Animated.View
       layout={LinearTransition.duration(220)}
       style={[styles.container, { backgroundColor: cardColor }]}>
       <Pressable
-        onPress={onToggle}
+        onPress={onPress ?? onToggle}
         style={({ pressed }) => [
           styles.header,
           { backgroundColor: `${accentColor}1A`, opacity: pressed ? 0.85 : 1 },
         ]}
         accessibilityRole="button"
-        accessibilityState={{ expanded }}>
+        accessibilityState={isLink ? undefined : { expanded }}>
         {icon ? (
           <IconSymbol name={icon} size={18} color={accentColor} />
         ) : (
@@ -72,11 +78,11 @@ export function CategorySection({
           name="chevron.right"
           size={16}
           color={mutedColor}
-          style={{ transform: [{ rotate: expanded ? '90deg' : '0deg' }] }}
+          style={{ transform: [{ rotate: !isLink && expanded ? '90deg' : '0deg' }] }}
         />
       </Pressable>
 
-      {expanded ? (
+      {!isLink && expanded ? (
         <Animated.View
           entering={FadeIn.duration(180)}
           exiting={FadeOut.duration(120)}

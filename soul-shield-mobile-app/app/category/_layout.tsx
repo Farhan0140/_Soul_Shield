@@ -17,6 +17,7 @@ export default function CategoryLayout() {
   return (
     <Stack screenOptions={{ headerRight: () => <CloseButton /> }}>
       <Stack.Screen name="new" options={{ title: 'New Category' }} />
+      <Stack.Screen name="[id]" options={{ headerShown: false }} />
     </Stack>
   );
 }
