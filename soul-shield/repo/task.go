@@ -19,6 +19,7 @@ type TaskRepo interface {
 	GetByID(id int64) (*Task, error)
 	ListForDate(userID int64, date time.Time) ([]TaskWithStatus, error)
 	ListForRange(userID int64, from, to time.Time) ([]TaskWithStatus, error)
+	ListForDateByCategory(userID int64, date time.Time, categoryID int64, limit, offset int) ([]TaskWithStatus, int, error)
 	Complete(taskID int64, userID int64, date time.Time) (*TaskCompletion, error)
 	Increment(taskID int64, userID int64, date time.Time, amount int32) (*TaskCompletion, error) // নতুন
 }
@@ -315,6 +316,123 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 	return results, rows.Err()
 }
 
+// ---- ListForDateByCategory: category detail page-এর জন্য, নির্দিষ্ট দিনে একটা category-র
+// task গুলো paginated আকারে দেয় (limit/offset) + total count, যাতে client পেজিনেশন UI বানাতে পারে ----
+func (r *taskRepo) ListForDateByCategory(userID int64, date time.Time, categoryID int64, limit, offset int) ([]TaskWithStatus, int, error) {
+	dateStr := date.Format("2006-01-02")
+
+	var totalItems int
+	err := r.db.Get(&totalItems, `
+		SELECT COUNT(*)
+		FROM tasks t
+		WHERE t.is_active = true
+			AND EXTRACT(DOW FROM $2::date)::int = ANY(t.recurrence_days)
+			AND (t.is_global = true OR t.owner_id = $1)
+			AND t.category_id = $3
+	`, userID, dateStr, categoryID)
+	if err != nil {
+		return nil, 0, err
+	}
+	if totalItems == 0 {
+		return []TaskWithStatus{}, 0, nil
+	}
+
+	query := `
+		SELECT
+			t.id, t.title, t.description, t.is_global, t.recurrence_type,
+			t.task_type, t.target_count,
+			c.id AS cat_id, c.name AS cat_name, c.color_hex AS cat_color,
+			t.reward_text, t.recurrence_days, t.reminder_time,
+			tc.status, tc.completed_at, tc.progress_count
+		FROM tasks t
+		LEFT JOIN categories c ON c.id = t.category_id
+		LEFT JOIN task_completions tc
+			ON tc.task_id = t.id AND tc.user_id = $1 AND tc.task_date = $2::date
+		WHERE t.is_active = true
+			AND EXTRACT(DOW FROM $2::date)::int = ANY(t.recurrence_days)
+			AND (t.is_global = true OR t.owner_id = $1)
+			AND t.category_id = $3
+		ORDER BY t.is_global, t.created_at
+		LIMIT $4 OFFSET $5
+	`
+
+	rows, err := r.db.Query(query, userID, dateStr, categoryID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	today := time.Now().Format("2006-01-02")
+	var results []TaskWithStatus
+
+	for rows.Next() {
+		var item TaskWithStatus
+		var desc, rewardText, reminderTime sql.NullString
+		var status sql.NullString
+		var completedAt sql.NullTime
+		var catID sql.NullInt64
+		var catName, catColor sql.NullString
+		var targetCount sql.NullInt32
+		var progressCount sql.NullInt32
+		var recurrenceDays pq.Int64Array
+
+		err := rows.Scan(
+			&item.TaskID, &item.Title, &desc, &item.IsGlobal, &item.RecurrenceType,
+			&item.TaskType, &targetCount,
+			&catID, &catName, &catColor,
+			&rewardText, &recurrenceDays, &reminderTime,
+			&status, &completedAt, &progressCount,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		item.Description = desc.String
+		item.Date = dateStr
+		item.RecurrenceDays = []int64(recurrenceDays)
+		if reminderTime.Valid {
+			rt := reminderTime.String
+			item.ReminderTime = &rt
+		}
+
+		if status.Valid {
+			item.Status = status.String
+		} else if dateStr < today {
+			item.Status = util.StatusMissed
+		} else {
+			item.Status = util.StatusPending
+		}
+
+		if completedAt.Valid {
+			t := completedAt.Time
+			item.CompletedAt = &t
+		}
+		if progressCount.Valid {
+			item.ProgressCount = progressCount.Int32
+		}
+		if targetCount.Valid {
+			v := targetCount.Int32
+			item.TargetCount = &v
+		}
+		if catID.Valid {
+			id := catID.Int64
+			name := catName.String
+			color := catColor.String
+			item.CategoryID = &id
+			item.CategoryName = &name
+			item.CategoryColor = &color
+		}
+		if item.Status == util.StatusCompleted && rewardText.Valid {
+			rt := rewardText.String
+			item.RewardText = &rt
+		}
+
+		results = append(results, item)
+	}
+
+	return results, totalItems, rows.Err()
+}
+
 // ---- ListForRange: history এর জন্য, একাধিক দিন একসাথে ----
 func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithStatus, error) {
 	fromStr := from.Format("2006-01-02")
@@ -511,7 +629,7 @@ func (r *taskRepo) Increment(taskID int64, userID int64, date time.Time, amount 
 
 	dateStr := date.Format("2006-01-02")
 	target := task.TargetCount.Int32
-	
+
 	tx, err := r.db.Beginx()
 	if err != nil {
 		return nil, err

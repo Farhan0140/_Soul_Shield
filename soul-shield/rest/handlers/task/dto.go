@@ -166,6 +166,15 @@ type SubTaskCompletionResponse struct {
 	ParentRewardText *string `json:"parent_reward_text,omitempty"`
 }
 
+// PaginatedTasksResponse - category detail page-এর জন্য paginated task list + page metadata
+type PaginatedTasksResponse struct {
+	Tasks      []TaskWithStatusResponse `json:"tasks"`
+	Page       int                      `json:"page" example:"1"`
+	PageSize   int                      `json:"page_size" example:"10"`
+	TotalItems int                      `json:"total_items" example:"23"`
+	TotalPages int                      `json:"total_pages" example:"3"`
+}
+
 type SuccessResponse struct {
 	Message string `json:"message" example:"Task created successfully"`
 }
