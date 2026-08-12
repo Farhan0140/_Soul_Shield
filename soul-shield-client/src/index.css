@@ -1,5 +1,28 @@
 @import "tailwindcss";
 
+/* KFGQPC Uthman Taha Naskh — restricted to the Arabic-script unicode ranges so the
+   browser only picks it for Arabic glyphs; Latin/numeric text keeps falling through
+   to Inter/Manrope. This gives automatic per-character Arabic detection with no JS. */
+@font-face {
+  font-family: 'Uthman Taha Naskh';
+  src: url('/fonts/UthmanTN1-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF,
+    U+10E60-10E7F, U+1EC70-1ECBF, U+1ED00-1ED4F, U+1EE00-1EEFF;
+}
+
+@font-face {
+  font-family: 'Uthman Taha Naskh';
+  src: url('/fonts/UthmanTN1-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF,
+    U+10E60-10E7F, U+1EC70-1ECBF, U+1ED00-1ED4F, U+1EE00-1EEFF;
+}
+
 @theme {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
@@ -11,8 +34,8 @@
   --color-fg: var(--fg);
   --color-muted: var(--muted);
 
-  --font-sans: 'Inter', sans-serif;
-  --font-heading: 'Manrope', sans-serif;
+  --font-sans: 'Uthman Taha Naskh', 'Inter', sans-serif;
+  --font-heading: 'Uthman Taha Naskh', 'Manrope', sans-serif;
 }
 
 h1, h2, h3, h4 {
