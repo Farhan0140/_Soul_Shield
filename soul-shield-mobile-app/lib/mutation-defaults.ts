@@ -38,6 +38,7 @@ export const mutationKeys = {
 function invalidateTaskLists(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ['tasks'] });
   queryClient.invalidateQueries({ queryKey: ['taskHistory'] });
+  queryClient.invalidateQueries({ queryKey: ['categoryTasks'] });
 }
 
 function invalidateCategoryDependents(queryClient: QueryClient) {
