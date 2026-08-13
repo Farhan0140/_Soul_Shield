@@ -37,12 +37,16 @@ export interface SubTaskInput {
   target_count?: number;
 }
 
-/** Shape returned by GET /categories/{id}/tasks (PaginatedTasksResponse on the backend). */
+/** Shape returned by GET /categories/{id}/tasks (PaginatedTasksResponse on the backend).
+ * `tasks` holds active tasks first, then completed ones (sorted, not excluded) -
+ * `total_items`/`total_pages` paginate that full combined list. `completed_items`
+ * is just the count of completed ones within it, for the "N total, M completed" summary. */
 export interface PaginatedTasks {
   tasks: Task[];
   page: number;
   page_size: number;
   total_items: number;
+  completed_items: number;
   total_pages: number;
 }
 

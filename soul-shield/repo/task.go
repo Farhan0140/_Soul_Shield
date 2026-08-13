@@ -19,7 +19,7 @@ type TaskRepo interface {
 	GetByID(id int64) (*Task, error)
 	ListForDate(userID int64, date time.Time) ([]TaskWithStatus, error)
 	ListForRange(userID int64, from, to time.Time) ([]TaskWithStatus, error)
-	ListForDateByCategory(userID int64, date time.Time, categoryID int64, limit, offset int) ([]TaskWithStatus, int, error)
+	ListForDateByCategory(userID int64, date time.Time, categoryID int64) ([]TaskWithStatus, error)
 	Complete(taskID int64, userID int64, date time.Time) (*TaskCompletion, error)
 	Increment(taskID int64, userID int64, date time.Time, amount int32) (*TaskCompletion, error) // নতুন
 }
@@ -317,25 +317,11 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 }
 
 // ---- ListForDateByCategory: category detail page-এর জন্য, নির্দিষ্ট দিনে একটা category-র
-// task গুলো paginated আকারে দেয় (limit/offset) + total count, যাতে client পেজিনেশন UI বানাতে পারে ----
-func (r *taskRepo) ListForDateByCategory(userID int64, date time.Time, categoryID int64, limit, offset int) ([]TaskWithStatus, int, error) {
+// সব task দেয় (active + completed, unpaginated) - completed বাদ দেওয়া আর pagination
+// handler লেয়ারে হয়, কারণ sub-task থাকা parent task এর status DB fetch এর পরে
+// (attachSubTasksForDate এর sub-task aggregation থেকে) নির্ধারিত হয়, SQL এ না ----
+func (r *taskRepo) ListForDateByCategory(userID int64, date time.Time, categoryID int64) ([]TaskWithStatus, error) {
 	dateStr := date.Format("2006-01-02")
-
-	var totalItems int
-	err := r.db.Get(&totalItems, `
-		SELECT COUNT(*)
-		FROM tasks t
-		WHERE t.is_active = true
-			AND EXTRACT(DOW FROM $2::date)::int = ANY(t.recurrence_days)
-			AND (t.is_global = true OR t.owner_id = $1)
-			AND t.category_id = $3
-	`, userID, dateStr, categoryID)
-	if err != nil {
-		return nil, 0, err
-	}
-	if totalItems == 0 {
-		return []TaskWithStatus{}, 0, nil
-	}
 
 	query := `
 		SELECT
@@ -353,12 +339,11 @@ func (r *taskRepo) ListForDateByCategory(userID int64, date time.Time, categoryI
 			AND (t.is_global = true OR t.owner_id = $1)
 			AND t.category_id = $3
 		ORDER BY t.is_global, t.created_at
-		LIMIT $4 OFFSET $5
 	`
 
-	rows, err := r.db.Query(query, userID, dateStr, categoryID, limit, offset)
+	rows, err := r.db.Query(query, userID, dateStr, categoryID)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -384,7 +369,7 @@ func (r *taskRepo) ListForDateByCategory(userID int64, date time.Time, categoryI
 			&status, &completedAt, &progressCount,
 		)
 		if err != nil {
-			return nil, 0, err
+			return nil, err
 		}
 
 		item.Description = desc.String
@@ -430,7 +415,7 @@ func (r *taskRepo) ListForDateByCategory(userID int64, date time.Time, categoryI
 		results = append(results, item)
 	}
 
-	return results, totalItems, rows.Err()
+	return results, rows.Err()
 }
 
 // ---- ListForRange: history এর জন্য, একাধিক দিন একসাথে ----

@@ -36,10 +36,6 @@ export default function HomeScreen() {
   const [status, setStatus] = useState<StatusFilter>('all');
   const [taskType, setTaskType] = useState<TaskTypeFilter>('all');
   const [source, setSource] = useState<SourceFilter>('all');
-  // Accordion: at most one section open at a time, kept for the life of the
-  // screen instance (tabs stay mounted across navigation, so this survives
-  // switching tabs and back).
-  const [expandedKey, setExpandedKey] = useState<string | null>(null);
   // Owned here rather than by TaskCard: completing a task moves its card from
   // an active section into the separate "Completed Tasks" section below,
   // which unmounts/remounts TaskCard in a new subtree — any modal state kept
@@ -120,10 +116,6 @@ export default function HomeScreen() {
     setStatus('all');
     setTaskType('all');
     setSource('all');
-  };
-
-  const toggleSection = (key: string) => {
-    setExpandedKey((current) => (current === key ? null : key));
   };
 
   const handleToggleComplete = (task: Task) => {
@@ -217,16 +209,25 @@ export default function HomeScreen() {
         <ErrorState message={getErrorMessage(tasksQuery.error)} onRetry={() => tasksQuery.refetch()} />
       ) : (
         <View style={styles.sections}>
+          {/* Every section — real categories and the pseudo-categories below
+           * (Fixed/Uncategorized/Completed) — opens its own dedicated page
+           * instead of expanding inline; see category/[id].tsx for how it
+           * derives Fixed/Uncategorized/Completed from useTasksQuery(date)
+           * since those don't have a backend category to fetch. */}
           <CategorySection
             title="Fixed Tasks"
             count={fixedTasks.length}
             accentColor={tintColor}
             icon="shield.fill"
-            expanded={expandedKey === FIXED_SECTION_KEY}
-            onToggle={() => toggleSection(FIXED_SECTION_KEY)}
             tasks={fixedTasks}
             date={date}
             isAdmin={isAdmin}
+            onPress={() =>
+              router.push({
+                pathname: '/category/[id]',
+                params: { id: FIXED_SECTION_KEY, name: 'Fixed Tasks', date },
+              })
+            }
             onToggleComplete={handleToggleComplete}
             onEdit={handleEdit}
             onDelete={handleDelete}
@@ -241,19 +242,16 @@ export default function HomeScreen() {
               tasks={section.tasks}
               date={date}
               isAdmin={isAdmin}
-              // Real categories (not Uncategorized) open their dedicated
-              // page instead of expanding inline — see category-section.tsx.
-              onPress={
-                section.categoryId != null
-                  ? () =>
-                      router.push({
-                        pathname: '/category/[id]',
-                        params: { id: String(section.categoryId), name: section.title, date },
-                      })
-                  : undefined
+              onPress={() =>
+                router.push({
+                  pathname: '/category/[id]',
+                  params: {
+                    id: section.categoryId != null ? String(section.categoryId) : UNCATEGORIZED_SECTION_KEY,
+                    name: section.title,
+                    date,
+                  },
+                })
               }
-              expanded={expandedKey === section.key}
-              onToggle={() => toggleSection(section.key)}
               onToggleComplete={handleToggleComplete}
               onEdit={handleEdit}
               onDelete={handleDelete}
@@ -266,12 +264,16 @@ export default function HomeScreen() {
               count={completedTasks.length}
               accentColor={successColor}
               icon="checkmark.circle.fill"
-              expanded={expandedKey === COMPLETED_SECTION_KEY}
-              onToggle={() => toggleSection(COMPLETED_SECTION_KEY)}
               tasks={completedTasks}
               date={date}
               isAdmin={isAdmin}
               showCategoryBadge
+              onPress={() =>
+                router.push({
+                  pathname: '/category/[id]',
+                  params: { id: COMPLETED_SECTION_KEY, name: 'Completed Tasks', date },
+                })
+              }
               onToggleComplete={handleToggleComplete}
               onEdit={handleEdit}
               onDelete={handleDelete}

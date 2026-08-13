@@ -166,13 +166,17 @@ type SubTaskCompletionResponse struct {
 	ParentRewardText *string `json:"parent_reward_text,omitempty"`
 }
 
-// PaginatedTasksResponse - category detail page-এর জন্য paginated task list + page metadata
+// PaginatedTasksResponse - category detail page-এর জন্য paginated task list + page metadata।
+// Tasks এ active task গুলো আগে, completed task গুলো পরে (sorted, বাদ দেওয়া হয় না) - TotalItems/
+// TotalPages পুরো (active + completed) লিস্ট ধরে হিসাব হয়। CompletedItems শুধু কতগুলো completed
+// তার count, client এ "N total, M completed" সামারি দেখাতে ব্যবহার হয়।
 type PaginatedTasksResponse struct {
-	Tasks      []TaskWithStatusResponse `json:"tasks"`
-	Page       int                      `json:"page" example:"1"`
-	PageSize   int                      `json:"page_size" example:"10"`
-	TotalItems int                      `json:"total_items" example:"23"`
-	TotalPages int                      `json:"total_pages" example:"3"`
+	Tasks          []TaskWithStatusResponse `json:"tasks"`
+	Page           int                      `json:"page" example:"1"`
+	PageSize       int                      `json:"page_size" example:"10"`
+	TotalItems     int                      `json:"total_items" example:"23"`
+	CompletedItems int                      `json:"completed_items" example:"5"`
+	TotalPages     int                      `json:"total_pages" example:"3"`
 }
 
 type SuccessResponse struct {

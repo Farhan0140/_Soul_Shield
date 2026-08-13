@@ -4,12 +4,12 @@ import { getTaskHistory, getTasks } from '@/api/tasks';
 import { useAuth } from '@/context/auth-context';
 import { queryKeys } from '@/lib/query-keys';
 
-export function useTasksQuery(date: string) {
+export function useTasksQuery(date: string, enabled = true) {
   const { token } = useAuth();
   return useQuery({
     queryKey: queryKeys.tasks(date),
     queryFn: () => getTasks(date, token),
-    enabled: !!token,
+    enabled: !!token && enabled,
   });
 }
 

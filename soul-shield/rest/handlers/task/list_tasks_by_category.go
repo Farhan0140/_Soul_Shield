@@ -2,6 +2,7 @@ package task
 
 import (
 	"net/http"
+	"soulsheld/repo"
 	"soulsheld/util"
 	"strconv"
 	"time"
@@ -68,7 +69,7 @@ func (h *Handler) ListTasksByCategory(w http.ResponseWriter, r *http.Request) {
 		pageSize = parsed
 	}
 
-	tasks, totalItems, err := h.taskRepo.ListForDateByCategory(userID, date, categoryID, pageSize, (page-1)*pageSize)
+	tasks, err := h.taskRepo.ListForDateByCategory(userID, date, categoryID)
 	if err != nil {
 		util.SendError(w, map[string]string{"error": "Failed to fetch tasks"}, http.StatusInternalServerError)
 		return
@@ -79,21 +80,47 @@ func (h *Handler) ListTasksByCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := make([]TaskWithStatusResponse, len(tasks))
-	for i, t := range tasks {
-		response[i] = toTaskWithStatusResponse(t)
+	// Completed tasks stay in the list but sort after every active one, so a
+	// category page reads "what's left" first without losing what's already
+	// done - split-then-recombine here (after attachSubTasksForDate, since a
+	// sub-tasked parent's status is only finalized once its sub-task
+	// aggregation has been applied) keeps each group's original relative
+	// order (is_global, created_at from the repo query) intact.
+	sorted := make([]repo.TaskWithStatus, 0, len(tasks))
+	completedItems := 0
+	for _, t := range tasks {
+		if t.Status != util.StatusCompleted {
+			sorted = append(sorted, t)
+		}
+	}
+	for _, t := range tasks {
+		if t.Status == util.StatusCompleted {
+			sorted = append(sorted, t)
+			completedItems++
+		}
 	}
 
+	totalItems := len(sorted)
 	totalPages := (totalItems + pageSize - 1) / pageSize
 	if totalPages == 0 {
 		totalPages = 1
 	}
 
+	start := min((page-1)*pageSize, totalItems)
+	end := min(start+pageSize, totalItems)
+	pageTasks := sorted[start:end]
+
+	response := make([]TaskWithStatusResponse, len(pageTasks))
+	for i, t := range pageTasks {
+		response[i] = toTaskWithStatusResponse(t)
+	}
+
 	util.SendData(w, PaginatedTasksResponse{
-		Tasks:      response,
-		Page:       page,
-		PageSize:   pageSize,
-		TotalItems: totalItems,
-		TotalPages: totalPages,
+		Tasks:          response,
+		Page:           page,
+		PageSize:       pageSize,
+		TotalItems:     totalItems,
+		CompletedItems: completedItems,
+		TotalPages:     totalPages,
 	}, http.StatusOK)
 }
