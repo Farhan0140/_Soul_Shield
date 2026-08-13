@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -83,6 +83,11 @@ export default function CategoryDetailScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: background }]}>
+      {/* Belt-and-suspenders alongside category/_layout.tsx's Stack.Screen
+       * options — co-locating it here too guarantees this route never shows
+       * the native header/back button on top of the custom one below, even
+       * if a parent layout's static options get out of sync after a change. */}
+      <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <View style={styles.headerTitle}>
           <ThemedText type="title" numberOfLines={2}>
