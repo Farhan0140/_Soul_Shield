@@ -1,12 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsRestoring, useQueryClient } from '@tanstack/react-query';
 import { persistQueryClientSave } from '@tanstack/react-query-persist-client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
 import type { Task, TaskStatus } from '@/api/types';
 import { useIncrementTask } from '@/hooks/queries/use-task-mutations';
-import { mutationKeys } from '@/lib/mutation-defaults';
 import { persistOptions } from '@/lib/persister';
 import { queryKeys } from '@/lib/query-keys';
 
@@ -31,7 +30,6 @@ export function useTaskIncrementBuffer({
   targetCount,
   onRewardEarned,
 }: UseTaskIncrementBufferOptions) {
-  const [pending, setPending] = useState(0);
   const pendingRef = useRef(0);
   // Portion of pendingRef.current that's currently dispatched (mutate() has
   // been called) AND confirmed durably persisted to disk, but hasn't settled
@@ -39,6 +37,13 @@ export function useTaskIncrementBuffer({
   // own persisted-mutation replay now owns delivering it. Reconciled back to
   // 0 for that amount as soon as the dispatch settles either way.
   const excludedRef = useRef(0);
+  // Portion of pendingRef.current recovered from a *previous* session's
+  // AsyncStorage backstop (see the recovery effect below) rather than
+  // applied to the cache in *this* session by addAmount() — the cache may or
+  // may not already reflect it (depends on whether the throttled persister
+  // saved before the kill), so it's only (re-)applied once the resumed
+  // flush actually confirms it with the server, never assumed.
+  const recoveredUnappliedRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const flushRef = useRef<() => void>(() => {});
   const isFlushingRef = useRef(false);
@@ -46,9 +51,29 @@ export function useTaskIncrementBuffer({
   const incrementMutation = useIncrementTask();
   const isRestoring = useIsRestoring();
 
-  const displayProgress = serverProgressCount + pending;
+  // Cache-first display: progress lives entirely in the shared
+  // queryKeys.tasks(date) cache (patched synchronously below by
+  // applyOptimisticProgress), not in hook-local state — so every mounted
+  // consumer of that cache (the inline task list AND the dedicated counter
+  // page, however many are mounted at once) reflects a tap immediately, with
+  // no network round trip and no per-instance buffer to fall out of sync.
+  const displayProgress = serverProgressCount;
   const displayStatus: TaskStatus =
     targetCount > 0 && displayProgress >= targetCount ? 'completed' : 'pending';
+
+  const applyOptimisticProgress = useCallback(
+    (amount: number) => {
+      queryClient.setQueryData<Task[]>(queryKeys.tasks(date), (old) =>
+        old?.map((t) => {
+          if (t.task_id !== taskId) return t;
+          const nextProgress = (t.progress_count ?? 0) + amount;
+          const reachedTarget = targetCount > 0 && nextProgress >= targetCount;
+          return { ...t, progress_count: nextProgress, status: reachedTarget ? ('completed' as const) : t.status };
+        })
+      );
+    },
+    [queryClient, date, taskId, targetCount]
+  );
 
   // Backstops the pre-dispatch window: taps sit in pendingRef (JS-only) for
   // up to DEBOUNCE_MS before flush() ever calls mutate(). Once mutate() runs,
@@ -89,6 +114,9 @@ export function useTaskIncrementBuffer({
     const amount = pendingRef.current;
     if (amount <= 0) return;
     isFlushingRef.current = true;
+    // Captured now, before this dispatch can mutate it further — see
+    // recoveredUnappliedRef's own comment for what this covers.
+    const unappliedAtDispatch = recoveredUnappliedRef.current;
     // Settlement (success or error) is the ground truth for whether `amount`
     // is still outstanding; it always fires eventually once online and takes
     // priority over — and must not be clobbered by — the persistence
@@ -102,21 +130,31 @@ export function useTaskIncrementBuffer({
         onSuccess: (data) => {
           // Only now — once the server has actually confirmed the amount —
           // do we remove it from the unconfirmed buffer. Clearing it earlier
-          // (e.g. immediately on dispatch) makes the counter visibly revert
-          // to the stale server value while offline, since a paused mutation
-          // doesn't call onSuccess/onError until connectivity returns.
+          // (e.g. immediately on dispatch) would desync it from the amount
+          // react-query still considers in flight.
           pendingRef.current -= amount;
-          setPending(pendingRef.current);
+          if (unappliedAtDispatch > 0) {
+            // This portion was recovered from a previous session and was
+            // never confirmed applied to the cache (see the recovery effect
+            // below) — apply it now that the server has confirmed it.
+            // Everything else in `amount` was already applied to the cache
+            // the moment it was tapped (see addAmount), so it must not be
+            // added again here.
+            applyOptimisticProgress(unappliedAtDispatch);
+            recoveredUnappliedRef.current = Math.max(
+              recoveredUnappliedRef.current - unappliedAtDispatch,
+              0
+            );
+          }
           // The backend's increment response (CompletionResponse) doesn't include the
-          // updated progress_count, only status — so the new count is computed from the
-          // amount we just sent rather than read off the response. reward_text, on the
-          // other hand, comes straight from the response once status is 'completed'.
+          // updated progress_count, only status — progress_count itself was already
+          // applied optimistically (see applyOptimisticProgress), so only status/
+          // reward_text need the server's authoritative confirmation here.
           queryClient.setQueryData<Task[]>(queryKeys.tasks(date), (old) =>
             old?.map((t) =>
               t.task_id === taskId
                 ? {
                     ...t,
-                    progress_count: (t.progress_count ?? 0) + amount,
                     status: data.status,
                     reward_text: data.status === 'completed' ? data.reward_text : t.reward_text,
                   }
@@ -155,23 +193,40 @@ export function useTaskIncrementBuffer({
         excludedRef.current += amount;
         persistPending(Math.max(pendingRef.current - excludedRef.current, 0));
       });
-  }, [taskId, date, incrementMutation, queryClient, scheduleFlush, onRewardEarned, persistPending]);
+  }, [
+    taskId,
+    date,
+    incrementMutation,
+    queryClient,
+    scheduleFlush,
+    onRewardEarned,
+    persistPending,
+    applyOptimisticProgress,
+  ]);
 
   flushRef.current = flush;
 
   const addAmount = useCallback(
     (amount: number) => {
+      // Applied to the shared cache immediately — this is what makes the
+      // increment visible right away, offline or online, in every mounted
+      // consumer of queryKeys.tasks(date) (the task list, the dedicated
+      // counter page, any other view of this same task), not just this
+      // component instance.
+      applyOptimisticProgress(amount);
       pendingRef.current += amount;
-      setPending(pendingRef.current);
       persistPending(Math.max(pendingRef.current - excludedRef.current, 0));
       scheduleFlush();
     },
-    [scheduleFlush, persistPending]
+    [applyOptimisticProgress, scheduleFlush, persistPending]
   );
 
   // Recover a buffer left behind by a previous session that got killed before
   // its debounce timer fired (or before the AppState background flush ran) —
-  // without this, those taps would just be gone on relaunch.
+  // without this, those taps would just be gone on relaunch. Only restores
+  // the send-to-server bookkeeping (pendingRef) here, not the cache display —
+  // see recoveredUnappliedRef's comment for why that's deferred to flush()'s
+  // onSuccess instead of applied here.
   useEffect(() => {
     if (isRestoring) return;
     let cancelled = false;
@@ -181,7 +236,7 @@ export function useTaskIncrementBuffer({
         const amount = Number(stored);
         if (Number.isFinite(amount) && amount > 0) {
           pendingRef.current += amount;
-          setPending(pendingRef.current);
+          recoveredUnappliedRef.current += amount;
           scheduleFlush();
         }
       })
@@ -190,52 +245,6 @@ export function useTaskIncrementBuffer({
       cancelled = true;
     };
   }, [taskId, date, scheduleFlush, isRestoring]);
-
-  // Recover an amount that got past the point above — flush() had already
-  // called mutate() and confirmed it durably persisted, so it deliberately
-  // cleared the AsyncStorage backstop above (see the comment on
-  // persistPending's caller in flush()) in favor of react-query's own
-  // paused-mutation replay owning it. That replay correctly redelivers the
-  // amount to the server once back online, but nothing else re-derives
-  // *display* state from a paused mutation sitting in the restored cache —
-  // so without this, an increment dispatched (but not yet settled) before an
-  // offline app kill would appear to have reverted until the next reconnect.
-  useEffect(() => {
-    if (isRestoring) return;
-    const [incrementKey0, incrementKey1] = mutationKeys.tasks.increment;
-    const mutationCache = queryClient.getMutationCache();
-    const matches = mutationCache.getAll().filter((m) => {
-      if (m.state.status !== 'pending') return false;
-      const key = m.options.mutationKey;
-      if (key?.[0] !== incrementKey0 || key?.[1] !== incrementKey1) return false;
-      const vars = m.state.variables as { taskId?: number; date?: string } | undefined;
-      return vars?.taskId === taskId && vars?.date === date;
-    });
-    if (matches.length === 0) return;
-
-    const outstanding = new Set(matches);
-    let recoveredAmount = 0;
-    for (const m of matches) {
-      const vars = m.state.variables as { amount?: number };
-      recoveredAmount += vars.amount ?? 0;
-    }
-    pendingRef.current += recoveredAmount;
-    setPending(pendingRef.current);
-
-    // Once connectivity returns and a recovered mutation settles (replayed
-    // by resumePausedMutations, see app/_layout.tsx), its amount transfers
-    // into the server-confirmed progress_count via the invalidate + refetch
-    // in lib/mutation-defaults.ts — pull it back out of `pending` at that
-    // point so it isn't counted in both places.
-    const unsubscribe = mutationCache.subscribe(({ mutation }) => {
-      if (!mutation || !outstanding.has(mutation) || mutation.state.status === 'pending') return;
-      outstanding.delete(mutation);
-      const vars = mutation.state.variables as { amount?: number };
-      pendingRef.current = Math.max(pendingRef.current - (vars.amount ?? 0), 0);
-      setPending(pendingRef.current);
-    });
-    return unsubscribe;
-  }, [taskId, date, queryClient, isRestoring]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {

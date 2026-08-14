@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { SubTask } from '@/api/types';
@@ -41,6 +42,12 @@ export function SubTaskList({ taskId, subTasks, date, disabled, onRewardEarned }
     );
   };
 
+  const handleOpenCounter = (subTask: SubTask) =>
+    router.push({
+      pathname: '/counter/[taskId]',
+      params: { taskId: String(taskId), subTaskId: String(subTask.sub_task_id), date },
+    });
+
   const handleIncrement = (subTask: SubTask, amount: number) => {
     incrementSubTask.mutate(
       { taskId, subTaskId: subTask.sub_task_id, amount, date },
@@ -80,6 +87,12 @@ export function SubTaskList({ taskId, subTasks, date, disabled, onRewardEarned }
               <ThemedText style={[styles.title, isCompleted && styles.strikethrough]} numberOfLines={2}>
                 {subTask.title}
               </ThemedText>
+              {isCounter ? (
+                // TODO this button is for opening the dedicated counter page for this sub-task
+                <Pressable onPress={() => handleOpenCounter(subTask)} hitSlop={8}>
+                  <IconSymbol name="arrow.up.right.square" size={16} color={mutedColor} />
+                </Pressable>
+              ) : null}
             </View>
 
             {isCounter ? (

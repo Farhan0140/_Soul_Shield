@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -69,6 +70,9 @@ export function TaskCard({
   const isReadOnly = !isToday(date);
   const controlsDisabled = isMissed || isReadOnly;
   const [detailsExpanded, setDetailsExpanded] = useState(false);
+
+  const handleOpenCounter = () =>
+    router.push({ pathname: '/counter/[taskId]', params: { taskId: String(task.task_id), date } });
 
   const backgroundColor = isCompleted
     ? completedTint
@@ -144,13 +148,20 @@ export function TaskCard({
       ) : null}
 
       {isCounter && !hasSubTasks ? (
-        <CounterTaskControls
-          task={task}
-          date={date}
-          disabled={controlsDisabled}
-          accentColor={accentColor}
-          onRewardEarned={onRewardEarned}
-        />
+        <View style={styles.counterSection}>
+          <CounterTaskControls
+            task={task}
+            date={date}
+            disabled={controlsDisabled}
+            accentColor={accentColor}
+            onRewardEarned={onRewardEarned}
+          />
+          {/* TODO this button is for opening the dedicated counter page for this task */}
+          <Pressable onPress={handleOpenCounter} hitSlop={8} style={styles.openCounterLink}>
+            <IconSymbol name="arrow.up.right.square" size={14} color={mutedColor} />
+            <ThemedText style={[styles.openCounterLabel, { color: mutedColor }]}>Focused counter</ThemedText>
+          </Pressable>
+        </View>
       ) : null}
 
       {hasSubTasks ? (
@@ -212,4 +223,7 @@ const styles = StyleSheet.create({
   categoryLabel: { fontSize: 12, fontWeight: '600' },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 16 },
   actionButton: { padding: 4 },
+  counterSection: { gap: 8 },
+  openCounterLink: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-end' },
+  openCounterLabel: { fontSize: 12, fontWeight: '600' },
 });
