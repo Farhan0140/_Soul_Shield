@@ -4,10 +4,10 @@ import { persistQueryClientSave } from '@tanstack/react-query-persist-client';
 import { useCallback, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
-import type { Task, TaskStatus } from '@/api/types';
+import type { TaskStatus } from '@/api/types';
 import { useIncrementTask } from '@/hooks/queries/use-task-mutations';
 import { persistOptions } from '@/lib/persister';
-import { queryKeys } from '@/lib/query-keys';
+import { patchTaskInCaches } from '@/lib/task-cache';
 
 const DEBOUNCE_MS = 4000;
 
@@ -63,14 +63,11 @@ export function useTaskIncrementBuffer({
 
   const applyOptimisticProgress = useCallback(
     (amount: number) => {
-      queryClient.setQueryData<Task[]>(queryKeys.tasks(date), (old) =>
-        old?.map((t) => {
-          if (t.task_id !== taskId) return t;
-          const nextProgress = (t.progress_count ?? 0) + amount;
-          const reachedTarget = targetCount > 0 && nextProgress >= targetCount;
-          return { ...t, progress_count: nextProgress, status: reachedTarget ? ('completed' as const) : t.status };
-        })
-      );
+      patchTaskInCaches(queryClient, date, taskId, (t) => {
+        const nextProgress = (t.progress_count ?? 0) + amount;
+        const reachedTarget = targetCount > 0 && nextProgress >= targetCount;
+        return { ...t, progress_count: nextProgress, status: reachedTarget ? ('completed' as const) : t.status };
+      });
     },
     [queryClient, date, taskId, targetCount]
   );
@@ -150,17 +147,11 @@ export function useTaskIncrementBuffer({
           // updated progress_count, only status — progress_count itself was already
           // applied optimistically (see applyOptimisticProgress), so only status/
           // reward_text need the server's authoritative confirmation here.
-          queryClient.setQueryData<Task[]>(queryKeys.tasks(date), (old) =>
-            old?.map((t) =>
-              t.task_id === taskId
-                ? {
-                    ...t,
-                    status: data.status,
-                    reward_text: data.status === 'completed' ? data.reward_text : t.reward_text,
-                  }
-                : t
-            )
-          );
+          patchTaskInCaches(queryClient, date, taskId, (t) => ({
+            ...t,
+            status: data.status,
+            reward_text: data.status === 'completed' ? data.reward_text : t.reward_text,
+          }));
           if (data.status === 'completed' && data.reward_text) {
             onRewardEarned?.(data.reward_text);
           }

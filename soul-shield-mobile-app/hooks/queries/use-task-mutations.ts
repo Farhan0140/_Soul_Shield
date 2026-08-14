@@ -14,6 +14,12 @@ import {
 import { queryKeys } from '@/lib/query-keys';
 import { todayISODate, weekdayIndex } from '@/lib/date';
 import { cancelTaskReminders } from '@/lib/notifications';
+import {
+  cancelTaskCacheFetches,
+  patchTaskInCaches,
+  restoreTaskCaches,
+  snapshotTaskCaches,
+} from '@/lib/task-cache';
 
 function invalidateTaskLists(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -159,35 +165,27 @@ export function useCompleteTask() {
     mutationKey: mutationKeys.tasks.complete,
     mutationFn: completeTaskMutationFn,
     onMutate: async ({ taskId, date }: { taskId: number; date: string }) => {
-      const key = queryKeys.tasks(date);
-      await queryClient.cancelQueries({ queryKey: key });
-      const previous = queryClient.getQueryData<Task[]>(key);
-      queryClient.setQueryData<Task[]>(key, (old) =>
-        old?.map((t) =>
-          t.task_id === taskId
-            ? { ...t, status: t.status === 'completed' ? ('pending' as const) : ('completed' as const) }
-            : t
-        )
-      );
-      return { previous, date };
+      await cancelTaskCacheFetches(queryClient, date);
+      const snapshot = snapshotTaskCaches(queryClient, date);
+      patchTaskInCaches(queryClient, date, taskId, (t) => ({
+        ...t,
+        status: t.status === 'completed' ? ('pending' as const) : ('completed' as const),
+      }));
+      return { snapshot, date };
     },
     onSuccess: (data, { taskId, date }) => {
       // Apply the server-confirmed status + reward_text directly, rather than
       // waiting on the onSettled invalidate/refetch below — reward_text only
       // ever arrives via this response (or the refetch it lags behind), so
       // patching it here is what lets the reward modal fire promptly.
-      queryClient.setQueryData<Task[]>(queryKeys.tasks(date), (old) =>
-        old?.map((t) =>
-          t.task_id === taskId
-            ? { ...t, status: data.status, reward_text: data.status === 'completed' ? data.reward_text : undefined }
-            : t
-        )
-      );
+      patchTaskInCaches(queryClient, date, taskId, (t) => ({
+        ...t,
+        status: data.status,
+        reward_text: data.status === 'completed' ? data.reward_text : undefined,
+      }));
     },
     onError: (_err, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(queryKeys.tasks(context.date), context.previous);
-      }
+      if (context?.snapshot) restoreTaskCaches(queryClient, context.date, context.snapshot);
     },
     onSettled: () => invalidateTaskLists(queryClient),
   });
@@ -219,37 +217,28 @@ export function useCompleteSubTask() {
     mutationFn: completeSubTaskMutationFn,
     onMutate: async ({ taskId, subTaskId, date }) => {
       const effectiveDate = date ?? todayISODate();
-      const key = queryKeys.tasks(effectiveDate);
-      await queryClient.cancelQueries({ queryKey: key });
-      const previous = queryClient.getQueryData<Task[]>(key);
+      await cancelTaskCacheFetches(queryClient, effectiveDate);
+      const snapshot = snapshotTaskCaches(queryClient, effectiveDate);
 
-      queryClient.setQueryData<Task[]>(key, (old) =>
-        old?.map((t) => {
-          if (t.task_id !== taskId || !t.sub_tasks) return t;
-          const subTasks = t.sub_tasks.map((s) =>
-            s.sub_task_id === subTaskId ? { ...s, status: 'completed' as const } : s
-          );
-          return { ...t, sub_tasks: subTasks, status: deriveParentStatus(subTasks) };
-        })
-      );
+      patchTaskInCaches(queryClient, effectiveDate, taskId, (t) => {
+        if (!t.sub_tasks) return t;
+        const subTasks = t.sub_tasks.map((s) =>
+          s.sub_task_id === subTaskId ? { ...s, status: 'completed' as const } : s
+        );
+        return { ...t, sub_tasks: subTasks, status: deriveParentStatus(subTasks) };
+      });
 
-      return { previous, date: effectiveDate };
+      return { snapshot, date: effectiveDate };
     },
     onError: (_err, _vars, context) => {
-      if (context?.previous) queryClient.setQueryData(queryKeys.tasks(context.date), context.previous);
+      if (context?.snapshot) restoreTaskCaches(queryClient, context.date, context.snapshot);
     },
     onSuccess: (data, { taskId, date }) => {
-      queryClient.setQueryData<Task[]>(queryKeys.tasks(date ?? todayISODate()), (old) =>
-        old?.map((t) =>
-          t.task_id === taskId
-            ? {
-                ...t,
-                status: data.parent_status,
-                reward_text: data.parent_status === 'completed' ? data.parent_reward_text : t.reward_text,
-              }
-            : t
-        )
-      );
+      patchTaskInCaches(queryClient, date ?? todayISODate(), taskId, (t) => ({
+        ...t,
+        status: data.parent_status,
+        reward_text: data.parent_status === 'completed' ? data.parent_reward_text : t.reward_text,
+      }));
     },
     onSettled: () => invalidateTaskLists(queryClient),
   });
@@ -267,44 +256,35 @@ export function useIncrementSubTask() {
     mutationFn: incrementSubTaskMutationFn,
     onMutate: async ({ taskId, subTaskId, amount, date }) => {
       const effectiveDate = date ?? todayISODate();
-      const key = queryKeys.tasks(effectiveDate);
-      await queryClient.cancelQueries({ queryKey: key });
-      const previous = queryClient.getQueryData<Task[]>(key);
+      await cancelTaskCacheFetches(queryClient, effectiveDate);
+      const snapshot = snapshotTaskCaches(queryClient, effectiveDate);
 
-      queryClient.setQueryData<Task[]>(key, (old) =>
-        old?.map((t) => {
-          if (t.task_id !== taskId || !t.sub_tasks) return t;
-          const subTasks = t.sub_tasks.map((s) => {
-            if (s.sub_task_id !== subTaskId) return s;
-            const nextProgress = (s.progress_count ?? 0) + amount;
-            const reachedTarget = s.target_count != null && nextProgress >= s.target_count;
-            return {
-              ...s,
-              progress_count: nextProgress,
-              status: reachedTarget ? ('completed' as const) : s.status,
-            };
-          });
-          return { ...t, sub_tasks: subTasks, status: deriveParentStatus(subTasks) };
-        })
-      );
+      patchTaskInCaches(queryClient, effectiveDate, taskId, (t) => {
+        if (!t.sub_tasks) return t;
+        const subTasks = t.sub_tasks.map((s) => {
+          if (s.sub_task_id !== subTaskId) return s;
+          const nextProgress = (s.progress_count ?? 0) + amount;
+          const reachedTarget = s.target_count != null && nextProgress >= s.target_count;
+          return {
+            ...s,
+            progress_count: nextProgress,
+            status: reachedTarget ? ('completed' as const) : s.status,
+          };
+        });
+        return { ...t, sub_tasks: subTasks, status: deriveParentStatus(subTasks) };
+      });
 
-      return { previous, date: effectiveDate };
+      return { snapshot, date: effectiveDate };
     },
     onError: (_err, _vars, context) => {
-      if (context?.previous) queryClient.setQueryData(queryKeys.tasks(context.date), context.previous);
+      if (context?.snapshot) restoreTaskCaches(queryClient, context.date, context.snapshot);
     },
     onSuccess: (data, { taskId, date }) => {
-      queryClient.setQueryData<Task[]>(queryKeys.tasks(date ?? todayISODate()), (old) =>
-        old?.map((t) =>
-          t.task_id === taskId
-            ? {
-                ...t,
-                status: data.parent_status,
-                reward_text: data.parent_status === 'completed' ? data.parent_reward_text : t.reward_text,
-              }
-            : t
-        )
-      );
+      patchTaskInCaches(queryClient, date ?? todayISODate(), taskId, (t) => ({
+        ...t,
+        status: data.parent_status,
+        reward_text: data.parent_status === 'completed' ? data.parent_reward_text : t.reward_text,
+      }));
     },
     onSettled: () => invalidateTaskLists(queryClient),
   });
