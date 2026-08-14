@@ -49,13 +49,7 @@
           "color": "#0a7ea4"
         }
       ],
-      "expo-background-task",
-      [
-        "expo-local-authentication",
-        {
-          "faceIDPermission": "Allow $(PRODUCT_NAME) to use Face ID to confirm counter increments."
-        }
-      ]
+      "expo-background-task"
     ],
     "experiments": {
       "typedRoutes": true,

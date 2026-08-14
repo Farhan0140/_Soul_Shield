@@ -55,7 +55,6 @@ const MAPPING = {
   'arrow.counterclockwise': 'replay',
   'iphone.radiowaves.left.and.right': 'vibration',
   'arrow.up.right.square': 'open-in-new',
-  touchid: 'fingerprint',
 } as IconMapping;
 
 /**

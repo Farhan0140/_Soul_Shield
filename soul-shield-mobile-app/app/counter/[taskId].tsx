@@ -6,7 +6,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CounterProgressRing } from '@/components/counter/counter-progress-ring';
 import { CounterTaskHeader } from '@/components/counter/counter-task-header';
 import { CustomIncrementModal } from '@/components/counter/custom-increment-modal';
-import { FingerprintIncrementButton } from '@/components/counter/fingerprint-increment-button';
 import { MainIncrementButton } from '@/components/counter/main-increment-button';
 import { QuickIncrementButtons } from '@/components/counter/quick-increment-buttons';
 import { ThemedText } from '@/components/themed-text';
@@ -123,6 +122,7 @@ export default function CounterTaskScreen() {
 
   const title = isSubTask ? subTask?.title : task?.title;
   const description = isSubTask ? null : task?.description;
+  const parentTitle = isSubTask ? task?.title : null;
 
   return (
     <View style={[styles.screen, { backgroundColor: background }]}>
@@ -147,7 +147,7 @@ export default function CounterTaskScreen() {
           <ErrorState message="This task doesn't have a dedicated counter page." />
         ) : (
           <>
-            <CounterTaskHeader title={title ?? ''} description={description} />
+            <CounterTaskHeader title={title ?? ''} description={description} parentTitle={parentTitle} />
 
             <View style={styles.ringSection}>
               <CounterProgressRing size={ringSize} progress={ratio} color={tintColor} trackColor={borderColor}>
@@ -170,8 +170,6 @@ export default function CounterTaskScreen() {
               onCustom={() => setCustomModalVisible(true)}
               disabled={disabled}
             />
-
-            <FingerprintIncrementButton onIncrement={() => handleAdd(1)} disabled={disabled} />
           </>
         )}
       </ScrollView>
