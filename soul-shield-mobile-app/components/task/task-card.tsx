@@ -61,6 +61,7 @@ export function TaskCard({
   const isCompleted = task.status === 'completed';
   const isPartiallyCompleted = task.status === 'partially_completed';
   const isCounter = task.task_type === 'counter';
+  const isTimer = task.task_type === 'timer';
   const hasSubTasks = Boolean(task.sub_tasks?.length);
   const accentColor = task.category_color ?? categoryFallback;
   const canManage = task.is_global ? isAdmin : true;
@@ -74,6 +75,9 @@ export function TaskCard({
   const handleOpenCounter = () =>
     router.push({ pathname: '/counter/[taskId]', params: { taskId: String(task.task_id), date } });
 
+  const handleOpenTimer = () =>
+    router.push({ pathname: '/timer-task/[taskId]', params: { taskId: String(task.task_id), date } });
+
   const backgroundColor = isCompleted
     ? completedTint
     : isPartiallyCompleted
@@ -85,7 +89,7 @@ export function TaskCard({
   return (
     <View style={[styles.card, { backgroundColor, borderLeftColor: accentColor }]}>
       <View style={styles.headerRow}>
-        {!isCounter && !hasSubTasks ? (
+        {!isCounter && !isTimer && !hasSubTasks ? (
           // TODO this button is for toggling completion of a normal type task
           <Pressable
             disabled={controlsDisabled}
@@ -160,6 +164,16 @@ export function TaskCard({
           <Pressable onPress={handleOpenCounter} hitSlop={8} style={styles.openCounterLink}>
             <IconSymbol name="arrow.up.right.square" size={14} color={mutedColor} />
             <ThemedText style={[styles.openCounterLabel, { color: mutedColor }]}>Focused counter</ThemedText>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {isTimer && !hasSubTasks ? (
+        <View style={styles.counterSection}>
+          {/* TODO this button is for opening the dedicated timer page for this task */}
+          <Pressable onPress={handleOpenTimer} hitSlop={8} style={styles.openCounterLink}>
+            <IconSymbol name="timer" size={14} color={mutedColor} />
+            <ThemedText style={[styles.openCounterLabel, { color: mutedColor }]}>Start timer</ThemedText>
           </Pressable>
         </View>
       ) : null}

@@ -12,10 +12,10 @@ export interface Category {
 }
 
 export type RecurrenceType = 'daily' | 'weekly' | 'custom';
-export type TaskType = 'normal' | 'counter';
+export type TaskType = 'normal' | 'counter' | 'timer';
 export type TaskStatus = 'pending' | 'completed' | 'missed' | 'partially_completed';
 
-/** A child task under a parent Task — shares the same Normal/Counter behavior
+/** A child task under a parent Task — shares the same Normal/Counter/Timer behavior
  * but has no schedule, category, reward, or reminder of its own; those all
  * live on the parent. Returned embedded in `Task.sub_tasks` by GET /tasks and
  * GET /tasks/history, with `status` scoped to that list's date. */
@@ -24,6 +24,7 @@ export interface SubTask {
   title: string;
   task_type: TaskType;
   target_count: number | null;
+  duration_seconds: number | null;
   progress_count: number | null;
   status: TaskStatus;
 }
@@ -35,6 +36,7 @@ export interface SubTaskInput {
   title: string;
   task_type: TaskType;
   target_count?: number;
+  duration_seconds?: number;
 }
 
 /** Shape returned by GET /tasks and GET /tasks/history (TaskWithStatusResponse on the backend). */
@@ -53,6 +55,7 @@ export interface Task {
   reward_text?: string | null;
   task_type: TaskType;
   target_count: number | null;
+  duration_seconds: number | null;
   progress_count: number | null;
   is_active?: boolean;
   /** "HH:MM" 24-hour local time the task should remind at, on each of its recurrence_days. */
@@ -73,6 +76,7 @@ export interface TaskInput {
   reward_text?: string;
   task_type: TaskType;
   target_count?: number;
+  duration_seconds?: number;
   /** "HH:MM" 24-hour, or "" to clear an existing reminder. */
   reminder_time?: string;
   /** Omit/[] for no sub-tasks. On update, sending this replaces the whole

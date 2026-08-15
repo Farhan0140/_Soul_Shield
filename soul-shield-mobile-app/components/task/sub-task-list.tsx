@@ -48,6 +48,12 @@ export function SubTaskList({ taskId, subTasks, date, disabled, onRewardEarned }
       params: { taskId: String(taskId), subTaskId: String(subTask.sub_task_id), date },
     });
 
+  const handleOpenTimer = (subTask: SubTask) =>
+    router.push({
+      pathname: '/timer-task/[taskId]',
+      params: { taskId: String(taskId), subTaskId: String(subTask.sub_task_id), date },
+    });
+
   const handleIncrement = (subTask: SubTask, amount: number) => {
     incrementSubTask.mutate(
       { taskId, subTaskId: subTask.sub_task_id, amount, date },
@@ -66,11 +72,12 @@ export function SubTaskList({ taskId, subTasks, date, disabled, onRewardEarned }
       {subTasks.map((subTask) => {
         const isCompleted = subTask.status === 'completed';
         const isCounter = subTask.task_type === 'counter';
+        const isTimer = subTask.task_type === 'timer';
 
         return (
           <View key={subTask.sub_task_id} style={styles.row}>
             <View style={styles.rowHeader}>
-              {!isCounter ? (
+              {!isCounter && !isTimer ? (
                 // TODO this button is for toggling completion of a normal type sub-task
                 <Pressable
                   disabled={disabled}
@@ -90,6 +97,12 @@ export function SubTaskList({ taskId, subTasks, date, disabled, onRewardEarned }
               {isCounter ? (
                 // TODO this button is for opening the dedicated counter page for this sub-task
                 <Pressable onPress={() => handleOpenCounter(subTask)} hitSlop={8}>
+                  <IconSymbol name="arrow.up.right.square" size={16} color={mutedColor} />
+                </Pressable>
+              ) : null}
+              {isTimer ? (
+                // TODO this button is for opening the dedicated timer page for this sub-task
+                <Pressable onPress={() => handleOpenTimer(subTask)} hitSlop={8}>
                   <IconSymbol name="arrow.up.right.square" size={16} color={mutedColor} />
                 </Pressable>
               ) : null}

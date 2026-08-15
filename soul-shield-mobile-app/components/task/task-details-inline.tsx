@@ -5,6 +5,7 @@ import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { weekdayLabel } from '@/lib/date';
+import { formatDurationLabel } from '@/lib/timer/format';
 
 interface TaskDetailsInlineProps {
   task: Task;
@@ -42,6 +43,7 @@ export function TaskDetailsInline({ task }: TaskDetailsInlineProps) {
   const borderColor = useThemeColor({}, 'border');
 
   const isCounter = task.task_type === 'counter';
+  const isTimer = task.task_type === 'timer';
   const isCompleted = task.status === 'completed';
 
   return (
@@ -54,7 +56,11 @@ export function TaskDetailsInline({ task }: TaskDetailsInlineProps) {
       <View style={styles.row}>
         <IconSymbol name="checkmark.square" size={14} color={mutedColor} />
         <ThemedText style={[styles.text, { color: mutedColor }]}>
-          {isCounter ? `Counter task — target ${task.target_count}` : 'Normal task'}
+          {isCounter
+            ? `Counter task — target ${task.target_count}`
+            : isTimer
+              ? `Timer task — ${formatDurationLabel(task.duration_seconds ?? 0)}`
+              : 'Normal task'}
         </ThemedText>
       </View>
 

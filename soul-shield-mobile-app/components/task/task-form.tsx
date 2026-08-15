@@ -15,25 +15,30 @@ import { ThemedText } from '@/components/themed-text';
 import { CategoryPicker } from '@/components/task/category-picker';
 import { DayOfWeekPicker } from '@/components/task/day-of-week-picker';
 import { RecurrencePicker } from '@/components/task/recurrence-picker';
+import { DurationPicker } from '@/components/timer/duration-picker';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { KeyboardAvoidingScrollView } from '@/components/ui/keyboard-avoiding-scroll-view';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { TextField } from '@/components/ui/text-field';
 import { useCategoriesQuery } from '@/hooks/queries/use-categories';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { secondsToSelection, selectionToSeconds } from '@/lib/timer/duration';
+import type { TimerSelection } from '@/lib/timer/store';
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 const DEFAULT_REMINDER_HOUR = 20;
+const DEFAULT_TIMER_SELECTION: TimerSelection = { hours: 0, minutes: 5, seconds: 0 };
 
 interface SubTaskDraft {
   id?: number;
   title: string;
   task_type: TaskType;
   target_count: string;
+  duration_selection: TimerSelection;
 }
 
 function emptySubTaskDraft(): SubTaskDraft {
-  return { title: '', task_type: 'normal', target_count: '' };
+  return { title: '', task_type: 'normal', target_count: '', duration_selection: DEFAULT_TIMER_SELECTION };
 }
 
 function parseReminderTime(value?: string | null): Date {
@@ -94,6 +99,11 @@ export function TaskForm({
   const [targetCount, setTargetCount] = useState(
     initialTask?.target_count != null ? String(initialTask.target_count) : ''
   );
+  const [durationSelection, setDurationSelection] = useState<TimerSelection>(
+    initialTask?.duration_seconds != null
+      ? secondsToSelection(initialTask.duration_seconds)
+      : DEFAULT_TIMER_SELECTION
+  );
   const [rewardText, setRewardText] = useState(initialTask?.reward_text ?? '');
   const [isGlobal, setIsGlobal] = useState(initialTask?.is_global ?? defaultGlobal ?? false);
   const [reminderEnabled, setReminderEnabled] = useState(Boolean(initialTask?.reminder_time));
@@ -109,6 +119,8 @@ export function TaskForm({
           title: s.title,
           task_type: s.task_type,
           target_count: s.target_count != null ? String(s.target_count) : '',
+          duration_selection:
+            s.duration_seconds != null ? secondsToSelection(s.duration_seconds) : DEFAULT_TIMER_SELECTION,
         }))
       : [emptySubTaskDraft()]
   );
@@ -118,13 +130,14 @@ export function TaskForm({
     if (value && subTaskDrafts.length === 0) setSubTaskDrafts([emptySubTaskDraft()]);
   };
 
-  // Sub-tasks only make sense under a Normal parent — a Counter parent's own
-  // progress/target become meaningless once completion is derived from
-  // children, so switching to Counter drops any sub-tasks rather than
+  // Sub-tasks only make sense under a Normal parent — a Counter/Timer
+  // parent's own progress/duration become meaningless once completion is
+  // derived from children (Counter) or is intrinsic to a single countdown
+  // (Timer), so switching away from Normal drops any sub-tasks rather than
   // leaving a confusing combination in place.
   const handleTaskTypeChange = (value: TaskType) => {
     setTaskType(value);
-    if (value === 'counter') setSubTasksEnabled(false);
+    if (value === 'counter' || value === 'timer') setSubTasksEnabled(false);
   };
 
   const updateSubTaskDraft = (index: number, patch: Partial<SubTaskDraft>) => {
@@ -155,16 +168,18 @@ export function TaskForm({
   const subTasksValid =
     !subTasksEnabled ||
     (subTaskDrafts.length > 0 &&
-      subTaskDrafts.every(
-        (d) =>
-          d.title.trim().length > 0 &&
-          (d.task_type === 'normal' || (Number(d.target_count) > 0 && d.target_count.trim().length > 0))
-      ));
+      subTaskDrafts.every((d) => {
+        if (d.title.trim().length === 0) return false;
+        if (d.task_type === 'counter') return Number(d.target_count) > 0 && d.target_count.trim().length > 0;
+        if (d.task_type === 'timer') return selectionToSeconds(d.duration_selection) > 0;
+        return true;
+      }));
 
   const isValid =
     title.trim().length > 0 &&
     (!recurrenceNeedsDays || recurrenceDays.length > 0) &&
-    (taskType === 'normal' || (Number(targetCount) > 0 && targetCount.trim().length > 0)) &&
+    (taskType !== 'counter' || (Number(targetCount) > 0 && targetCount.trim().length > 0)) &&
+    (taskType !== 'timer' || selectionToSeconds(durationSelection) > 0) &&
     subTasksValid;
 
   const handleSubmit = () => {
@@ -176,6 +191,7 @@ export function TaskForm({
           title: d.title.trim(),
           task_type: d.task_type,
           target_count: d.task_type === 'counter' ? Number(d.target_count) : undefined,
+          duration_seconds: d.task_type === 'timer' ? selectionToSeconds(d.duration_selection) : undefined,
         }))
       : isEditMode && initialSubTasksEnabled
         ? []
@@ -188,6 +204,7 @@ export function TaskForm({
       reward_text: rewardText.trim() || undefined,
       task_type: taskType,
       target_count: taskType === 'counter' ? Number(targetCount) : undefined,
+      duration_seconds: taskType === 'timer' ? selectionToSeconds(durationSelection) : undefined,
       sub_tasks: subTasks,
     };
 
@@ -267,6 +284,15 @@ export function TaskForm({
               onPress={() => handleTaskTypeChange('counter')}
             />
           </View>
+
+          {/* TODO this button is for setting the task type to timer (completes once a set duration elapses) */}
+          <View style={{ flex: 1, borderWidth:1, borderColor: '#c7c7c7', borderRadius: 16 }}>
+            <PrimaryButton
+              label="Timer"
+              variant={taskType === 'timer' ? 'primary' : 'secondary'}
+              onPress={() => handleTaskTypeChange('timer')}
+            />
+          </View>
         </View>
         {taskType === 'counter' ? (
           <TextField
@@ -277,6 +303,12 @@ export function TaskForm({
             placeholder="e.g. 100"
           />
         ) : null}
+        {taskType === 'timer' ? (
+          <View style={styles.durationField}>
+            <ThemedText style={{ color: mutedColor }}>Duration</ThemedText>
+            <DurationPicker selection={durationSelection} onChange={setDurationSelection} />
+          </View>
+        ) : null}
       </View>
 
       {taskType === 'normal' ? (
@@ -285,8 +317,8 @@ export function TaskForm({
             <View style={styles.switchLabel}>
               <ThemedText type="defaultSemiBold">Do you want to add sub-tasks?</ThemedText>
               <ThemedText style={{ color: mutedColor }}>
-                Break this task into smaller Normal or Counter sub-tasks. The task&apos;s status will
-                follow how many of them are done.
+                Break this task into smaller Normal, Counter, or Timer sub-tasks. The task&apos;s status
+                will follow how many of them are done.
               </ThemedText>
             </View>
             <Switch value={subTasksEnabled} onValueChange={handleSubTasksEnabledChange} />
@@ -332,6 +364,15 @@ export function TaskForm({
                         onPress={() => updateSubTaskDraft(index, { task_type: 'counter' })}
                       />
                     </View>
+
+                    {/* TODO this button is for setting this sub-task's type to timer */}
+                    <View style={{ flex: 1, borderWidth:1, borderColor: '#c7c7c7', borderRadius: 16 }}>
+                      <PrimaryButton
+                        label="Timer"
+                        variant={draft.task_type === 'timer' ? 'primary' : 'secondary'}
+                        onPress={() => updateSubTaskDraft(index, { task_type: 'timer' })}
+                      />
+                    </View>
                   </View>
 
                   {draft.task_type === 'counter' ? (
@@ -342,6 +383,15 @@ export function TaskForm({
                       keyboardType="number-pad"
                       placeholder="e.g. 10"
                     />
+                  ) : null}
+                  {draft.task_type === 'timer' ? (
+                    <View style={styles.durationField}>
+                      <ThemedText style={{ color: mutedColor }}>Duration</ThemedText>
+                      <DurationPicker
+                        selection={draft.duration_selection}
+                        onChange={(duration_selection) => updateSubTaskDraft(index, { duration_selection })}
+                      />
+                    </View>
                   ) : null}
                 </View>
               ))}
@@ -422,6 +472,7 @@ export function TaskForm({
 const styles = StyleSheet.create({
   content: { padding: 20, gap: 20 },
   field: { gap: 10 },
+  durationField: { gap: 8, alignItems: 'center' },
   multiline: { minHeight: 80, textAlignVertical: 'top' },
   typeRow: { flexDirection: 'row', gap: 12 },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },

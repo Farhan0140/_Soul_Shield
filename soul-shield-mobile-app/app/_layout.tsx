@@ -1,7 +1,8 @@
 import { ThemeProvider } from '@react-navigation/native';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { ActivityIndicator, AppState, View } from 'react-native';
@@ -10,6 +11,7 @@ import 'react-native-reanimated';
 import { runForegroundSyncIfDue } from '@/lib/background-sync/sync';
 import { registerBackgroundSync } from '@/lib/background-sync/task';
 import { ensureTimerNotificationChannel } from '@/lib/timer/notifications';
+import { ensureTimerTaskNotificationChannel } from '@/lib/timer-task/notifications';
 import { AuthProvider, useAuth } from '@/context/auth-context';
 import { SyncNotificationsProvider } from '@/context/sync-notifications-context';
 import { AppThemeProvider, useAppTheme } from '@/context/theme-context';
@@ -47,6 +49,7 @@ function RootNavigator() {
           options={{ presentation: 'modal', title: 'Sync Issues' }}
         />
         <Stack.Screen name="timer" options={{ presentation: 'modal', headerShown: false }} />
+        <Stack.Screen name="timer-task" options={{ presentation: 'modal', headerShown: false }} />
       </Stack.Protected>
     </Stack>
   );
@@ -78,6 +81,7 @@ export default function RootLayout() {
   useEffect(() => {
     ensureNotificationSetup();
     ensureTimerNotificationChannel();
+    ensureTimerTaskNotificationChannel();
     registerBackgroundSync();
 
     // "Fetch today + the next couple of days whenever I open the app with a
@@ -88,7 +92,31 @@ export default function RootLayout() {
     const appStateSubscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') runForegroundSyncIfDue(queryClient);
     });
-    return () => appStateSubscription.remove();
+
+    // Tapping a Timer Task notification (running or completion) opens its
+    // dedicated page directly — that page's useTaskTimer mount effect then
+    // does the actual reconciliation (finalizing completion if the duration
+    // was reached while backgrounded), the same path a normal app-reopen
+    // already takes, so no separate completion handling is needed here.
+    const notificationSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as
+        | { type?: string; taskId?: number; subTaskId?: number | null; date?: string }
+        | undefined;
+      if (data?.type !== 'timer-task' || data.taskId == null) return;
+      router.push({
+        pathname: '/timer-task/[taskId]',
+        params: {
+          taskId: String(data.taskId),
+          ...(data.subTaskId != null ? { subTaskId: String(data.subTaskId) } : {}),
+          ...(data.date ? { date: data.date } : {}),
+        },
+      });
+    });
+
+    return () => {
+      appStateSubscription.remove();
+      notificationSubscription.remove();
+    };
   }, []);
 
   if (!fontsLoaded) {

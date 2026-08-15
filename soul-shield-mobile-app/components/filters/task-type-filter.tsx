@@ -3,12 +3,13 @@ import { ScrollView, StyleSheet } from 'react-native';
 import { FilterChip } from '@/components/filters/filter-chip';
 import type { IconSymbolName } from '@/components/ui/icon-symbol';
 
-export type TaskTypeFilter = 'all' | 'normal' | 'counter';
+export type TaskTypeFilter = 'all' | 'normal' | 'counter' | 'timer';
 
 const OPTIONS: { key: TaskTypeFilter; label: string; icon: IconSymbolName }[] = [
   { key: 'all', label: 'All', icon: 'square.grid.2x2' },
   { key: 'normal', label: 'Normal', icon: 'checkmark.square' },
   { key: 'counter', label: 'Counter', icon: 'repeat' },
+  { key: 'timer', label: 'Timer', icon: 'timer' },
 ];
 
 interface TaskTypeFilterProps {

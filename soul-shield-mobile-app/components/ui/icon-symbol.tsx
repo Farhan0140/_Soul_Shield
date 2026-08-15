@@ -39,6 +39,7 @@ const MAPPING = {
   tray: 'inbox',
   'square.grid.2x2': 'apps',
   clock: 'schedule',
+  timer: 'timer',
   'checkmark.square': 'check-box',
   repeat: 'repeat',
   'line.3.horizontal.decrease': 'filter-list',

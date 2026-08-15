@@ -31,7 +31,8 @@ export function GlobalTaskRow({ task, onEdit, onDelete }: GlobalTaskRowProps) {
           {task.title}
         </ThemedText>
         <ThemedText style={{ color: mutedColor, fontSize: 12 }}>
-          {RECURRENCE_LABEL[task.recurrence_type]} · {task.task_type === 'counter' ? 'Counter' : 'Normal'}
+          {RECURRENCE_LABEL[task.recurrence_type]} ·{' '}
+          {task.task_type === 'counter' ? 'Counter' : task.task_type === 'timer' ? 'Timer' : 'Normal'}
         </ThemedText>
       </View>
       {/* TODO this button is for navigating to the edit screen for this global/fixed task */}

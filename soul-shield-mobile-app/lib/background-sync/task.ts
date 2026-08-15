@@ -3,6 +3,7 @@ import * as TaskManager from 'expo-task-manager';
 
 import { getBackgroundSyncState } from '@/lib/background-sync/state';
 import { runFullBackgroundSync } from '@/lib/background-sync/sync';
+import { checkAndCompleteFinishedTaskTimers } from '@/lib/background-sync/timer-task';
 import { currentDhakaDateString, isWithinDhakaSyncWindow } from '@/lib/background-sync/time';
 
 export const BACKGROUND_SYNC_TASK = 'soulshield-daily-data-sync';
@@ -13,6 +14,13 @@ export const BACKGROUND_SYNC_TASK = 'soulshield-daily-data-sync';
 // the top of app/_layout.tsx, same pattern as lib/network.ts and
 // lib/notifications.ts.
 TaskManager.defineTask(BACKGROUND_SYNC_TASK, async () => {
+  // Runs on every wake-up regardless of the Dhaka sync window below — a
+  // running Timer Task can reach its duration at any time of day, unlike the
+  // once-nightly data sync, so this opportunistic check can't wait for that
+  // window. Best-effort: swallows its own errors so it never blocks the sync
+  // gate that follows (see checkAndCompleteFinishedTaskTimers's doc comment).
+  await checkAndCompleteFinishedTaskTimers().catch(() => {});
+
   try {
     // WorkManager only guarantees a *minimum interval* between wake-ups, not
     // a wall-clock time (see registerBackgroundSync below) — most wake-ups

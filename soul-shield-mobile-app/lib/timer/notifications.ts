@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 
+import { formatRemaining } from '@/lib/timer/format';
+
 const CHANNEL_ID = 'timer';
 const RUNNING_NOTIFICATION_ID = 'soulshield-timer-running';
 const COMPLETION_NOTIFICATION_ID_KEY = 'soulshield_timer_completion_notification_id';
@@ -24,15 +26,6 @@ export async function ensureTimerNotificationChannel(): Promise<void> {
     enableVibrate: true,
     vibrationPattern: [0, 300, 150, 300, 150, 300],
   });
-}
-
-function formatRemaining(remainingMs: number): string {
-  const totalSeconds = Math.max(0, Math.round(remainingMs / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return hours > 0 ? `${pad(hours)}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`;
 }
 
 /** Presents (or replaces, via the fixed identifier) the "timer running"
