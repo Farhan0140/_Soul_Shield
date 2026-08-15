@@ -13,6 +13,7 @@ import { PERSIST_BUSTER, persister } from '@/lib/persister';
 import { queryKeys } from '@/lib/query-keys';
 import { cachedUserStore, tokenStore } from '@/lib/secure-store';
 import { pruneExpiredTaskCache } from '@/lib/background-sync/prune';
+import { setSyncStatus } from '@/lib/background-sync/sync-status';
 
 /** Same 7-day span history.tsx defaults to — large enough to cover every
  * active recurring task at least once (recurrence_days is a subset of the
@@ -170,8 +171,14 @@ let syncInFlight: Promise<void> | null = null;
 
 export function runFullBackgroundSync(liveClient?: QueryClient): Promise<void> {
   if (syncInFlight) return syncInFlight;
+  // Toggled around the coalesced run (not inside runFullBackgroundSyncInner
+  // itself) so every caller sharing this in-flight promise sees one
+  // true→false transition, not one per caller — see sync-status.ts, read by
+  // DateNavHeader's thin progress indicator.
+  setSyncStatus(true);
   syncInFlight = runFullBackgroundSyncInner(liveClient).finally(() => {
     syncInFlight = null;
+    setSyncStatus(false);
   });
   return syncInFlight;
 }
