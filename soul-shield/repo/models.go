@@ -22,22 +22,23 @@ import (
 // }
 
 type Task struct {
-	ID             int64          `db:"id" json:"id"`
-	Title          string         `db:"title" json:"title"`
-	Description    sql.NullString `db:"description" json:"description"`
-	IsGlobal       bool           `db:"is_global" json:"is_global"`
-	OwnerID        sql.NullInt64  `db:"owner_id" json:"owner_id,omitempty"`
-	RecurrenceType string         `db:"recurrence_type" json:"recurrence_type"`
-	RecurrenceDays pq.Int64Array  `db:"recurrence_days" json:"recurrence_days"`
-	IsActive       bool           `db:"is_active" json:"is_active"`
-	CreatedBy      int64          `db:"created_by" json:"created_by"`
-	CategoryID     sql.NullInt64  `db:"category_id" json:"category_id,omitempty"`
-	RewardText     sql.NullString `db:"reward_text" json:"reward_text,omitempty"`
-	TaskType       string         `db:"task_type" json:"task_type"`
-	TargetCount    sql.NullInt32  `db:"target_count" json:"target_count,omitempty"`
-	ReminderTime   sql.NullString `db:"reminder_time" json:"reminder_time,omitempty"`
-	CreatedAt      time.Time      `db:"created_at" json:"created_at"`
-	UpdatedAt      time.Time      `db:"updated_at" json:"updated_at"`
+	ID              int64          `db:"id" json:"id"`
+	Title           string         `db:"title" json:"title"`
+	Description     sql.NullString `db:"description" json:"description"`
+	IsGlobal        bool           `db:"is_global" json:"is_global"`
+	OwnerID         sql.NullInt64  `db:"owner_id" json:"owner_id,omitempty"`
+	RecurrenceType  string         `db:"recurrence_type" json:"recurrence_type"`
+	RecurrenceDays  pq.Int64Array  `db:"recurrence_days" json:"recurrence_days"`
+	IsActive        bool           `db:"is_active" json:"is_active"`
+	CreatedBy       int64          `db:"created_by" json:"created_by"`
+	CategoryID      sql.NullInt64  `db:"category_id" json:"category_id,omitempty"`
+	RewardText      sql.NullString `db:"reward_text" json:"reward_text,omitempty"`
+	TaskType        string         `db:"task_type" json:"task_type"`
+	TargetCount     sql.NullInt32  `db:"target_count" json:"target_count,omitempty"`
+	DurationSeconds sql.NullInt32  `db:"duration_seconds" json:"duration_seconds,omitempty"`
+	ReminderTime    sql.NullString `db:"reminder_time" json:"reminder_time,omitempty"`
+	CreatedAt       time.Time      `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time      `db:"updated_at" json:"updated_at"`
 }
 
 // TaskUpdate - সব ফিল্ড pointer, যাতে partial update করা যায় (nil মানে ঐ ফিল্ড change হবে না)
@@ -50,15 +51,16 @@ type Task struct {
 // }
 
 type TaskUpdate struct {
-	Title          *string
-	Description    *string
-	RecurrenceType *string
-	RecurrenceDays *[]int64
-	IsActive       *bool
-	CategoryID     *int64 // 0 দিলে uncategorize করা হবে বলে ধরবো (handler এ চেক করবো)
-	RewardText     *string
-	TargetCount    *int32
-	ReminderTime   *string
+	Title           *string
+	Description     *string
+	RecurrenceType  *string
+	RecurrenceDays  *[]int64
+	IsActive        *bool
+	CategoryID      *int64 // 0 দিলে uncategorize করা হবে বলে ধরবো (handler এ চেক করবো)
+	RewardText      *string
+	TargetCount     *int32
+	DurationSeconds *int32
+	ReminderTime    *string
 }
 
 // type TaskCompletion struct {
@@ -115,9 +117,10 @@ type TaskWithStatus struct {
 
 	RewardText *string `json:"reward_text,omitempty"` // completed হলেই শুধু response এ দেখাবো (handler এ)
 
-	TaskType      string `json:"task_type"`
-	TargetCount   *int32 `json:"target_count,omitempty"`
-	ProgressCount int32  `json:"progress_count"`
+	TaskType        string `json:"task_type"`
+	TargetCount     *int32 `json:"target_count,omitempty"`
+	DurationSeconds *int32 `json:"duration_seconds,omitempty"`
+	ProgressCount   int32  `json:"progress_count"`
 
 	RecurrenceDays []int64 `json:"recurrence_days,omitempty"`
 	ReminderTime   *string `json:"reminder_time,omitempty"`
@@ -128,14 +131,15 @@ type TaskWithStatus struct {
 // ---- Sub-Tasks ----
 
 type SubTask struct {
-	ID           int64         `db:"id" json:"id"`
-	ParentTaskID int64         `db:"parent_task_id" json:"parent_task_id"`
-	Title        string        `db:"title" json:"title"`
-	TaskType     string        `db:"task_type" json:"task_type"`
-	TargetCount  sql.NullInt32 `db:"target_count" json:"target_count,omitempty"`
-	Position     int           `db:"position" json:"position"`
-	CreatedAt    time.Time     `db:"created_at" json:"created_at"`
-	UpdatedAt    time.Time     `db:"updated_at" json:"updated_at"`
+	ID              int64         `db:"id" json:"id"`
+	ParentTaskID    int64         `db:"parent_task_id" json:"parent_task_id"`
+	Title           string        `db:"title" json:"title"`
+	TaskType        string        `db:"task_type" json:"task_type"`
+	TargetCount     sql.NullInt32 `db:"target_count" json:"target_count,omitempty"`
+	DurationSeconds sql.NullInt32 `db:"duration_seconds" json:"duration_seconds,omitempty"`
+	Position        int           `db:"position" json:"position"`
+	CreatedAt       time.Time     `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time     `db:"updated_at" json:"updated_at"`
 }
 
 type SubTaskCompletion struct {
@@ -153,15 +157,16 @@ type SubTaskCompletion struct {
 
 // SubTaskWithStatus - একটা নির্দিষ্ট দিনের জন্য sub-task + তার status (list/history endpoint এ ব্যবহার হয়)
 type SubTaskWithStatus struct {
-	SubTaskID     int64      `json:"sub_task_id"`
-	ParentTaskID  int64      `json:"parent_task_id"`
-	Title         string     `json:"title"`
-	TaskType      string     `json:"task_type"`
-	TargetCount   *int32     `json:"target_count,omitempty"`
-	ProgressCount int32      `json:"progress_count"`
-	Position      int        `json:"position"`
-	Status        string     `json:"status"`
-	CompletedAt   *time.Time `json:"completed_at,omitempty"`
+	SubTaskID       int64      `json:"sub_task_id"`
+	ParentTaskID    int64      `json:"parent_task_id"`
+	Title           string     `json:"title"`
+	TaskType        string     `json:"task_type"`
+	TargetCount     *int32     `json:"target_count,omitempty"`
+	DurationSeconds *int32     `json:"duration_seconds,omitempty"`
+	ProgressCount   int32      `json:"progress_count"`
+	Position        int        `json:"position"`
+	Status          string     `json:"status"`
+	CompletedAt     *time.Time `json:"completed_at,omitempty"`
 }
 
 // User Model
@@ -174,8 +179,8 @@ type User struct {
 
 	// SecurityAnswer is the plaintext answer supplied on registration. It is never persisted
 	// as-is (db:"-") — Create() hashes it into SecurityAnswerHash before the INSERT.
-	SecurityAnswer             string         `json:"-" db:"-"`
-	SecurityAnswerHash         sql.NullString `json:"-" db:"security_answer_hash"`
-	SecurityAnswerAttempts     int            `json:"-" db:"security_answer_attempts"`
-	SecurityAnswerLockedUntil  sql.NullTime   `json:"-" db:"security_answer_locked_until"`
+	SecurityAnswer            string         `json:"-" db:"-"`
+	SecurityAnswerHash        sql.NullString `json:"-" db:"security_answer_hash"`
+	SecurityAnswerAttempts    int            `json:"-" db:"security_answer_attempts"`
+	SecurityAnswerLockedUntil sql.NullTime   `json:"-" db:"security_answer_locked_until"`
 }

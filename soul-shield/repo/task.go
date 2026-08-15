@@ -48,8 +48,15 @@ func (r *taskRepo) Create(task Task) (*Task, error) {
 		if !task.TargetCount.Valid || task.TargetCount.Int32 <= 0 {
 			return nil, util.ErrInvalidCounterTarget
 		}
+		task.DurationSeconds = sql.NullInt32{}
+	} else if task.TaskType == "timer" {
+		if !task.DurationSeconds.Valid || task.DurationSeconds.Int32 <= 0 {
+			return nil, util.ErrInvalidTimerDuration
+		}
+		task.TargetCount = sql.NullInt32{}
 	} else {
 		task.TargetCount = sql.NullInt32{}
+		task.DurationSeconds = sql.NullInt32{}
 	}
 
 	if task.CategoryID.Valid {
@@ -67,9 +74,9 @@ func (r *taskRepo) Create(task Task) (*Task, error) {
 		INSERT INTO tasks (
 			title, description, is_global, owner_id,
 			recurrence_type, recurrence_days, created_by,
-			category_id, reward_text, task_type, target_count, reminder_time
+			category_id, reward_text, task_type, target_count, duration_seconds, reminder_time
 		)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
 		RETURNING id, is_active, created_at, updated_at
 	`
 
@@ -77,7 +84,7 @@ func (r *taskRepo) Create(task Task) (*Task, error) {
 		query,
 		task.Title, task.Description, task.IsGlobal, task.OwnerID,
 		task.RecurrenceType, task.RecurrenceDays, task.CreatedBy,
-		task.CategoryID, task.RewardText, task.TaskType, task.TargetCount, task.ReminderTime,
+		task.CategoryID, task.RewardText, task.TaskType, task.TargetCount, task.DurationSeconds, task.ReminderTime,
 	)
 
 	err := row.Scan(&task.ID, &task.IsActive, &task.CreatedAt, &task.UpdatedAt)
@@ -146,6 +153,14 @@ func (r *taskRepo) Update(id int64, updates TaskUpdate, requestingUserID int64, 
 			existing.TargetCount = sql.NullInt32{Int32: *updates.TargetCount, Valid: true}
 		}
 	}
+	if updates.DurationSeconds != nil {
+		if existing.TaskType == "timer" {
+			if *updates.DurationSeconds <= 0 {
+				return nil, util.ErrInvalidTimerDuration
+			}
+			existing.DurationSeconds = sql.NullInt32{Int32: *updates.DurationSeconds, Valid: true}
+		}
+	}
 	if updates.ReminderTime != nil {
 		existing.ReminderTime = sql.NullString{String: *updates.ReminderTime, Valid: *updates.ReminderTime != ""}
 	}
@@ -160,9 +175,10 @@ func (r *taskRepo) Update(id int64, updates TaskUpdate, requestingUserID int64, 
 		    category_id = $6,
 		    reward_text = $7,
 		    target_count = $8,
-		    reminder_time = $9,
+		    duration_seconds = $9,
+		    reminder_time = $10,
 		    updated_at = CURRENT_TIMESTAMP
-		WHERE id = $10
+		WHERE id = $11
 		RETURNING updated_at
 	`
 
@@ -176,6 +192,7 @@ func (r *taskRepo) Update(id int64, updates TaskUpdate, requestingUserID int64, 
 		existing.CategoryID,
 		existing.RewardText,
 		existing.TargetCount,
+		existing.DurationSeconds,
 		existing.ReminderTime,
 		existing.ID,
 	).Scan(&existing.UpdatedAt)
@@ -224,7 +241,7 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 	query := `
 		SELECT
 			t.id, t.title, t.description, t.is_global, t.recurrence_type,
-			t.task_type, t.target_count,
+			t.task_type, t.target_count, t.duration_seconds,
 			c.id AS cat_id, c.name AS cat_name, c.color_hex AS cat_color,
 			t.reward_text, t.recurrence_days, t.reminder_time,
 			tc.status, tc.completed_at, tc.progress_count
@@ -255,12 +272,13 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 		var catID sql.NullInt64
 		var catName, catColor sql.NullString
 		var targetCount sql.NullInt32
+		var durationSeconds sql.NullInt32
 		var progressCount sql.NullInt32
 		var recurrenceDays pq.Int64Array
 
 		err := rows.Scan(
 			&item.TaskID, &item.Title, &desc, &item.IsGlobal, &item.RecurrenceType,
-			&item.TaskType, &targetCount,
+			&item.TaskType, &targetCount, &durationSeconds,
 			&catID, &catName, &catColor,
 			&rewardText, &recurrenceDays, &reminderTime,
 			&status, &completedAt, &progressCount,
@@ -295,6 +313,10 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 		if targetCount.Valid {
 			v := targetCount.Int32
 			item.TargetCount = &v
+		}
+		if durationSeconds.Valid {
+			v := durationSeconds.Int32
+			item.DurationSeconds = &v
 		}
 		if catID.Valid {
 			id := catID.Int64
@@ -326,7 +348,7 @@ func (r *taskRepo) ListForDateByCategory(userID int64, date time.Time, categoryI
 	query := `
 		SELECT
 			t.id, t.title, t.description, t.is_global, t.recurrence_type,
-			t.task_type, t.target_count,
+			t.task_type, t.target_count, t.duration_seconds,
 			c.id AS cat_id, c.name AS cat_name, c.color_hex AS cat_color,
 			t.reward_text, t.recurrence_days, t.reminder_time,
 			tc.status, tc.completed_at, tc.progress_count
@@ -358,12 +380,13 @@ func (r *taskRepo) ListForDateByCategory(userID int64, date time.Time, categoryI
 		var catID sql.NullInt64
 		var catName, catColor sql.NullString
 		var targetCount sql.NullInt32
+		var durationSeconds sql.NullInt32
 		var progressCount sql.NullInt32
 		var recurrenceDays pq.Int64Array
 
 		err := rows.Scan(
 			&item.TaskID, &item.Title, &desc, &item.IsGlobal, &item.RecurrenceType,
-			&item.TaskType, &targetCount,
+			&item.TaskType, &targetCount, &durationSeconds,
 			&catID, &catName, &catColor,
 			&rewardText, &recurrenceDays, &reminderTime,
 			&status, &completedAt, &progressCount,
@@ -399,6 +422,10 @@ func (r *taskRepo) ListForDateByCategory(userID int64, date time.Time, categoryI
 			v := targetCount.Int32
 			item.TargetCount = &v
 		}
+		if durationSeconds.Valid {
+			v := durationSeconds.Int32
+			item.DurationSeconds = &v
+		}
 		if catID.Valid {
 			id := catID.Int64
 			name := catName.String
@@ -426,7 +453,7 @@ func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithSta
 	query := `
 		SELECT
 			d.day, t.id, t.title, t.description, t.is_global, t.recurrence_type,
-			t.task_type, t.target_count,
+			t.task_type, t.target_count, t.duration_seconds,
 			c.id AS cat_id, c.name AS cat_name, c.color_hex AS cat_color,
 			t.reward_text, t.recurrence_days, t.reminder_time,
 			tc.status, tc.completed_at, tc.progress_count
@@ -459,12 +486,13 @@ func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithSta
 		var catID sql.NullInt64
 		var catName, catColor sql.NullString
 		var targetCount sql.NullInt32
+		var durationSeconds sql.NullInt32
 		var progressCount sql.NullInt32
 		var recurrenceDays pq.Int64Array
 
 		err := rows.Scan(
 			&day, &item.TaskID, &item.Title, &desc, &item.IsGlobal, &item.RecurrenceType,
-			&item.TaskType, &targetCount,
+			&item.TaskType, &targetCount, &durationSeconds,
 			&catID, &catName, &catColor,
 			&rewardText, &recurrenceDays, &reminderTime,
 			&status, &completedAt, &progressCount,
@@ -501,6 +529,10 @@ func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithSta
 		if targetCount.Valid {
 			v := targetCount.Int32
 			item.TargetCount = &v
+		}
+		if durationSeconds.Valid {
+			v := durationSeconds.Int32
+			item.DurationSeconds = &v
 		}
 		if catID.Valid {
 			id := catID.Int64

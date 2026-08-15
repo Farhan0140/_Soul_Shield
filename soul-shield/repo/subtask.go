@@ -46,8 +46,15 @@ func (r *subTaskRepo) ReplaceForParent(parentTaskID int64, inputs []SubTask) ([]
 			if !inputs[i].TargetCount.Valid || inputs[i].TargetCount.Int32 <= 0 {
 				return nil, util.ErrInvalidCounterTarget
 			}
+			inputs[i].DurationSeconds = sql.NullInt32{}
+		} else if inputs[i].TaskType == "timer" {
+			if !inputs[i].DurationSeconds.Valid || inputs[i].DurationSeconds.Int32 <= 0 {
+				return nil, util.ErrInvalidTimerDuration
+			}
+			inputs[i].TargetCount = sql.NullInt32{}
 		} else {
 			inputs[i].TargetCount = sql.NullInt32{}
+			inputs[i].DurationSeconds = sql.NullInt32{}
 		}
 		inputs[i].Position = i
 	}
@@ -70,12 +77,12 @@ func (r *subTaskRepo) ReplaceForParent(parentTaskID int64, inputs []SubTask) ([]
 			var updated SubTask
 			err := tx.QueryRow(`
 				UPDATE sub_tasks
-				SET title = $1, task_type = $2, target_count = $3, position = $4, updated_at = CURRENT_TIMESTAMP
-				WHERE id = $5 AND parent_task_id = $6
-				RETURNING id, parent_task_id, title, task_type, target_count, position, created_at, updated_at
-			`, in.Title, in.TaskType, in.TargetCount, in.Position, in.ID, parentTaskID).Scan(
+				SET title = $1, task_type = $2, target_count = $3, duration_seconds = $4, position = $5, updated_at = CURRENT_TIMESTAMP
+				WHERE id = $6 AND parent_task_id = $7
+				RETURNING id, parent_task_id, title, task_type, target_count, duration_seconds, position, created_at, updated_at
+			`, in.Title, in.TaskType, in.TargetCount, in.DurationSeconds, in.Position, in.ID, parentTaskID).Scan(
 				&updated.ID, &updated.ParentTaskID, &updated.Title, &updated.TaskType,
-				&updated.TargetCount, &updated.Position, &updated.CreatedAt, &updated.UpdatedAt,
+				&updated.TargetCount, &updated.DurationSeconds, &updated.Position, &updated.CreatedAt, &updated.UpdatedAt,
 			)
 			if err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
@@ -88,12 +95,12 @@ func (r *subTaskRepo) ReplaceForParent(parentTaskID int64, inputs []SubTask) ([]
 		} else {
 			var created SubTask
 			err := tx.QueryRow(`
-				INSERT INTO sub_tasks (parent_task_id, title, task_type, target_count, position)
-				VALUES ($1, $2, $3, $4, $5)
-				RETURNING id, parent_task_id, title, task_type, target_count, position, created_at, updated_at
-			`, parentTaskID, in.Title, in.TaskType, in.TargetCount, in.Position).Scan(
+				INSERT INTO sub_tasks (parent_task_id, title, task_type, target_count, duration_seconds, position)
+				VALUES ($1, $2, $3, $4, $5, $6)
+				RETURNING id, parent_task_id, title, task_type, target_count, duration_seconds, position, created_at, updated_at
+			`, parentTaskID, in.Title, in.TaskType, in.TargetCount, in.DurationSeconds, in.Position).Scan(
 				&created.ID, &created.ParentTaskID, &created.Title, &created.TaskType,
-				&created.TargetCount, &created.Position, &created.CreatedAt, &created.UpdatedAt,
+				&created.TargetCount, &created.DurationSeconds, &created.Position, &created.CreatedAt, &created.UpdatedAt,
 			)
 			if err != nil {
 				return nil, err
@@ -126,7 +133,7 @@ func (r *subTaskRepo) ListByParentIDs(parentIDs []int64) (map[int64][]SubTask, e
 	}
 
 	query := `
-		SELECT id, parent_task_id, title, task_type, target_count, position, created_at, updated_at
+		SELECT id, parent_task_id, title, task_type, target_count, duration_seconds, position, created_at, updated_at
 		FROM sub_tasks
 		WHERE parent_task_id = ANY($1)
 		ORDER BY parent_task_id, position, id
@@ -139,7 +146,7 @@ func (r *subTaskRepo) ListByParentIDs(parentIDs []int64) (map[int64][]SubTask, e
 
 	for rows.Next() {
 		var s SubTask
-		if err := rows.Scan(&s.ID, &s.ParentTaskID, &s.Title, &s.TaskType, &s.TargetCount, &s.Position, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.ParentTaskID, &s.Title, &s.TaskType, &s.TargetCount, &s.DurationSeconds, &s.Position, &s.CreatedAt, &s.UpdatedAt); err != nil {
 			return nil, err
 		}
 		result[s.ParentTaskID] = append(result[s.ParentTaskID], s)
@@ -159,7 +166,7 @@ func (r *subTaskRepo) ListWithStatusForDate(userID int64, parentTaskIDs []int64,
 
 	query := `
 		SELECT
-			st.id, st.parent_task_id, st.title, st.task_type, st.target_count, st.position,
+			st.id, st.parent_task_id, st.title, st.task_type, st.target_count, st.duration_seconds, st.position,
 			stc.status, stc.completed_at, stc.progress_count
 		FROM sub_tasks st
 		LEFT JOIN sub_task_completions stc
@@ -196,7 +203,7 @@ func (r *subTaskRepo) ListWithStatusForRange(userID int64, parentTaskIDs []int64
 
 	query := `
 		SELECT
-			d.day, st.id, st.parent_task_id, st.title, st.task_type, st.target_count, st.position,
+			d.day, st.id, st.parent_task_id, st.title, st.task_type, st.target_count, st.duration_seconds, st.position,
 			stc.status, stc.completed_at, stc.progress_count
 		FROM generate_series($1::date, $2::date, interval '1 day') AS d(day)
 		JOIN sub_tasks st ON st.parent_task_id = ANY($3)
@@ -218,7 +225,7 @@ func (r *subTaskRepo) ListWithStatusForRange(userID int64, parentTaskIDs []int64
 		var progressCount sql.NullInt32
 
 		err := rows.Scan(
-			&day, &s.ID, &s.ParentTaskID, &s.Title, &s.TaskType, &s.TargetCount, &s.Position,
+			&day, &s.ID, &s.ParentTaskID, &s.Title, &s.TaskType, &s.TargetCount, &s.DurationSeconds, &s.Position,
 			&status, &completedAt, &progressCount,
 		)
 		if err != nil {
@@ -395,6 +402,10 @@ func toSubTaskWithStatus(s SubTask, status sql.NullString, completedAt sql.NullT
 		v := s.TargetCount.Int32
 		item.TargetCount = &v
 	}
+	if s.DurationSeconds.Valid {
+		v := s.DurationSeconds.Int32
+		item.DurationSeconds = &v
+	}
 	if progressCount.Valid {
 		item.ProgressCount = progressCount.Int32
 	}
@@ -422,7 +433,7 @@ func scanSubTaskWithStatus(rows rowScanner, dateStr, today string) (SubTaskWithS
 	var completedAt sql.NullTime
 	var progressCount sql.NullInt32
 
-	err := rows.Scan(&s.ID, &s.ParentTaskID, &s.Title, &s.TaskType, &s.TargetCount, &s.Position, &status, &completedAt, &progressCount)
+	err := rows.Scan(&s.ID, &s.ParentTaskID, &s.Title, &s.TaskType, &s.TargetCount, &s.DurationSeconds, &s.Position, &status, &completedAt, &progressCount)
 	if err != nil {
 		return SubTaskWithStatus{}, err
 	}

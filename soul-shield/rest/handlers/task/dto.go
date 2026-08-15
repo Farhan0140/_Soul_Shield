@@ -11,11 +11,12 @@ type CreateTaskRequest struct {
 	RecurrenceDays []int64 `json:"recurrence_days" example:"1,3,5"`
 	IsGlobal       bool    `json:"is_global" example:"false"`
 
-	CategoryID   *int64  `json:"category_id,omitempty" example:"1"`
-	RewardText   string  `json:"reward_text,omitempty" example:"Alhamdulillah! +1 for jannah"`
-	TaskType     string  `json:"task_type,omitempty" example:"normal" enums:"normal,counter"`
-	TargetCount  *int32  `json:"target_count,omitempty" example:"100"`    // task_type=counter হলে required
-	ReminderTime *string `json:"reminder_time,omitempty" example:"18:30"` // optional, "HH:MM" 24-hour format
+	CategoryID      *int64  `json:"category_id,omitempty" example:"1"`
+	RewardText      string  `json:"reward_text,omitempty" example:"Alhamdulillah! +1 for jannah"`
+	TaskType        string  `json:"task_type,omitempty" example:"normal" enums:"normal,counter,timer"`
+	TargetCount     *int32  `json:"target_count,omitempty" example:"100"`      // task_type=counter হলে required
+	DurationSeconds *int32  `json:"duration_seconds,omitempty" example:"1500"` // task_type=timer হলে required
+	ReminderTime    *string `json:"reminder_time,omitempty" example:"18:30"`   // optional, "HH:MM" 24-hour format
 
 	// SubTasks দিলে parent task এর status এখন থেকে sub-task completion থেকে derive হবে
 	// (pending/partially_completed/completed) - parent নিজে সরাসরি complete করা যাবে না।
@@ -23,15 +24,16 @@ type CreateTaskRequest struct {
 }
 
 type UpdateTaskRequest struct {
-	Title          *string  `json:"title,omitempty"`
-	Description    *string  `json:"description,omitempty"`
-	RecurrenceType *string  `json:"recurrence_type,omitempty" enums:"daily,weekly,custom"`
-	RecurrenceDays *[]int64 `json:"recurrence_days,omitempty"`
-	IsActive       *bool    `json:"is_active,omitempty"`
-	CategoryID     *int64   `json:"category_id,omitempty"` // 0 পাঠালে uncategorize হবে
-	RewardText     *string  `json:"reward_text,omitempty"`
-	TargetCount    *int32   `json:"target_count,omitempty"`
-	ReminderTime   *string  `json:"reminder_time,omitempty"` // "HH:MM" 24-hour format, empty string clears it
+	Title           *string  `json:"title,omitempty"`
+	Description     *string  `json:"description,omitempty"`
+	RecurrenceType  *string  `json:"recurrence_type,omitempty" enums:"daily,weekly,custom"`
+	RecurrenceDays  *[]int64 `json:"recurrence_days,omitempty"`
+	IsActive        *bool    `json:"is_active,omitempty"`
+	CategoryID      *int64   `json:"category_id,omitempty"` // 0 পাঠালে uncategorize হবে
+	RewardText      *string  `json:"reward_text,omitempty"`
+	TargetCount     *int32   `json:"target_count,omitempty"`
+	DurationSeconds *int32   `json:"duration_seconds,omitempty"`
+	ReminderTime    *string  `json:"reminder_time,omitempty"` // "HH:MM" 24-hour format, empty string clears it
 
 	// SubTasks nil হলে touch করা হবে না; দিলে (even []) পুরো লিস্ট replace হবে -
 	// existing id ম্যাচ করলে update, নতুন id ছাড়া entry হলে insert, বাদ পড়া entry delete।
@@ -40,10 +42,11 @@ type UpdateTaskRequest struct {
 
 // SubTaskInput - create/update task request এর ভেতরে sub-task এর তথ্য
 type SubTaskInput struct {
-	ID          *int64 `json:"id,omitempty" example:"5"` // update এ existing sub-task ম্যাচ করাতে; create এ omit করবেন
-	Title       string `json:"title" example:"Read 1 page"`
-	TaskType    string `json:"task_type,omitempty" example:"normal" enums:"normal,counter"`
-	TargetCount *int32 `json:"target_count,omitempty" example:"10"` // task_type=counter হলে required
+	ID              *int64 `json:"id,omitempty" example:"5"` // update এ existing sub-task ম্যাচ করাতে; create এ omit করবেন
+	Title           string `json:"title" example:"Read 1 page"`
+	TaskType        string `json:"task_type,omitempty" example:"normal" enums:"normal,counter,timer"`
+	TargetCount     *int32 `json:"target_count,omitempty" example:"10"`      // task_type=counter হলে required
+	DurationSeconds *int32 `json:"duration_seconds,omitempty" example:"600"` // task_type=timer হলে required
 }
 
 type IncrementTaskRequest struct {
@@ -93,13 +96,14 @@ type TaskResponse struct {
 
 // SubTaskStatusResponse - sub-task এর তথ্য + (list/history endpoint এ) একটা নির্দিষ্ট দিনের status
 type SubTaskStatusResponse struct {
-	SubTaskID     int64      `json:"sub_task_id" example:"5"`
-	Title         string     `json:"title" example:"Read 1 page"`
-	TaskType      string     `json:"task_type" example:"normal"`
-	TargetCount   *int32     `json:"target_count,omitempty" example:"10"`
-	ProgressCount int32      `json:"progress_count"`
-	Status        string     `json:"status,omitempty" example:"pending"`
-	CompletedAt   *time.Time `json:"completed_at,omitempty"`
+	SubTaskID       int64      `json:"sub_task_id" example:"5"`
+	Title           string     `json:"title" example:"Read 1 page"`
+	TaskType        string     `json:"task_type" example:"normal"`
+	TargetCount     *int32     `json:"target_count,omitempty" example:"10"`
+	DurationSeconds *int32     `json:"duration_seconds,omitempty" example:"600"`
+	ProgressCount   int32      `json:"progress_count"`
+	Status          string     `json:"status,omitempty" example:"pending"`
+	CompletedAt     *time.Time `json:"completed_at,omitempty"`
 }
 
 type TaskWithStatusResponse struct {
@@ -118,9 +122,10 @@ type TaskWithStatusResponse struct {
 
 	RewardText *string `json:"reward_text,omitempty"`
 
-	TaskType      string `json:"task_type"`
-	TargetCount   *int32 `json:"target_count,omitempty"`
-	ProgressCount int32  `json:"progress_count"`
+	TaskType        string `json:"task_type"`
+	TargetCount     *int32 `json:"target_count,omitempty"`
+	DurationSeconds *int32 `json:"duration_seconds,omitempty"`
+	ProgressCount   int32  `json:"progress_count"`
 
 	RecurrenceDays []int64 `json:"recurrence_days,omitempty"`
 	ReminderTime   *string `json:"reminder_time,omitempty"`

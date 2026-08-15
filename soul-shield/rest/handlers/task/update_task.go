@@ -59,27 +59,32 @@ func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 			if stType == "" {
 				stType = "normal"
 			}
-			if stType != "normal" && stType != "counter" {
-				util.SendError(w, map[string]string{"error": "sub-task task_type must be 'normal' or 'counter'"}, http.StatusBadRequest)
+			if stType != "normal" && stType != "counter" && stType != "timer" {
+				util.SendError(w, map[string]string{"error": "sub-task task_type must be 'normal', 'counter' or 'timer'"}, http.StatusBadRequest)
 				return
 			}
 			if stType == "counter" && (st.TargetCount == nil || *st.TargetCount <= 0) {
 				util.SendError(w, map[string]string{"error": "target_count is required and must be > 0 for counter sub-tasks"}, http.StatusBadRequest)
 				return
 			}
+			if stType == "timer" && (st.DurationSeconds == nil || *st.DurationSeconds <= 0) {
+				util.SendError(w, map[string]string{"error": "duration_seconds is required and must be > 0 for timer sub-tasks"}, http.StatusBadRequest)
+				return
+			}
 		}
 	}
 
 	updates := repo.TaskUpdate{
-		Title:          req.Title,
-		Description:    req.Description,
-		RecurrenceType: req.RecurrenceType,
-		RecurrenceDays: req.RecurrenceDays,
-		IsActive:       req.IsActive,
-		CategoryID:     req.CategoryID,
-		RewardText:     req.RewardText,
-		TargetCount:    req.TargetCount,
-		ReminderTime:   req.ReminderTime,
+		Title:           req.Title,
+		Description:     req.Description,
+		RecurrenceType:  req.RecurrenceType,
+		RecurrenceDays:  req.RecurrenceDays,
+		IsActive:        req.IsActive,
+		CategoryID:      req.CategoryID,
+		RewardText:      req.RewardText,
+		TargetCount:     req.TargetCount,
+		DurationSeconds: req.DurationSeconds,
+		ReminderTime:    req.ReminderTime,
 	}
 
 	updated, err := h.taskRepo.Update(id, updates, userID, role)
@@ -94,6 +99,8 @@ func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 		case util.ErrCategoryNotFound:
 			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
 		case util.ErrInvalidCounterTarget:
+			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
+		case util.ErrInvalidTimerDuration:
 			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
 		default:
 			util.SendError(w, map[string]string{"error": "Failed to update task"}, http.StatusInternalServerError)
@@ -116,13 +123,16 @@ func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 			if st.TargetCount != nil {
 				sub.TargetCount = sql.NullInt32{Int32: *st.TargetCount, Valid: true}
 			}
+			if st.DurationSeconds != nil {
+				sub.DurationSeconds = sql.NullInt32{Int32: *st.DurationSeconds, Valid: true}
+			}
 			inputs[i] = sub
 		}
 
 		subTasks, err = h.subTaskRepo.ReplaceForParent(id, inputs)
 		if err != nil {
 			switch err {
-			case util.ErrSubTaskTitleRequired, util.ErrInvalidCounterTarget, util.ErrSubTaskNotFound:
+			case util.ErrSubTaskTitleRequired, util.ErrInvalidCounterTarget, util.ErrInvalidTimerDuration, util.ErrSubTaskNotFound:
 				util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
 			default:
 				util.SendError(w, map[string]string{"error": "Failed to update sub-tasks"}, http.StatusInternalServerError)

@@ -48,24 +48,31 @@ func toSubTaskResponse(s repo.SubTask) SubTaskStatusResponse {
 		v := s.TargetCount.Int32
 		targetCount = &v
 	}
+	var durationSeconds *int32
+	if s.DurationSeconds.Valid {
+		v := s.DurationSeconds.Int32
+		durationSeconds = &v
+	}
 	return SubTaskStatusResponse{
-		SubTaskID:   s.ID,
-		Title:       s.Title,
-		TaskType:    s.TaskType,
-		TargetCount: targetCount,
+		SubTaskID:       s.ID,
+		Title:           s.Title,
+		TaskType:        s.TaskType,
+		TargetCount:     targetCount,
+		DurationSeconds: durationSeconds,
 	}
 }
 
 // repo.SubTaskWithStatus -> SubTaskStatusResponse (List/History endpoint এর জন্য, নির্দিষ্ট date এর status সহ)
 func toSubTaskWithStatusResponse(s repo.SubTaskWithStatus) SubTaskStatusResponse {
 	return SubTaskStatusResponse{
-		SubTaskID:     s.SubTaskID,
-		Title:         s.Title,
-		TaskType:      s.TaskType,
-		TargetCount:   s.TargetCount,
-		ProgressCount: s.ProgressCount,
-		Status:        s.Status,
-		CompletedAt:   s.CompletedAt,
+		SubTaskID:       s.SubTaskID,
+		Title:           s.Title,
+		TaskType:        s.TaskType,
+		TargetCount:     s.TargetCount,
+		DurationSeconds: s.DurationSeconds,
+		ProgressCount:   s.ProgressCount,
+		Status:          s.Status,
+		CompletedAt:     s.CompletedAt,
 	}
 }
 
@@ -109,9 +116,10 @@ func toTaskWithStatusResponse(t repo.TaskWithStatus) TaskWithStatusResponse {
 
 		RewardText: t.RewardText,
 
-		TaskType:      t.TaskType,
-		TargetCount:   t.TargetCount,
-		ProgressCount: t.ProgressCount,
+		TaskType:        t.TaskType,
+		TargetCount:     t.TargetCount,
+		DurationSeconds: t.DurationSeconds,
+		ProgressCount:   t.ProgressCount,
 
 		RecurrenceDays: t.RecurrenceDays,
 		ReminderTime:   t.ReminderTime,

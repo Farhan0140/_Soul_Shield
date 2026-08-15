@@ -19,6 +19,8 @@ var (
 	ErrInvalidCounterTarget = errors.New("counter task requires target_count > 0")
 	ErrNotCounterTask       = errors.New("this endpoint is only for counter type tasks")
 
+	ErrInvalidTimerDuration = errors.New("timer task requires duration_seconds > 0")
+
 	ErrInvalidReminderTime = errors.New("reminder_time must be in HH:MM 24-hour format")
 
 	ErrInvalidIncrementAmount = errors.New("increment amount must be greater than 0")
