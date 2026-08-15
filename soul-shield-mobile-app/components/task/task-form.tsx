@@ -19,6 +19,7 @@ import { RecurrencePicker } from '@/components/task/recurrence-picker';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { KeyboardAvoidingScrollView } from '@/components/ui/keyboard-avoiding-scroll-view';
 import { PrimaryButton } from '@/components/ui/primary-button';
+import { TapShadowButton } from '@/components/ui/tap-shadow-button';
 import { TextField } from '@/components/ui/text-field';
 import { useCategoriesQuery } from '@/hooks/queries/use-categories';
 import { useThemeColor } from '@/hooks/use-theme-color';
@@ -236,7 +237,13 @@ export function TaskForm({
 
   return (
     <KeyboardAvoidingScrollView keyboardVerticalOffset={headerHeight} contentContainerStyle={styles.content}>
-      <TextField label="Title" value={title} onChangeText={setTitle} placeholder="e.g. Morning Dhikr" />
+      <TextField
+        label="Title"
+        value={title}
+        onChangeText={setTitle}
+        placeholder="e.g. Morning Dhikr"
+        shadowed
+      />
       <TextField
         label="Description"
         value={description}
@@ -244,6 +251,7 @@ export function TaskForm({
         placeholder="Optional details"
         multiline
         style={styles.multiline}
+        shadowed
       />
 
       <View style={styles.field}>
@@ -301,6 +309,7 @@ export function TaskForm({
             onChangeText={setTargetCount}
             keyboardType="number-pad"
             placeholder="e.g. 100"
+            shadowed
           />
         ) : null}
         {taskType === 'timer' ? (
@@ -335,6 +344,7 @@ export function TaskForm({
                         value={draft.title}
                         onChangeText={(text) => updateSubTaskDraft(index, { title: text })}
                         placeholder="e.g. Read 1 page"
+                        shadowed
                       />
                     </View>
                     {/* TODO this button is for removing this sub-task draft from the form */}
@@ -382,6 +392,7 @@ export function TaskForm({
                       onChangeText={(text) => updateSubTaskDraft(index, { target_count: text })}
                       keyboardType="number-pad"
                       placeholder="e.g. 10"
+                      shadowed
                     />
                   ) : null}
                   {draft.task_type === 'timer' ? (
@@ -416,13 +427,11 @@ export function TaskForm({
         {reminderEnabled ? (
           <>
             {/* TODO this button is for opening the time picker to set the reminder time */}
-            <Pressable
-              onPress={() => setShowTimePicker(true)}
-              style={[styles.timeButton, { backgroundColor: cardColor, borderColor }]}>
+            <TapShadowButton onPress={() => setShowTimePicker(true)} accessibilityLabel="Set reminder time">
               <ThemedText type="defaultSemiBold">
                 {reminderTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
               </ThemedText>
-            </Pressable>
+            </TapShadowButton>
             {showTimePicker ? (
               <DateTimePicker
                 value={reminderTime}
@@ -443,6 +452,7 @@ export function TaskForm({
         value={rewardText}
         onChangeText={setRewardText}
         placeholder="Optional completion message"
+        shadowed
       />
 
       {isAdmin ? (
@@ -487,13 +497,5 @@ const styles = StyleSheet.create({
   },
   subTaskRowHeader: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
   subTaskRemove: { padding: 8 },
-  timeButton: {
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 14,
-    borderCurve: 'continuous',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
   error: { color: '#D0342C', fontSize: 14 },
 });

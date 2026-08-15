@@ -3,6 +3,7 @@ import { Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { TapShadowButton } from '@/components/ui/tap-shadow-button';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import type { TimerSelection } from '@/lib/timer/store';
 
@@ -80,12 +81,9 @@ export function DurationInput({ selection, onChange, disabled }: DurationInputPr
   return (
     <>
       {/* TODO this button is for opening the duration picker modal */}
-      <Pressable
-        onPress={openModal}
-        disabled={disabled}
-        style={[styles.timeButton, { backgroundColor: cardColor, borderColor, opacity: disabled ? 0.5 : 1 }]}>
+      <TapShadowButton onPress={openModal} disabled={disabled} accessibilityLabel="Set duration">
         <ThemedText type="defaultSemiBold">{formatButtonLabel(selection)}</ThemedText>
-      </Pressable>
+      </TapShadowButton>
 
       <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
         <Pressable style={styles.backdrop} onPress={handleClose}>
@@ -183,14 +181,6 @@ export function DurationInput({ selection, onChange, disabled }: DurationInputPr
 }
 
 const styles = StyleSheet.create({
-  timeButton: {
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 14,
-    borderCurve: 'continuous',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
