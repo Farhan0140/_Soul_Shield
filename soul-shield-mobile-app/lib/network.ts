@@ -4,6 +4,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { getBackgroundSyncState } from '@/lib/background-sync/state';
 import { currentDhakaDateString } from '@/lib/background-sync/time';
 import { runFullBackgroundSync } from '@/lib/background-sync/sync';
+import { pruneExpiredTaskCache } from '@/lib/background-sync/prune';
 import { queryClient } from '@/lib/query-client';
 
 // Module-level side effect: must run exactly once, before any query/mutation
@@ -31,6 +32,11 @@ onlineManager.setEventListener((setOnline) => {
 // server immediately, not just the visible screen.
 onlineManager.subscribe((isOnline) => {
   if (!isOnline) return;
+  // Sweep anything that's rolled outside the current window first, before
+  // the broad invalidate below would otherwise refetch it pointlessly — see
+  // lib/background-sync/prune.ts for why this never touches a date a pending
+  // mutation might still need.
+  pruneExpiredTaskCache(queryClient);
   queryClient.resumePausedMutations().then(() => {
     queryClient.invalidateQueries({ refetchType: 'all' });
   });

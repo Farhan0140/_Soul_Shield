@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Soul Shield",
-    "slug": "soul-shield-mobile-app-fn2026",
+    "slug": "soul-shield",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -55,11 +55,11 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "owner": "farhannadims-team",
+    "owner": "carbonmamas-team",
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "3ef35756-5b07-4ad0-870d-76e4c06494a2"
+        "projectId": "27a275ba-5a55-4fb0-a569-be6d7b56b128"
       }
     }
   }

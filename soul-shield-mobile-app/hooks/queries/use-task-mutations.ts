@@ -8,9 +8,9 @@ import {
   deleteTaskMutationFn,
   incrementSubTaskMutationFn,
   incrementTaskMutationFn,
-  mutationKeys,
   updateTaskMutationFn,
 } from '@/lib/mutation-defaults';
+import { mutationKeys } from '@/lib/mutation-keys';
 import { queryKeys } from '@/lib/query-keys';
 import { todayISODate, weekdayIndex } from '@/lib/date';
 import { cancelTaskReminders } from '@/lib/notifications';
@@ -20,11 +20,11 @@ import {
   restoreTaskCaches,
   snapshotTaskCaches,
 } from '@/lib/task-cache';
+import { refreshTaskCacheAfterStructuralChange } from '@/lib/task-cache-refresh';
 
 function invalidateTaskLists(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ['tasks'] });
   queryClient.invalidateQueries({ queryKey: ['taskHistory'] });
-  queryClient.invalidateQueries({ queryKey: ['categoryTasks'] });
 }
 
 /** Client-side mirror of the backend's parent-status aggregation
@@ -98,6 +98,13 @@ export function useCreateTask(date: string = todayISODate()) {
     onError: (_err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(queryKeys.tasks(date), context.previous);
     },
+    // Structural change: the cached today+N-day task window may now be stale
+    // (a new recurring task can affect future days), so clear and re-fetch it
+    // fresh once the create is actually confirmed. Mirrored in
+    // mutation-defaults.ts's durable default for the case where this create
+    // paused offline and only resolves after an app restart, with no live
+    // hook mounted to run this callback.
+    onSuccess: () => refreshTaskCacheAfterStructuralChange(queryClient),
     onSettled: () => invalidateTaskLists(queryClient),
   });
 }
@@ -126,6 +133,9 @@ export function useUpdateTask(date: string) {
     onError: (_err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(queryKeys.tasks(date), context.previous);
     },
+    // See useCreateTask above — same structural-change reasoning, mirrored in
+    // mutation-defaults.ts's durable default for the offline-then-restart path.
+    onSuccess: () => refreshTaskCacheAfterStructuralChange(queryClient),
     onSettled: () => invalidateTaskLists(queryClient),
   });
 }
@@ -145,12 +155,14 @@ export function useDeleteTask(date: string) {
     onError: (_err, _id, context) => {
       if (context?.previous) queryClient.setQueryData(queryKeys.tasks(date), context.previous);
     },
-    // Cancels the deleted task's scheduled reminders on confirmed success —
-    // must live here (not just as a per-call `.mutate()` option) since a
-    // per-call callback is dropped when the mutation pauses offline and later
-    // replays headlessly after an app restart. See mutation-defaults.ts's
-    // durable default for that replay path.
-    onSuccess: (_data, id) => cancelTaskReminders(id),
+    // Cancels the deleted task's scheduled reminders and refreshes the
+    // today+N-day cache (see useCreateTask above) on confirmed success — must
+    // live here (not just as a per-call `.mutate()` option) since a per-call
+    // callback is dropped when the mutation pauses offline and later replays
+    // headlessly after an app restart. See mutation-defaults.ts's durable
+    // default for that replay path.
+    onSuccess: (_data, id) =>
+      Promise.all([cancelTaskReminders(id), refreshTaskCacheAfterStructuralChange(queryClient)]),
     onSettled: () => invalidateTaskLists(queryClient),
   });
 }

@@ -11,34 +11,14 @@ import {
   updateTask,
 } from '@/api/tasks';
 import type { TaskInput, TaskUpdateInput } from '@/api/types';
+import { mutationKeys } from '@/lib/mutation-keys';
 import { cancelTaskReminders } from '@/lib/notifications';
 import { tokenStore } from '@/lib/secure-store';
-
-/** Mutation identity shared between the live hooks (hooks/queries/*) and the
- * stable defaults registered below — must match exactly, since a mutation
- * paused offline and replayed after an app restart only carries its
- * mutationKey + serialized variables, not the original closure. */
-export const mutationKeys = {
-  tasks: {
-    create: ['tasks', 'create'] as const,
-    update: ['tasks', 'update'] as const,
-    delete: ['tasks', 'delete'] as const,
-    complete: ['tasks', 'complete'] as const,
-    increment: ['tasks', 'increment'] as const,
-    completeSubTask: ['tasks', 'completeSubTask'] as const,
-    incrementSubTask: ['tasks', 'incrementSubTask'] as const,
-  },
-  categories: {
-    create: ['categories', 'create'] as const,
-    update: ['categories', 'update'] as const,
-    delete: ['categories', 'delete'] as const,
-  },
-};
+import { refreshTaskCacheAfterStructuralChange } from '@/lib/task-cache-refresh';
 
 function invalidateTaskLists(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ['tasks'] });
   queryClient.invalidateQueries({ queryKey: ['taskHistory'] });
-  queryClient.invalidateQueries({ queryKey: ['categoryTasks'] });
 }
 
 function invalidateCategoryDependents(queryClient: QueryClient) {
@@ -122,10 +102,17 @@ export const deleteCategoryMutationFn = async (id: number) =>
 export function registerMutationDefaults(queryClient: QueryClient) {
   queryClient.setMutationDefaults(mutationKeys.tasks.create, {
     mutationFn: createTaskMutationFn,
+    // Structural change: once the backend has actually confirmed it (which,
+    // for a create queued offline and replayed headlessly after an app
+    // restart, only happens here — see the doc comment on this function),
+    // the cached today+N-day task window may now be stale (a new recurring
+    // task can affect future days) and must be cleared and re-fetched fresh.
+    onSuccess: () => refreshTaskCacheAfterStructuralChange(queryClient),
     onSettled: () => invalidateTaskLists(queryClient),
   });
   queryClient.setMutationDefaults(mutationKeys.tasks.update, {
     mutationFn: updateTaskMutationFn,
+    onSuccess: () => refreshTaskCacheAfterStructuralChange(queryClient),
     onSettled: () => invalidateTaskLists(queryClient),
   });
   queryClient.setMutationDefaults(mutationKeys.tasks.delete, {
@@ -134,8 +121,10 @@ export function registerMutationDefaults(queryClient: QueryClient) {
     // headlessly (offline delete replayed after an app restart, with no live
     // useDeleteTask hook mounted to run its own onSuccess) — otherwise the
     // stale notification IDs in AsyncStorage are never cleared and fire later
-    // for a task that no longer exists.
-    onSuccess: (_data, id) => cancelTaskReminders(id),
+    // for a task that no longer exists. Runs alongside the same structural
+    // cache refresh as create/update above.
+    onSuccess: (_data, id) =>
+      Promise.all([cancelTaskReminders(id), refreshTaskCacheAfterStructuralChange(queryClient)]),
     onSettled: () => invalidateTaskLists(queryClient),
   });
   queryClient.setMutationDefaults(mutationKeys.tasks.complete, {

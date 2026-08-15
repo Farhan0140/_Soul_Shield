@@ -19,6 +19,17 @@ export const queryClient = new QueryClient({
     queries: {
       staleTime: 1000 * 30,
       retry: 1,
+      // Without an explicit gcTime, unobserved queries default to a 5-minute
+      // retention — long enough that a day prefetched by the background sync
+      // but not yet opened by the user (e.g. tomorrow) gets garbage-collected
+      // from the live cache, and the persister's own throttled save (see
+      // lib/persister.ts) then immediately writes that eviction to disk,
+      // silently deleting the offline prefetch before it could ever be used
+      // offline. Match the persister's own 7-day maxAge so a query survives
+      // in memory for at least as long as its persisted snapshot is trusted.
+      // lib/background-sync/prune.ts is what now bounds long-term growth
+      // instead of relying on this timing out old data.
+      gcTime: 1000 * 60 * 60 * 24 * 7,
     },
   },
   queryCache: new QueryCache({ onError: handleError }),

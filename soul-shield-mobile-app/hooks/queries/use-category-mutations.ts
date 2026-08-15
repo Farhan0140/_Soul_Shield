@@ -4,9 +4,9 @@ import type { Category, Task } from '@/api/types';
 import {
   createCategoryMutationFn,
   deleteCategoryMutationFn,
-  mutationKeys,
   updateCategoryMutationFn,
 } from '@/lib/mutation-defaults';
+import { mutationKeys } from '@/lib/mutation-keys';
 import { queryKeys } from '@/lib/query-keys';
 
 function invalidateCategoryDependents(queryClient: QueryClient) {

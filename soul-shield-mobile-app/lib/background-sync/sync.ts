@@ -12,6 +12,7 @@ import { syncAllTaskReminders } from '@/lib/notifications';
 import { PERSIST_BUSTER, persister } from '@/lib/persister';
 import { queryKeys } from '@/lib/query-keys';
 import { cachedUserStore, tokenStore } from '@/lib/secure-store';
+import { pruneExpiredTaskCache } from '@/lib/background-sync/prune';
 
 /** Same 7-day span history.tsx defaults to — large enough to cover every
  * active recurring task at least once (recurrence_days is a subset of the
@@ -21,8 +22,9 @@ const HISTORY_WINDOW_DAYS = 6;
 /** How many days beyond today to keep pre-fetched so the app stays fully
  * usable (view/add/edit/delete) for that long without connectivity — the
  * offline guarantee lives entirely in this number: whatever's cached here is
- * what's available offline, nothing more. */
-const FORWARD_WINDOW_DAYS = 2;
+ * what's available offline, nothing more. 3 gives a rolling today+3-day
+ * window (today, +1, +2, +3). */
+const FORWARD_WINDOW_DAYS = 3;
 
 /** Hard ceiling per request so a stalled/slow connection fails fast instead
  * of leaving the background task (and the OS's wake-lock budget for it)
@@ -55,7 +57,7 @@ const REQUEST_TIMEOUT_MS = 20_000;
  * recording the outcome — callers decide how to surface/log that, but none of
  * them should let a failure here crash their own flow (see call sites).
  */
-export async function runFullBackgroundSync(liveClient?: QueryClient): Promise<void> {
+async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<void> {
   const netState = await NetInfo.fetch();
   const isOnline = !!netState.isConnected && netState.isInternetReachable !== false;
   if (!isOnline) {
@@ -157,6 +159,23 @@ export async function runFullBackgroundSync(liveClient?: QueryClient): Promise<v
   }
 }
 
+// Coalesces concurrent callers onto a single in-flight run — e.g. several
+// task edits that were queued offline can all resolve within the same tick
+// once connectivity returns, each independently wanting a full refresh (see
+// lib/task-cache-refresh.ts); without this they'd fire N redundant parallel
+// fetch batches instead of one. Protects every call site (foreground open,
+// reconnect catch-up, the headless daily task, the dev manual trigger, and
+// the structural-change refresh), not just the newest one.
+let syncInFlight: Promise<void> | null = null;
+
+export function runFullBackgroundSync(liveClient?: QueryClient): Promise<void> {
+  if (syncInFlight) return syncInFlight;
+  syncInFlight = runFullBackgroundSyncInner(liveClient).finally(() => {
+    syncInFlight = null;
+  });
+  return syncInFlight;
+}
+
 /** Minimum gap between opportunistic foreground syncs — cold app launch and
  * every subsequent AppState resume both call runForegroundSyncIfDue (see
  * app/_layout.tsx), which would otherwise re-run the full sync on every tab
@@ -177,6 +196,10 @@ export function runForegroundSyncIfDue(liveClient: QueryClient): void {
   const now = Date.now();
   if (now - lastForegroundSyncAttemptAt < FOREGROUND_SYNC_COOLDOWN_MS) return;
   lastForegroundSyncAttemptAt = now;
+  // Sweep anything that's rolled outside the current window before pulling in
+  // fresh data — see lib/background-sync/prune.ts for why this is safe (it
+  // never touches a date a pending offline mutation might still need).
+  pruneExpiredTaskCache(liveClient);
   runFullBackgroundSync(liveClient).catch(() => {
     // Failure is already recorded by runFullBackgroundSync itself.
   });

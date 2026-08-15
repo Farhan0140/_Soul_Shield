@@ -13,7 +13,6 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { PaginationBar } from '@/components/ui/pagination-bar';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { useAuth } from '@/context/auth-context';
-import { useCategoryTasksQuery } from '@/hooks/queries/use-category-tasks';
 import { useCompleteTask, useDeleteTask } from '@/hooks/queries/use-task-mutations';
 import { useTasksQuery } from '@/hooks/queries/use-tasks';
 import { useThemeColor } from '@/hooks/use-theme-color';
@@ -23,13 +22,24 @@ import { getErrorMessage } from '@/lib/errors';
 /** Pseudo-category keys used by the home screen for groupings that don't
  * come from the categories table (see app/(tabs)/index.tsx) - this screen
  * derives their task lists from the already-loaded useTasksQuery(date) list
- * instead of calling the (nonexistent) backend category endpoint for them. */
+ * instead of calling a backend category endpoint for them. Real categories
+ * are derived from that exact same list too (filtered by category_id) —
+ * there's no separate per-category backend call for either kind any more,
+ * which is what keeps this screen fully usable offline: the day's full task
+ * list is the one thing the app already guarantees is prefetched (see
+ * lib/background-sync/sync.ts), so every grouping built from it inherits
+ * that guarantee for free. */
 type SpecialCategoryId = 'fixed' | 'uncategorized' | 'completed';
 const SPECIAL_CATEGORY_IDS: SpecialCategoryId[] = ['fixed', 'uncategorized', 'completed'];
 
+/** Matches the page size the backend's now-retired /categories/:id/tasks
+ * endpoint used to paginate with, so real categories keep the same page
+ * length as before now that pagination happens client-side instead. */
+const CATEGORY_PAGE_SIZE = 10;
+
 /** Active tasks first, completed ones last - mirrors the backend's ordering
- * for real categories (see ListTasksByCategory) so pseudo-categories, built
- * client-side from the raw day's tasks, read the same way. Array.sort is
+ * for real categories (see ListTasksByCategory) so every grouping built
+ * client-side from the raw day's tasks reads the same way. Array.sort is
  * stable in modern JS engines, so each group keeps its original order. */
 function sortActiveFirst(tasks: Task[]) {
   return [...tasks].sort((a, b) => Number(a.status === 'completed') - Number(b.status === 'completed'));
@@ -53,8 +63,7 @@ export default function CategoryDetailScreen() {
   const [page, setPage] = useState(1);
   const [reward, setReward] = useState<{ text: string; taskTitle: string } | null>(null);
 
-  const tasksQuery = useCategoryTasksQuery(categoryId, date, page, !specialId);
-  const allTasksQuery = useTasksQuery(date, !!specialId);
+  const tasksQuery = useTasksQuery(date);
   const completeTask = useCompleteTask();
   const deleteTask = useDeleteTask(date);
 
@@ -63,36 +72,39 @@ export default function CategoryDetailScreen() {
   const textColor = useThemeColor({}, 'text');
   const mutedColor = useThemeColor({}, 'muted');
 
-  // For pseudo-categories, filter the full day's task list the same way the
-  // home screen groups them (see categorySections/fixedTasks there).
-  const specialTasks = useMemo(() => {
-    if (!specialId) return [];
-    const all = allTasksQuery.data ?? [];
+  // Every grouping this screen can show — the three pseudo-categories and a
+  // real category alike — is filtered client-side from the same day's full
+  // task list (see the doc comment on SpecialCategoryId above for why).
+  const categoryTasks = useMemo(() => {
+    const all = tasksQuery.data ?? [];
     if (specialId === 'fixed') return all.filter((t) => t.is_global);
     if (specialId === 'uncategorized') return all.filter((t) => !t.is_global && t.category_id == null);
-    return all.filter((t) => t.status === 'completed');
-  }, [specialId, allTasksQuery.data]);
+    if (specialId === 'completed') return all.filter((t) => t.status === 'completed');
+    return all.filter((t) => t.category_id === categoryId);
+  }, [specialId, categoryId, tasksQuery.data]);
 
-  const isLoading = specialId ? allTasksQuery.isLoading : tasksQuery.isLoading;
-  const isError = specialId ? allTasksQuery.isError : tasksQuery.isError;
-  const isSuccess = specialId ? allTasksQuery.isSuccess : tasksQuery.isSuccess;
-  const queryError = specialId ? allTasksQuery.error : tasksQuery.error;
-  const refetch = () => (specialId ? allTasksQuery.refetch() : tasksQuery.refetch());
+  const isLoading = tasksQuery.isLoading;
+  const isError = tasksQuery.isError;
+  const isSuccess = tasksQuery.isSuccess;
+  const queryError = tasksQuery.error;
+  const refetch = () => tasksQuery.refetch();
 
-  // Real categories get their sort (active tasks first, then completed) from
-  // the backend already; pseudo-categories build their list client-side from
-  // the raw day's tasks, so it's sorted the same way here. "Completed" is the
-  // completed list itself, so there's nothing to reorder within it.
+  // "Completed" is the completed list itself, so there's nothing to reorder
+  // within it; every other grouping sorts active tasks first (mirrors the
+  // ordering the backend used to apply for real categories specifically —
+  // now applied uniformly here since every grouping shares one source).
+  const sortedTasks = specialId === 'completed' ? categoryTasks : sortActiveFirst(categoryTasks);
+
+  const totalItems = sortedTasks.length;
+  const completedItems = sortedTasks.filter((t) => t.status === 'completed').length;
+  // Pseudo-categories were never paginated (a single day's fixed/
+  // uncategorized/completed list is small enough to show in full); real
+  // categories keep the same page size the backend used to paginate with,
+  // now sliced client-side instead of fetched page-by-page.
+  const totalPages = specialId ? 1 : Math.max(1, Math.ceil(totalItems / CATEGORY_PAGE_SIZE));
   const tasks = specialId
-    ? specialId === 'completed'
-      ? specialTasks
-      : sortActiveFirst(specialTasks)
-    : tasksQuery.data?.tasks ?? [];
-  const totalItems = specialId ? specialTasks.length : tasksQuery.data?.total_items ?? 0;
-  const completedItems = specialId
-    ? specialTasks.filter((t) => t.status === 'completed').length
-    : tasksQuery.data?.completed_items ?? 0;
-  const totalPages = specialId ? 1 : tasksQuery.data?.total_pages ?? 1;
+    ? sortedTasks
+    : sortedTasks.slice((page - 1) * CATEGORY_PAGE_SIZE, page * CATEGORY_PAGE_SIZE);
 
   const handleToggleComplete = (task: Task) => {
     completeTask.mutate(
