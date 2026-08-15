@@ -14,8 +14,8 @@ import type {
 import { ThemedText } from '@/components/themed-text';
 import { CategoryPicker } from '@/components/task/category-picker';
 import { DayOfWeekPicker } from '@/components/task/day-of-week-picker';
+import { DurationInput } from '@/components/task/duration-input';
 import { RecurrencePicker } from '@/components/task/recurrence-picker';
-import { DurationPicker } from '@/components/timer/duration-picker';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { KeyboardAvoidingScrollView } from '@/components/ui/keyboard-avoiding-scroll-view';
 import { PrimaryButton } from '@/components/ui/primary-button';
@@ -306,7 +306,7 @@ export function TaskForm({
         {taskType === 'timer' ? (
           <View style={styles.durationField}>
             <ThemedText style={{ color: mutedColor }}>Duration</ThemedText>
-            <DurationPicker selection={durationSelection} onChange={setDurationSelection} />
+            <DurationInput selection={durationSelection} onChange={setDurationSelection} />
           </View>
         ) : null}
       </View>
@@ -387,7 +387,7 @@ export function TaskForm({
                   {draft.task_type === 'timer' ? (
                     <View style={styles.durationField}>
                       <ThemedText style={{ color: mutedColor }}>Duration</ThemedText>
-                      <DurationPicker
+                      <DurationInput
                         selection={draft.duration_selection}
                         onChange={(duration_selection) => updateSubTaskDraft(index, { duration_selection })}
                       />
@@ -472,7 +472,7 @@ export function TaskForm({
 const styles = StyleSheet.create({
   content: { padding: 20, gap: 20 },
   field: { gap: 10 },
-  durationField: { gap: 8, alignItems: 'center' },
+  durationField: { gap: 8 },
   multiline: { minHeight: 80, textAlignVertical: 'top' },
   typeRow: { flexDirection: 'row', gap: 12 },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },

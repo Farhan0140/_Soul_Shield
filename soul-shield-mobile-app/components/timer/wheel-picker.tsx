@@ -57,15 +57,20 @@ interface WheelPickerProps {
 
 /** A single scrolling, snapping wheel column (hours, minutes, or seconds —
  * see duration-picker.tsx) — the darker-center/lighter-edges look from the
- * reference screenshot, built entirely from an Animated.FlatList and
- * Reanimated's own scroll-driven style interpolation (no third-party picker
- * library — see color-picker.tsx's doc comment on why this codebase avoids
- * those with Reanimated 4's worklets runtime). */
+ * reference screenshot, built from an Animated.ScrollView (not FlatList: this
+ * list is small and bounded — at most 60 rows — so it never benefits from
+ * virtualization, and DurationPicker now also gets embedded inside a
+ * scrolling task-creation form, where a VirtualizedList would trigger RN's
+ * "VirtualizedLists should never be nested inside plain ScrollViews with the
+ * same orientation" warning) and Reanimated's own scroll-driven style
+ * interpolation (no third-party picker library — see color-picker.tsx's doc
+ * comment on why this codebase avoids those with Reanimated 4's worklets
+ * runtime). */
 export function WheelPicker({ values, selected, onChange, disabled }: WheelPickerProps) {
   const textColor = useThemeColor({}, 'text');
   const mutedColor = useThemeColor({}, 'muted');
   const scrollY = useSharedValue(0);
-  const listRef = useRef<Animated.FlatList<number>>(null);
+  const scrollRef = useRef<Animated.ScrollView>(null);
 
   const selectedIndex = Math.max(0, values.indexOf(selected));
   // Set right before calling onChange from the list's own settle handler, so
@@ -85,7 +90,7 @@ export function WheelPicker({ values, selected, onChange, disabled }: WheelPicke
       isInternalChange.current = false;
       return;
     }
-    listRef.current?.scrollToOffset({ offset: selectedIndex * ITEM_HEIGHT, animated: false });
+    scrollRef.current?.scrollTo({ y: selectedIndex * ITEM_HEIGHT, animated: false });
     // Only re-sync when the selected value itself changes (e.g. persisted
     // selection finishing its async load) — not on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -117,10 +122,8 @@ export function WheelPicker({ values, selected, onChange, disabled }: WheelPicke
 
   return (
     <View style={[styles.container, { opacity: disabled ? 0.5 : 1 }]}>
-      <Animated.FlatList
-        ref={listRef}
-        data={values}
-        keyExtractor={(item) => String(item)}
+      <Animated.ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!disabled}
         snapToInterval={ITEM_HEIGHT}
@@ -128,12 +131,18 @@ export function WheelPicker({ values, selected, onChange, disabled }: WheelPicke
         onScroll={scrollHandler}
         scrollEventThrottle={16}
         onMomentumScrollEnd={handleSettle}
-        contentContainerStyle={styles.content}
-        getItemLayout={(_, index) => ({ length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index })}
-        renderItem={({ item, index }) => (
-          <WheelRow value={item} index={index} scrollY={scrollY} textColor={textColor} mutedColor={mutedColor} />
-        )}
-      />
+        contentContainerStyle={styles.content}>
+        {values.map((value, index) => (
+          <WheelRow
+            key={value}
+            value={value}
+            index={index}
+            scrollY={scrollY}
+            textColor={textColor}
+            mutedColor={mutedColor}
+          />
+        ))}
+      </Animated.ScrollView>
     </View>
   );
 }
