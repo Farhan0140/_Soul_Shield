@@ -488,12 +488,12 @@ const styles = StyleSheet.create({
   subTaskRowHeader: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
   subTaskRemove: { padding: 8 },
   timeButton: {
-    alignSelf: 'flex-start',
+    alignItems: 'center',
     borderWidth: 1,
     borderRadius: 14,
     borderCurve: 'continuous',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
   error: { color: '#D0342C', fontSize: 14 },
 });
