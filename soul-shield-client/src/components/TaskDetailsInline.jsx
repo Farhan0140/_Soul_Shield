@@ -13,6 +13,16 @@ function recurrenceLabel(task) {
   return days ? `${label} — ${days}` : label;
 }
 
+/** Compact "25 min" / "1h 30m" label for a fixed duration_seconds. */
+function formatDurationLabel(totalSeconds) {
+  const seconds = Math.max(0, Math.round(totalSeconds || 0));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h`;
+  return `${minutes} min`;
+}
+
 /** Extra fields that don't fit in the card's collapsed header, shown inline
  * (not as a modal) directly below it when the title/description is clicked —
  * recurrence, task type, reminder time, and an upcoming-reward preview for
@@ -20,6 +30,7 @@ function recurrenceLabel(task) {
  * the completed case). */
 export default function TaskDetailsInline({ task }) {
   const isCounter = task.task_type === 'counter';
+  const isTimer = task.task_type === 'timer';
   const isCompleted = task.status === 'completed';
 
   return (
@@ -31,7 +42,13 @@ export default function TaskDetailsInline({ task }) {
 
       <div className="flex items-center gap-2 text-xs text-muted">
         <Hash className="w-3.5 h-3.5 text-muted flex-shrink-0" />
-        <span>{isCounter ? `Counter task — target ${task.target_count}` : 'Normal task'}</span>
+        <span>
+          {isCounter
+            ? `Counter task — target ${task.target_count}`
+            : isTimer
+              ? `Timer task — ${formatDurationLabel(task.duration_seconds)}`
+              : 'Normal task'}
+        </span>
       </div>
 
       {task.reminder_time && (

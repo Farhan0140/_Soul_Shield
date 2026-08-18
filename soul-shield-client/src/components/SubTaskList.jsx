@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Check, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Check, Loader2, ArrowUpRight } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { useToast } from './Toast';
 import { fmtDate } from '../hooks/useTasks';
@@ -9,7 +10,12 @@ const QUICK_AMOUNTS = [1, 10];
 export default function SubTaskList({ task, date, onUpdate, onRewardEarned, disabled = false }) {
   const { completeSubTask, incrementSubTask } = useApi();
   const toast = useToast();
+  const navigate = useNavigate();
   const [pendingId, setPendingId] = useState(null);
+
+  const handleOpenTimer = (subTaskId) => {
+    navigate(`/tasks/${task.task_id}/timer?subTaskId=${subTaskId}&date=${fmtDate(date)}`);
+  };
 
   const applyResult = (subTaskId, res) => {
     const nextSubTasks = task.sub_tasks.map((s) =>
@@ -54,17 +60,19 @@ export default function SubTaskList({ task, date, onUpdate, onRewardEarned, disa
       {task.sub_tasks.map((s) => {
         const isCompleted = s.status === 'completed';
         const isCounter = s.task_type === 'counter';
+        const isTimer = s.task_type === 'timer';
         const isPending = pendingId === s.sub_task_id;
         const isDisabled = disabled || isPending;
         const pct = isCounter ? Math.min(100, ((s.progress_count || 0) / (s.target_count || 1)) * 100) : 0;
 
         return (
           <div key={s.sub_task_id} className="flex items-start gap-2">
-            {!isCounter && (
+            {!isCounter && !isTimer && (
               <button
                 type="button"
                 onClick={() => handleComplete(s)}
                 disabled={isDisabled}
+                aria-label={isCompleted ? `Mark "${s.title}" as not done` : `Mark "${s.title}" as done`}
                 className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all
                   ${isCompleted ? 'bg-success border-success' : 'border-border hover:border-primary'}
                   disabled:cursor-not-allowed`}
@@ -78,9 +86,21 @@ export default function SubTaskList({ task, date, onUpdate, onRewardEarned, disa
             )}
 
             <div className="flex-1 min-w-0">
-              <p className={`text-sm ${isCompleted ? 'line-through text-muted' : 'text-fg'}`}>
-                {s.title}
-              </p>
+              <div className="flex items-center gap-1.5">
+                <p className={`text-sm ${isCompleted ? 'line-through text-muted' : 'text-fg'}`}>
+                  {s.title}
+                </p>
+                {isTimer && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenTimer(s.sub_task_id)}
+                    aria-label="Open timer"
+                    className="text-primary hover:text-indigo-700 transition-colors"
+                  >
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
 
               {isCounter && (
                 <div className="mt-1 space-y-1.5">

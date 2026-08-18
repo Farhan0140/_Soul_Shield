@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { m, AnimatePresence } from 'framer-motion';
-import { Check, ChevronDown, Edit2, Trash2, Shield, Sparkles, Loader2 } from 'lucide-react';
+import { Check, ChevronDown, Edit2, Trash2, Shield, Sparkles, Loader2, Timer, ArrowUpRight } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { useToast } from './Toast';
 import { useAuth } from '../context/AuthContext';
@@ -14,11 +15,13 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
   const { user } = useAuth();
   const { completeTask, deleteTask } = useApi();
   const toast = useToast();
+  const navigate = useNavigate();
   const [completing, setCompleting] = useState(false);
   const [rewardText, setRewardText] = useState(null);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
 
   const isCounter = task.task_type === 'counter';
+  const isTimer = task.task_type === 'timer';
   const isCompleted = task.status === 'completed';
   const isMissed = task.status === 'missed';
   const isPartiallyCompleted = task.status === 'partially_completed';
@@ -30,8 +33,12 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
     task.is_global ? user?.role === 'admin' : true
   );
 
+  const handleOpenTimer = () => {
+    navigate(`/tasks/${task.task_id}/timer?date=${fmtDate(date)}`);
+  };
+
   const handleToggleComplete = async () => {
-    if (isCounter || hasSubTasks || isCompleted || isMissed) return;
+    if (isCounter || isTimer || hasSubTasks || isCompleted || isMissed) return;
     setCompleting(true);
     try {
       const res = await completeTask(task.task_id, fmtDate(date));
@@ -79,7 +86,7 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
       <div className="flex items-start gap-3">
         {/* Checkbox (normal tasks only, and only when there are no sub-tasks —
             a sub-tasked parent's completion is derived, not directly toggled) */}
-        {!isCounter && !hasSubTasks && (
+        {!isCounter && !isTimer && !hasSubTasks && (
           <m.button
             whileTap={{ scale: 0.85 }}
             onClick={handleToggleComplete}
@@ -163,6 +170,19 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
           onRewardEarned={setRewardText}
           disabled={isReadOnly}
         />
+      )}
+
+      {/* Timer task — always opens the dedicated countdown page, never inline */}
+      {isTimer && !hasSubTasks && (
+        <m.button
+          whileTap={{ scale: 0.97 }}
+          onClick={handleOpenTimer}
+          className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-semibold text-sm hover:shadow-lg hover:shadow-indigo-200 transition-shadow"
+        >
+          <Timer className="w-4 h-4" />
+          {isCompleted ? 'View timer' : 'Start timer'}
+          <ArrowUpRight className="w-3.5 h-3.5" />
+        </m.button>
       )}
 
       {/* Sub-tasks */}

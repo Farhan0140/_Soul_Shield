@@ -1,44 +1,87 @@
 import { useState, useEffect, useMemo } from 'react';
-import { m, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Plus, RotateCcw, Inbox, AlertCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { m } from 'framer-motion';
+import { ChevronLeft, ChevronRight, Plus, RotateCcw, Inbox, AlertCircle, Shield, CheckCircle2, Tag } from 'lucide-react';
 import { useTasks, prettyDate, fmtDate } from '../hooks/useTasks';
 import { useApi } from '../context/ApiContext';
-import TaskCard from '../components/TaskCard';
+import CategoryRow from '../components/CategoryRow';
 import FilterRow from '../components/FilterRow';
 import ProgressSummary from '../components/ProgressSummary';
 import TaskFormModal from '../components/TaskFormModal';
 import SkeletonCard from '../components/SkeletonCard';
 import Button from '../components/ui/Button';
 
+const FIXED_SECTION_ID = 'fixed';
+const UNCATEGORIZED_SECTION_ID = 'uncategorized';
+const COMPLETED_SECTION_ID = 'completed';
+
 export default function Dashboard() {
-  const { date, tasks, loading, error, shiftDate, goToday, isToday, updateTask, removeTask, reload } = useTasks();
+  const { date, tasks, loading, error, shiftDate, goToday, isToday, updateTask, reload } = useTasks();
   const [categories, setCategories] = useState([]);
-  const [activeCategory, setActiveCategory] = useState(null);
   const [activeStatus, setActiveStatus] = useState('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const { getCategories } = useApi();
+  const navigate = useNavigate();
 
   // Load categories once
   useEffect(() => {
     getCategories().then(setCategories).catch(() => {});
   }, [getCategories]);
 
-  // Client-side filtering
+  // Client-side filtering (status only — category is now navigation, not a filter, see FilterRow.jsx)
   const filteredTasks = useMemo(() => {
     return tasks.filter(t => {
-      if (activeCategory && t.category_id !== activeCategory) return false;
       if (activeStatus !== 'all' && t.status !== activeStatus) return false;
       return true;
     });
-  }, [tasks, activeCategory, activeStatus]);
+  }, [tasks, activeStatus]);
 
-  // Split into Fixed vs My
-  const fixedTasks = filteredTasks.filter(t => t.is_global);
-  const myTasks = filteredTasks.filter(t => !t.is_global);
+  // Completed tasks get pulled into their own row regardless of category;
+  // every other row only ever counts active (non-completed) tasks.
+  const completedTasks = filteredTasks.filter(t => t.status === 'completed');
+  const activeTasks = filteredTasks.filter(t => t.status !== 'completed');
+
+  const fixedTasks = activeTasks.filter(t => t.is_global);
+  const myTasks = activeTasks.filter(t => !t.is_global);
+
+  // Mirrors the mobile app's category-section derivation: one row per real
+  // category (even if empty) plus an "Uncategorized" row for personal tasks
+  // with no category — both built from the same day's already-loaded task
+  // list rather than a separate per-category backend call.
+  const categorySections = useMemo(() => {
+    const byCategory = new Map();
+    const uncategorized = [];
+    for (const task of myTasks) {
+      if (task.category_id == null) {
+        uncategorized.push(task);
+      } else {
+        const list = byCategory.get(task.category_id);
+        if (list) list.push(task);
+        else byCategory.set(task.category_id, [task]);
+      }
+    }
+    return [
+      ...categories.map((cat) => ({
+        id: String(cat.id),
+        title: cat.name,
+        accentColor: cat.color_hex,
+        count: (byCategory.get(cat.id) || []).length,
+      })),
+      {
+        id: UNCATEGORIZED_SECTION_ID,
+        title: 'Uncategorized',
+        accentColor: '#94a3b8',
+        count: uncategorized.length,
+      },
+    ];
+  }, [categories, myTasks]);
 
   const openCreate = () => { setEditingTask(null); setModalOpen(true); };
-  const openEdit = (task) => { setEditingTask(task); setModalOpen(true); };
+
+  const openSection = (id, title) => {
+    navigate(`/category/${id}?name=${encodeURIComponent(title)}&date=${fmtDate(date)}`);
+  };
 
   const handleSaved = (saved) => {
     // If the saved task matches current date recurrence, add/update it
@@ -104,13 +147,7 @@ export default function Dashboard() {
 
       {/* Filters */}
       {!loading && !error && tasks.length > 0 && (
-        <FilterRow
-          categories={categories}
-          activeCategory={activeCategory}
-          setActiveCategory={setActiveCategory}
-          activeStatus={activeStatus}
-          setActiveStatus={setActiveStatus}
-        />
+        <FilterRow activeStatus={activeStatus} setActiveStatus={setActiveStatus} />
       )}
 
       {/* Error state */}
@@ -132,60 +169,43 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Task lists */}
+      {/* Category-wise rows — collapsed summaries, each opening its own
+          dedicated page (see pages/CategoryDetail.jsx) rather than showing
+          every task inline here, mirroring the mobile app's dashboard. */}
+      {!loading && !error && filteredTasks.length > 0 && (
+        <div className="space-y-2.5">
+          <CategoryRow
+            title="Fixed Tasks"
+            count={fixedTasks.length}
+            accentColor="var(--color-warning)"
+            icon={Shield}
+            onClick={() => openSection(FIXED_SECTION_ID, 'Fixed Tasks')}
+          />
+          {categorySections.map((section) => (
+            <CategoryRow
+              key={section.id}
+              title={section.title}
+              count={section.count}
+              accentColor={section.accentColor}
+              icon={section.id === UNCATEGORIZED_SECTION_ID ? Tag : undefined}
+              onClick={() => openSection(section.id, section.title)}
+            />
+          ))}
+          {completedTasks.length > 0 && (
+            <CategoryRow
+              title="Completed Tasks"
+              count={completedTasks.length}
+              accentColor="var(--color-success)"
+              icon={CheckCircle2}
+              onClick={() => openSection(COMPLETED_SECTION_ID, 'Completed Tasks')}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Empty state */}
       {!loading && !error && (
-        <div className="space-y-6">
-          {/* Fixed Tasks section */}
-          {fixedTasks.length > 0 && (
-            <section>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-warning mb-3 flex items-center gap-2">
-                <span className="w-6 h-0.5 bg-warning" />
-                Fixed Tasks
-              </h2>
-              <div className="grid gap-3 md:grid-cols-2">
-                <AnimatePresence>
-                  {fixedTasks.map(t => (
-                    <TaskCard
-                      key={t.task_id}
-                      task={t}
-                      date={date}
-                      onEdit={openEdit}
-                      onDelete={removeTask}
-                      onUpdate={(patch) => updateTask(t.task_id, patch)}
-                      isReadOnly={!isToday}
-                    />
-                  ))}
-                </AnimatePresence>
-              </div>
-            </section>
-          )}
-
-          {/* My Tasks section */}
-          {myTasks.length > 0 && (
-            <section>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-primary mb-3 flex items-center gap-2">
-                <span className="w-6 h-0.5 bg-primary" />
-                My Tasks
-              </h2>
-              <div className="grid gap-3 md:grid-cols-2">
-                <AnimatePresence>
-                  {myTasks.map(t => (
-                    <TaskCard
-                      key={t.task_id}
-                      task={t}
-                      date={date}
-                      onEdit={openEdit}
-                      onDelete={removeTask}
-                      onUpdate={(patch) => updateTask(t.task_id, patch)}
-                      isReadOnly={!isToday}
-                    />
-                  ))}
-                </AnimatePresence>
-              </div>
-            </section>
-          )}
-
-          {/* Empty state */}
+        <>
           {filteredTasks.length === 0 && tasks.length === 0 && isToday && (
             <m.div
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
@@ -214,7 +234,7 @@ export default function Dashboard() {
               No tasks match these filters. Try clearing them.
             </m.div>
           )}
-        </div>
+        </>
       )}
 
       {/* Floating add button */}

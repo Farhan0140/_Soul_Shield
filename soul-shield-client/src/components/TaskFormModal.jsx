@@ -9,7 +9,11 @@ import Button from './ui/Button';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const emptySubTask = () => ({ title: '', task_type: 'normal', target_count: 10 });
+const emptySubTask = () => ({ title: '', task_type: 'normal', target_count: 10, duration_hours: 0, duration_minutes: 5 });
+
+function durationSeconds(hours, minutes) {
+  return (Number(hours) || 0) * 3600 + (Number(minutes) || 0) * 60;
+}
 
 export default function TaskFormModal({ open, onClose, task, categories, onSaved, forceGlobal = false }) {
   const { isAdmin } = useAuth();
@@ -25,6 +29,8 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
     recurrence_days: [0, 1, 2, 3, 4, 5, 6],
     task_type: 'normal',
     target_count: 100,
+    duration_hours: 0,
+    duration_minutes: 30,
     reward_text: '',
     is_global: forceGlobal ? true : false,
   });
@@ -44,6 +50,8 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
           recurrence_days: task.recurrence_days || [0,1,2,3,4,5,6],
           task_type: task.task_type || 'normal',
           target_count: task.target_count || 100,
+          duration_hours: task.duration_seconds ? Math.floor(task.duration_seconds / 3600) : 0,
+          duration_minutes: task.duration_seconds ? Math.floor((task.duration_seconds % 3600) / 60) : 30,
           reward_text: task.reward_text || '',
           is_global: !!task.is_global,
         });
@@ -56,6 +64,8 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
                 title: s.title,
                 task_type: s.task_type,
                 target_count: s.target_count || 10,
+                duration_hours: s.duration_seconds ? Math.floor(s.duration_seconds / 3600) : 0,
+                duration_minutes: s.duration_seconds ? Math.floor((s.duration_seconds % 3600) / 60) : 5,
               }))
             : [emptySubTask()]
         );
@@ -63,7 +73,8 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
         setForm({
           title: '', description: '', category_id: '',
           recurrence_type: 'daily', recurrence_days: [0,1,2,3,4,5,6],
-          task_type: 'normal', target_count: 100, reward_text: '', is_global: false,
+          task_type: 'normal', target_count: 100, duration_hours: 0, duration_minutes: 30,
+          reward_text: '', is_global: false,
         });
         setSubTasksEnabled(false);
         setSubTasks([emptySubTask()]);
@@ -84,6 +95,16 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
     setSubTasks((rows) => [...rows, emptySubTask()]);
   };
 
+  // Sub-tasks only make sense under a Normal parent — a Counter/Timer
+  // parent's own progress/duration become meaningless once completion is
+  // derived from children (Counter) or is intrinsic to a single countdown
+  // (Timer), so switching away from Normal drops any sub-tasks rather than
+  // leaving a hidden, no-longer-editable list attached to the task.
+  const handleNonNormalType = (taskType) => {
+    setForm({ ...form, task_type: taskType });
+    setSubTasksEnabled(false);
+  };
+
   const toggleDay = (d) => {
     setForm(f => {
       const has = f.recurrence_days.includes(d);
@@ -97,11 +118,16 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
     if (!form.title.trim()) e.title = "What's this task called?";
     if (form.task_type === 'counter' && (!form.target_count || form.target_count < 1))
       e.target_count = "How many times should it be done?";
+    if (form.task_type === 'timer' && durationSeconds(form.duration_hours, form.duration_minutes) < 1)
+      e.duration = 'How long should the timer run for?';
     if (subTasksEnabled) {
-      const hasInvalidSubTask = subTasks.length === 0 || subTasks.some((s) =>
-        !s.title.trim() || (s.task_type === 'counter' && (!s.target_count || s.target_count < 1))
-      );
-      if (hasInvalidSubTask) e.sub_tasks = 'Give every sub-task a title (and a target count if it\'s a Counter).';
+      const hasInvalidSubTask = subTasks.length === 0 || subTasks.some((s) => {
+        if (!s.title.trim()) return true;
+        if (s.task_type === 'counter' && (!s.target_count || s.target_count < 1)) return true;
+        if (s.task_type === 'timer' && durationSeconds(s.duration_hours, s.duration_minutes) < 1) return true;
+        return false;
+      });
+      if (hasInvalidSubTask) e.sub_tasks = 'Give every sub-task a title (and a target count/duration for Counter/Timer types).';
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -123,6 +149,7 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
       is_global: isAdmin ? form.is_global : false,
     };
     if (form.task_type === 'counter') payload.target_count = Number(form.target_count);
+    if (form.task_type === 'timer') payload.duration_seconds = durationSeconds(form.duration_hours, form.duration_minutes);
 
     if (subTasksEnabled) {
       payload.sub_tasks = subTasks.map((s) => ({
@@ -130,6 +157,7 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
         title: s.title.trim(),
         task_type: s.task_type,
         target_count: s.task_type === 'counter' ? Number(s.target_count) : undefined,
+        duration_seconds: s.task_type === 'timer' ? durationSeconds(s.duration_hours, s.duration_minutes) : undefined,
       }));
     } else if (isEdit && (task.sub_tasks || []).length > 0) {
       // Sub-tasks were turned off on an existing task that had them — send an
@@ -271,7 +299,7 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
               {/* Task type toggle */}
               <div>
                 <span className="text-xs font-semibold text-muted mb-1.5 block">Task type</span>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, task_type: 'normal' })}
@@ -282,11 +310,19 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
                   </button>
                   <button
                     type="button"
-                    onClick={() => setForm({ ...form, task_type: 'counter' })}
+                    onClick={() => handleNonNormalType('counter')}
                     className={`py-2.5 rounded-xl text-sm font-medium border-2 transition-all
                       ${form.task_type === 'counter' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-border text-muted'}`}
                   >
                     🔢 Counter
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleNonNormalType('timer')}
+                    className={`py-2.5 rounded-xl text-sm font-medium border-2 transition-all
+                      ${form.task_type === 'timer' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-border text-muted'}`}
+                  >
+                    ⏱ Timer
                   </button>
                 </div>
               </div>
@@ -302,7 +338,33 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
                 />
               )}
 
-              {/* Sub-tasks */}
+              {/* Duration (timer only) */}
+              {form.task_type === 'timer' && (
+                <div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      label="Hours"
+                      type="number"
+                      min="0"
+                      max="23"
+                      value={form.duration_hours}
+                      onChange={(e) => setForm({ ...form, duration_hours: e.target.value })}
+                    />
+                    <Input
+                      label="Minutes"
+                      type="number"
+                      min="0"
+                      max="59"
+                      value={form.duration_minutes}
+                      onChange={(e) => setForm({ ...form, duration_minutes: e.target.value })}
+                    />
+                  </div>
+                  {errors.duration && <p className="mt-1.5 text-xs text-danger">{errors.duration}</p>}
+                </div>
+              )}
+
+              {/* Sub-tasks — Normal task type only, see handleNonNormalType's doc comment */}
+              {form.task_type === 'normal' && (
               <div>
                 <label className="flex items-center gap-3 p-3 rounded-xl border border-border bg-bg cursor-pointer">
                   <input
@@ -318,7 +380,7 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
                   <div>
                     <p className="text-sm font-semibold text-fg">Do you want to add sub-tasks?</p>
                     <p className="text-xs text-muted">
-                      Break this task into smaller Normal or Counter sub-tasks.
+                      Break this task into smaller Normal, Counter, or Timer sub-tasks.
                     </p>
                   </div>
                 </label>
@@ -345,7 +407,7 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
                             <X className="w-4 h-4" />
                           </button>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-3 gap-2">
                           <button
                             type="button"
                             onClick={() => updateSubTask(i, { task_type: 'normal' })}
@@ -362,6 +424,14 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
                           >
                             Counter
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => updateSubTask(i, { task_type: 'timer' })}
+                            className={`py-2 rounded-lg text-xs font-medium border-2 transition-all
+                              ${s.task_type === 'timer' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-border text-muted'}`}
+                          >
+                            Timer
+                          </button>
                         </div>
                         {s.task_type === 'counter' && (
                           <Input
@@ -370,6 +440,26 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
                             value={s.target_count}
                             onChange={(e) => updateSubTask(i, { target_count: e.target.value })}
                           />
+                        )}
+                        {s.task_type === 'timer' && (
+                          <div className="grid grid-cols-2 gap-2">
+                            <Input
+                              label="Hours"
+                              type="number"
+                              min="0"
+                              max="23"
+                              value={s.duration_hours}
+                              onChange={(e) => updateSubTask(i, { duration_hours: e.target.value })}
+                            />
+                            <Input
+                              label="Minutes"
+                              type="number"
+                              min="0"
+                              max="59"
+                              value={s.duration_minutes}
+                              onChange={(e) => updateSubTask(i, { duration_minutes: e.target.value })}
+                            />
+                          </div>
                         )}
                       </div>
                     ))}
@@ -386,6 +476,7 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
                   </div>
                 )}
               </div>
+              )}
 
               <Input
                 label="Reward message (shown on completion)"

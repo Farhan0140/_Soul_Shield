@@ -11,6 +11,8 @@ import History from './pages/History';
 import Categories from './pages/Categories';
 import Profile from './pages/Profile';
 import AdminTasks from './pages/AdminTasks';
+import TaskTimer from './pages/TaskTimer';
+import CategoryDetail from './pages/CategoryDetail';
 import AppLayout from './components/AppLayout';
 import NotFound from './pages/NotFound';
 import OnboardingTooltip from './components/OnboardingTooltip';
@@ -33,6 +35,8 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="history" element={<History />} />
           <Route path="categories" element={<Categories />} />
+          <Route path="category/:id" element={<CategoryDetail />} />
+          <Route path="tasks/:taskId/timer" element={<TaskTimer />} />
           <Route path="profile" element={<Profile />} />
           <Route path="admin/tasks" element={<ProtectedRoute adminOnly><AdminTasks /></ProtectedRoute>} />
         </Route>
