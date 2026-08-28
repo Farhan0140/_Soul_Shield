@@ -132,6 +132,7 @@ export default function TimerTaskScreen() {
               onStart={timer.start}
               onPause={timer.pause}
               onResume={timer.resume}
+              onComplete={timer.complete}
             />
           </>
         )}

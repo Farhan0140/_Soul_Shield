@@ -299,5 +299,11 @@ export function useTaskTimer({
     start,
     pause,
     resume,
+    // Lets the UI finish the run immediately regardless of remaining time or
+    // whether the timer was ever started — converges on the exact same
+    // dispatchCompletion path (and its shared.dispatched/completionDispatched
+    // guards) as reaching 00:00, so it can never double-fire alongside a
+    // timer that completes at nearly the same moment.
+    complete: dispatchCompletion,
   };
 }
