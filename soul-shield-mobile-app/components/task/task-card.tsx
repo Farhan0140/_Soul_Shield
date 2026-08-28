@@ -197,6 +197,10 @@ export function TaskCard({
 
       {!isTemplate && isCounter && !hasSubTasks ? (
         <View style={styles.counterSection}>
+          <Pressable onPress={handleOpenCounter} hitSlop={8} style={styles.openCounterLink}>
+            <IconSymbol name="arrow.up.right.square" size={14} color={mutedColor} />
+          </Pressable>
+
           <CounterTaskControls
             task={task}
             date={date}
@@ -204,11 +208,6 @@ export function TaskCard({
             accentColor={accentColor}
             onRewardEarned={onRewardEarned}
           />
-          {/* TODO this button is for opening the dedicated counter page for this task */}
-          <Pressable onPress={handleOpenCounter} hitSlop={8} style={styles.openCounterLink}>
-            <IconSymbol name="arrow.up.right.square" size={14} color={mutedColor} />
-            <ThemedText style={[styles.openCounterLabel, { color: mutedColor }]}>Focused counter</ThemedText>
-          </Pressable>
         </View>
       ) : null}
 
