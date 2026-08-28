@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { m } from 'framer-motion';
-import { ArrowLeft, Pause, Play } from 'lucide-react';
+import { ArrowLeft, Check, Pause, Play } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { fmtDate } from '../hooks/useTasks';
 import { useTimerTask } from '../hooks/useTimerTask';
@@ -149,7 +149,8 @@ function TaskTimerContent({
 
   const isRunning = timer.status === 'running';
   const isIdle = timer.status === 'idle';
-  const disabled = isCompleted || isMissed || timer.status === 'completed';
+  const isTimerCompleted = isCompleted || timer.status === 'completed';
+  const disabled = isTimerCompleted || isMissed;
 
   const handlePress = () => {
     if (disabled) return;
@@ -193,6 +194,22 @@ function TaskTimerContent({
       <span className="text-xs text-muted">
         {disabled ? 'Timer complete' : isIdle ? 'Start timer' : isRunning ? 'Pause timer' : 'Resume timer'}
       </span>
+
+      {!isTimerCompleted && (
+        <m.button
+          type="button"
+          whileTap={{ scale: isMissed ? 1 : 0.95 }}
+          onClick={() => {
+            if (isMissed) return;
+            timer.complete();
+          }}
+          disabled={isMissed}
+          aria-label="Complete task now"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-full border border-success text-success text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+        >
+          <Check className="w-4 h-4" /> Complete
+        </m.button>
+      )}
     </div>
   );
 }

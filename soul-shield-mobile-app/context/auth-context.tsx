@@ -11,7 +11,6 @@ import {
 
 import { fetchMe, login as apiLogin } from '@/api/auth';
 import type { User } from '@/api/types';
-import { useNetworkStatus } from '@/hooks/use-network-status';
 import { ApiError } from '@/lib/errors';
 import { queryKeys } from '@/lib/query-keys';
 import { setUnauthorizedHandler } from '@/lib/query-client';
@@ -32,7 +31,6 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const { isOnline } = useNetworkStatus();
   const [token, setToken] = useState<string | null>(null);
   const [cachedUser, setCachedUser] = useState<User | null>(null);
   const [tokenLoaded, setTokenLoaded] = useState(false);
@@ -57,10 +55,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!tokenLoaded || !token) return;
 
-    // Already know we're offline — don't wait on the network round-trip to
-    // fail before falling back to the cached profile. meQuery stays enabled
-    // so it still reconciles in the background if connectivity returns.
-    if (!isOnline && cachedUser) {
+    // Local-first startup: a cached profile is enough to enter the app
+    // immediately — don't gate entry on the /me round-trip finishing.
+    // `isOnline` only ever protected against the *offline* case; a
+    // reachable-but-slow/cold backend (e.g. a Render free-tier cold start
+    // taking a minute-plus to wake) is the same "don't make the user wait"
+    // situation, so this no longer distinguishes the two. meQuery stays
+    // enabled so it still reconciles the profile — or logs out on a real
+    // 401 — once it eventually resolves in the background.
+    if (cachedUser) {
       setStatus('signedIn');
       return;
     }
@@ -69,22 +72,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cachedUserStore.set(meQuery.data);
       setStatus('signedIn');
     } else if (meQuery.isError) {
+      // No cached profile to fall back to at this point (handled above).
       const err = meQuery.error;
       const isUnauthorized = err instanceof ApiError && err.status === 401;
       if (isUnauthorized) {
         tokenStore.removeToken();
         cachedUserStore.clear();
         setToken(null);
-        setStatus('signedOut');
-      } else if (cachedUser) {
-        // Network error (or any other transient failure) with a cached
-        // profile available — stay signed in rather than logging out.
-        setStatus('signedIn');
-      } else {
-        setStatus('signedOut');
       }
+      // Non-auth failure (offline, timeout, backend down): leave the token
+      // in place so the next launch retries meQuery instead of forcing a
+      // full re-login.
+      setStatus('signedOut');
     }
-  }, [tokenLoaded, token, isOnline, cachedUser, meQuery.isSuccess, meQuery.isError, meQuery.data, meQuery.error]);
+  }, [tokenLoaded, token, cachedUser, meQuery.isSuccess, meQuery.isError, meQuery.data, meQuery.error]);
 
   const logout = useCallback(async () => {
     await tokenStore.removeToken();

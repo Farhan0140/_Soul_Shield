@@ -36,8 +36,10 @@ Soul Shield helps you build and keep daily routines — dhikr, prayers, reading,
 
 **Task tracking**
 - 🔁 Flexible recurrence — daily, weekly, or custom day-of-week schedules
-- ✅ Two task types: simple **checkbox** tasks and tally-style **counter** tasks (e.g. "recite 100x")
-- 🧩 **Sub-tasks** — break any task into an unlimited list of smaller Normal or Counter sub-tasks, added inline via a "Do you want to add sub-tasks?" toggle in the task form. Once a task has sub-tasks:
+- ✅ Three task types: simple **checkbox** tasks, tally-style **counter** tasks (e.g. "recite 100x"), and duration-based **timer** tasks (e.g. "study 30 minutes")
+- ⏱️ **Timer tasks** — start/pause/resume a countdown that auto-completes the task at zero, with a running notification and a completion notification even while backgrounded; a **manual Complete button** lets you finish the task immediately (e.g. you did the work but forgot to start the timer) without waiting out the remaining duration — both paths converge on the same completion, reward, and offline-sync logic, so there's no double-completion risk if both happen near-simultaneously
+- 🎯 A standalone **Focus Timer** (Profile → Tools → Timer) — a general-purpose countdown not tied to any task, with an animated fill visual and optional vibration on completion
+- 🧩 **Sub-tasks** — break any task into an unlimited list of smaller Normal, Counter, or Timer sub-tasks, added inline via a "Do you want to add sub-tasks?" toggle in the task form. Once a task has sub-tasks:
   - it can no longer be checked off directly — its status (`pending` → `partially_completed` → `completed`) is derived from how many sub-tasks are done that day;
   - its reward only fires once every sub-task is complete, not per sub-task;
   - sub-tasks share the parent's recurrence and have no reminder of their own.
@@ -55,6 +57,7 @@ Soul Shield helps you build and keep daily routines — dhikr, prayers, reading,
 
 **Client experience**
 - 📱 Offline-first mobile app — optimistic updates, queued mutations, auto-replay when back online
+- ⚡ Local-first startup — the app opens instantly from the on-device cache (persisted TanStack Query cache + cached profile) instead of blocking on the API, so a slow/cold backend never delays getting into the app; fresh data syncs in the background once a connection is available
 - 🔔 In-app sync-failure notifications so a failed background request is never silent
 - 🌓 Light/dark theme support
 - 🎨 Smooth, animated UI on both web (Framer Motion) and mobile (Reanimated)
@@ -141,9 +144,9 @@ Full interactive docs are served at **`/swagger/index.html`** once the backend i
 | `GET` | `/tasks/history?from=&to=` | List tasks + status across a date range |
 | `PATCH` | `/tasks/{id}` | Update a task; `sub_tasks` replaces the sub-task list if provided |
 | `DELETE` | `/tasks/{id}` | Delete a task (cascades its sub-tasks) |
-| `POST` | `/tasks/{id}/complete` | Toggle a normal task complete for a date |
+| `POST` | `/tasks/{id}/complete` | Toggle a normal or timer task complete for a date (timer client auto-calls this at 00:00, or the user calls it manually) |
 | `POST` | `/tasks/{id}/increment` | Add progress to a counter task |
-| `POST` | `/tasks/{taskId}/subtasks/{subTaskId}/complete` | Complete a normal sub-task |
+| `POST` | `/tasks/{taskId}/subtasks/{subTaskId}/complete` | Complete a normal or timer sub-task |
 | `POST` | `/tasks/{taskId}/subtasks/{subTaskId}/increment` | Add progress to a counter sub-task |
 | `POST` | `/categories` | Create a category |
 | `GET` | `/categories` | List categories |
@@ -182,8 +185,9 @@ erDiagram
         string title
         string recurrence_type
         smallint_array recurrence_days
-        string task_type "normal | counter"
+        string task_type "normal | counter | timer"
         int target_count
+        int duration_seconds
         string reward_text
         string reminder_time "HH:MM"
         bool is_global
@@ -203,8 +207,9 @@ erDiagram
         bigint id PK
         bigint parent_task_id FK
         string title
-        string task_type "normal | counter"
+        string task_type "normal | counter | timer"
         int target_count
+        int duration_seconds
         int position
     }
     SUB_TASK_COMPLETIONS {
