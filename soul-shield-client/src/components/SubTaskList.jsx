@@ -68,7 +68,8 @@ export default function SubTaskList({ task, date, onUpdate, onRewardEarned, disa
         return (
           <div
             key={s.sub_task_id}
-            className="flex items-start gap-2 rounded-xl border border-border bg-bg p-2.5"
+            onClick={isTimer ? () => handleOpenTimer(s.sub_task_id) : undefined}
+            className={`flex items-start gap-2 rounded-xl border border-border bg-bg p-2.5 ${isTimer ? 'cursor-pointer' : ''}`}
           >
             {!isCounter && !isTimer && (
               <button

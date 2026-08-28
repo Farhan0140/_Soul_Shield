@@ -75,8 +75,20 @@ export function SubTaskList({ taskId, subTasks, date, disabled, onRewardEarned }
         const isCounter = subTask.task_type === 'counter';
         const isTimer = subTask.task_type === 'timer';
 
+        // Counter/timer sub-tasks have their own dedicated page — tapping
+        // anywhere on the row (not just the small arrow icon) opens it.
+        const openPageHandler = isCounter
+          ? () => handleOpenCounter(subTask)
+          : isTimer
+            ? () => handleOpenTimer(subTask)
+            : null;
+
         return (
-          <View key={subTask.sub_task_id} style={[styles.row, { backgroundColor: rowBackground, borderColor }]}>
+          <Pressable
+            key={subTask.sub_task_id}
+            disabled={!openPageHandler}
+            onPress={openPageHandler ?? undefined}
+            style={[styles.row, { backgroundColor: rowBackground, borderColor }]}>
             <View style={styles.rowHeader}>
               {!isCounter && !isTimer ? (
                 // TODO this button is for toggling completion of a normal type sub-task
@@ -121,7 +133,7 @@ export function SubTaskList({ taskId, subTasks, date, disabled, onRewardEarned }
                 />
               </View>
             ) : null}
-          </View>
+          </Pressable>
         );
       })}
     </View>

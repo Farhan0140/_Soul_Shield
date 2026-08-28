@@ -91,6 +91,12 @@ export function TaskCard({
   const handleOpenTimer = () =>
     router.push({ pathname: '/timer-task/[taskId]', params: { taskId: String(task.task_id), date } });
 
+  // Counter and timer tasks each have their own dedicated page — tapping
+  // anywhere on the card (not just the small link at the bottom) should jump
+  // straight there instead of expanding the inline details other task types use.
+  const openPageHandler =
+    !isTemplate && !hasSubTasks ? (isCounter ? handleOpenCounter : isTimer ? handleOpenTimer : null) : null;
+
   const backgroundColor = isCompleted
     ? completedTint
     : isPartiallyCompleted
@@ -100,7 +106,10 @@ export function TaskCard({
         : cardColor;
 
   return (
-    <View style={[styles.card, { backgroundColor, borderLeftColor: accentColor }]}>
+    <Pressable
+      disabled={!openPageHandler}
+      onPress={openPageHandler ?? undefined}
+      style={[styles.card, { backgroundColor, borderLeftColor: accentColor }]}>
       <View style={styles.headerRow}>
         {!isTemplate && !isCounter && !isTimer && !hasSubTasks ? (
           // TODO this button is for toggling completion of a normal type task
@@ -118,39 +127,61 @@ export function TaskCard({
         ) : null}
         {/* Only the title/description expand the inline details section —
             checkbox above and counter/sub-task controls below are separate
-            Pressables, so tapping them never triggers it. */}
-        {/* TODO this button is for expanding/collapsing the task's inline details */}
-        <Pressable
-          onPress={() => setDetailsExpanded((v) => !v)}
-          style={styles.titleTouchable}
-          hitSlop={4}>
-          <ThemedText
-            type="defaultSemiBold"
-            style={[styles.title, isMissed && styles.strikethrough]}
-            numberOfLines={2}>
-            {task.title}
-          </ThemedText>
-        </Pressable>
-        <IconSymbol
-          name="chevron.right"
-          size={16}
-          color={mutedColor}
-          style={{ transform: [{ rotate: detailsExpanded ? '90deg' : '0deg' }] }}
-        />
+            Pressables, so tapping them never triggers it. Counter/timer
+            tasks skip this: the whole card is already one Pressable routing
+            to their dedicated page (see openPageHandler above), so the title
+            here is plain (non-Pressable) text and lets that tap through. */}
+        {openPageHandler ? (
+          <View style={styles.titleTouchable}>
+            <ThemedText
+              type="defaultSemiBold"
+              style={[styles.title, isMissed && styles.strikethrough]}
+              numberOfLines={2}>
+              {task.title}
+            </ThemedText>
+          </View>
+        ) : (
+          // TODO this button is for expanding/collapsing the task's inline details
+          <Pressable
+            onPress={() => setDetailsExpanded((v) => !v)}
+            style={styles.titleTouchable}
+            hitSlop={4}>
+            <ThemedText
+              type="defaultSemiBold"
+              style={[styles.title, isMissed && styles.strikethrough]}
+              numberOfLines={2}>
+              {task.title}
+            </ThemedText>
+          </Pressable>
+        )}
+        {!openPageHandler ? (
+          <IconSymbol
+            name="chevron.right"
+            size={16}
+            color={mutedColor}
+            style={{ transform: [{ rotate: detailsExpanded ? '90deg' : '0deg' }] }}
+          />
+        ) : null}
         {task.is_global ? <IconSymbol name="shield.fill" size={18} color={tintColor} /> : null}
       </View>
 
       {task.description ? (
-        <Pressable onPress={() => setDetailsExpanded((v) => !v)}>
-          <ThemedText
-            style={[styles.description, { color: mutedColor }]}
-            numberOfLines={detailsExpanded ? undefined : 3}>
+        openPageHandler ? (
+          <ThemedText style={[styles.description, { color: mutedColor }]} numberOfLines={3}>
             {task.description}
           </ThemedText>
-        </Pressable>
+        ) : (
+          <Pressable onPress={() => setDetailsExpanded((v) => !v)}>
+            <ThemedText
+              style={[styles.description, { color: mutedColor }]}
+              numberOfLines={detailsExpanded ? undefined : 3}>
+              {task.description}
+            </ThemedText>
+          </Pressable>
+        )
       ) : null}
 
-      {detailsExpanded ? <TaskDetailsInline task={task} /> : null}
+      {!openPageHandler && detailsExpanded ? <TaskDetailsInline task={task} /> : null}
 
       {task.category_name ? (
         <View style={[styles.categoryChip, { borderColor: accentColor }]}>
@@ -237,7 +268,7 @@ export function TaskCard({
           </Pressable>
         </View>
       ) : null}
-    </View>
+    </Pressable>
   );
 }
 

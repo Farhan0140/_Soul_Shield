@@ -55,6 +55,11 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
     navigate(`/tasks/${task.task_id}/timer?date=${fmtDate(date)}`);
   };
 
+  // Timer tasks have their own dedicated page — clicking anywhere on the
+  // card (not just the small "Start timer" button) should jump straight
+  // there instead of expanding the inline details that other task types use.
+  const opensTimerPage = !isTemplate && isTimer && !hasSubTasks;
+
   const handleToggleComplete = async () => {
     if (isCounter || isTimer || hasSubTasks || isCompleted || isMissed) return;
     setCompleting(true);
@@ -92,7 +97,9 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       whileHover={{ y: -2 }}
+      onClick={opensTimerPage ? handleOpenTimer : undefined}
       className={`relative rounded-2xl border-2 bg-surface p-4 transition-all overflow-hidden
+        ${opensTimerPage ? 'cursor-pointer' : ''}
         ${isCompleted ? 'border-success/30 bg-success/10' : ''}
         ${isPartiallyCompleted ? 'border-warning/30 bg-warning/10' : ''}
         ${isMissed ? 'border-danger/30 bg-danger/10 opacity-80' : ''}
@@ -130,11 +137,11 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
           <div
             role="button"
             tabIndex={0}
-            onClick={() => setDetailsExpanded((v) => !v)}
+            onClick={() => (opensTimerPage ? handleOpenTimer() : setDetailsExpanded((v) => !v))}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                setDetailsExpanded((v) => !v);
+                opensTimerPage ? handleOpenTimer() : setDetailsExpanded((v) => !v);
               }
             }}
             className="cursor-pointer"
@@ -155,9 +162,11 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
                 {isMissed && !isReadOnly && (
                   <span className="text-[10px] font-semibold text-danger uppercase">Missed</span>
                 )}
-                <ChevronDown
-                  className={`w-4 h-4 text-muted transition-transform ${detailsExpanded ? 'rotate-180' : ''}`}
-                />
+                {!opensTimerPage && (
+                  <ChevronDown
+                    className={`w-4 h-4 text-muted transition-transform ${detailsExpanded ? 'rotate-180' : ''}`}
+                  />
+                )}
               </div>
             </div>
 
@@ -165,7 +174,7 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
               <p className="text-sm text-muted mt-0.5 line-clamp-2">{task.description}</p>
             )}
 
-            {detailsExpanded && <TaskDetailsInline task={task} />}
+            {!opensTimerPage && detailsExpanded && <TaskDetailsInline task={task} />}
           </div>
 
           {task.category_name && (
@@ -261,7 +270,10 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
           <m.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => onEdit(task)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(task);
+            }}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted hover:bg-bg transition-colors"
           >
             <Edit2 className="w-3.5 h-3.5" /> Edit
@@ -269,7 +281,10 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
           <m.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={handleDelete}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDelete();
+            }}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-danger hover:bg-danger/10 transition-colors"
           >
             <Trash2 className="w-3.5 h-3.5" /> Delete
