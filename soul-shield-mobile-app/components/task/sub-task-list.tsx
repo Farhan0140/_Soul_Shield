@@ -26,6 +26,7 @@ export function SubTaskList({ taskId, subTasks, date, disabled, onRewardEarned }
   const mutedColor = useThemeColor({}, 'muted');
   const successColor = useThemeColor({}, 'success');
   const borderColor = useThemeColor({}, 'border');
+  const rowBackground = useThemeColor({}, 'background');
   const completeSubTask = useCompleteSubTask();
   const incrementSubTask = useIncrementSubTask();
 
@@ -75,7 +76,7 @@ export function SubTaskList({ taskId, subTasks, date, disabled, onRewardEarned }
         const isTimer = subTask.task_type === 'timer';
 
         return (
-          <View key={subTask.sub_task_id} style={styles.row}>
+          <View key={subTask.sub_task_id} style={[styles.row, { backgroundColor: rowBackground, borderColor }]}>
             <View style={styles.rowHeader}>
               {!isCounter && !isTimer ? (
                 // TODO this button is for toggling completion of a normal type sub-task
@@ -129,7 +130,7 @@ export function SubTaskList({ taskId, subTasks, date, disabled, onRewardEarned }
 
 const styles = StyleSheet.create({
   container: { borderTopWidth: 1, paddingTop: 10, gap: 10, marginTop: 4 },
-  row: { gap: 8 },
+  row: { gap: 8, borderWidth: 1, borderRadius: 12, padding: 10 },
   rowHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   checkbox: { padding: 2 },
   title: { flex: 1, fontSize: 14 },

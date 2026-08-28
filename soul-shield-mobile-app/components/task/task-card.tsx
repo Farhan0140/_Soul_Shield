@@ -23,6 +23,14 @@ interface TaskCardProps {
    * task keeps its original-category context when displayed somewhere that
    * groups by status rather than category (the Completed Tasks section). */
   showCategoryBadge?: boolean;
+  /** 'template' renders a fixed task as a read-only template card — no
+   * completion controls or personal progress, just an add-to-my-tasks
+   * action (see app/category/[id].tsx's 'fixed' pseudo-category). */
+  variant?: 'template';
+  /** Only used when variant='template'. */
+  alreadyAdded?: boolean;
+  isAdding?: boolean;
+  onAddToMyTasks?: () => void;
   onToggleComplete: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -42,6 +50,10 @@ export function TaskCard({
   date,
   isAdmin,
   showCategoryBadge,
+  variant,
+  alreadyAdded,
+  isAdding,
+  onAddToMyTasks,
   onToggleComplete,
   onEdit,
   onDelete,
@@ -57,6 +69,7 @@ export function TaskCard({
   const partiallyCompletedTint = useThemeColor({}, 'partiallyCompletedTint');
   const categoryFallback = useThemeColor({}, 'categoryFallback');
 
+  const isTemplate = variant === 'template';
   const isMissed = task.status === 'missed';
   const isCompleted = task.status === 'completed';
   const isPartiallyCompleted = task.status === 'partially_completed';
@@ -64,7 +77,7 @@ export function TaskCard({
   const isTimer = task.task_type === 'timer';
   const hasSubTasks = Boolean(task.sub_tasks?.length);
   const accentColor = task.category_color ?? categoryFallback;
-  const canManage = task.is_global ? isAdmin : true;
+  const canManage = !isTemplate && (task.is_global ? isAdmin : true);
   // Only today's tasks can actually be completed — browsing a past/future day
   // via the date nav header is view-only, otherwise you could tick off a
   // future day's task before it's even "happened" or backfill history at will.
@@ -89,7 +102,7 @@ export function TaskCard({
   return (
     <View style={[styles.card, { backgroundColor, borderLeftColor: accentColor }]}>
       <View style={styles.headerRow}>
-        {!isCounter && !isTimer && !hasSubTasks ? (
+        {!isTemplate && !isCounter && !isTimer && !hasSubTasks ? (
           // TODO this button is for toggling completion of a normal type task
           <Pressable
             disabled={controlsDisabled}
@@ -151,7 +164,7 @@ export function TaskCard({
         </View>
       ) : null}
 
-      {isCounter && !hasSubTasks ? (
+      {!isTemplate && isCounter && !hasSubTasks ? (
         <View style={styles.counterSection}>
           <CounterTaskControls
             task={task}
@@ -168,7 +181,7 @@ export function TaskCard({
         </View>
       ) : null}
 
-      {isTimer && !hasSubTasks ? (
+      {!isTemplate && isTimer && !hasSubTasks ? (
         <View style={styles.counterSection}>
           {/* TODO this button is for opening the dedicated timer page for this task */}
           <Pressable onPress={handleOpenTimer} hitSlop={8} style={styles.openCounterLink}>
@@ -178,7 +191,7 @@ export function TaskCard({
         </View>
       ) : null}
 
-      {hasSubTasks ? (
+      {!isTemplate && hasSubTasks ? (
         <SubTaskList
           taskId={task.task_id}
           subTasks={task.sub_tasks!}
@@ -188,9 +201,29 @@ export function TaskCard({
         />
       ) : null}
 
-      {isCompleted && task.reward_text ? <RewardBanner text={task.reward_text} /> : null}
-      {isPartiallyCompleted ? <StatusBadge label="Partially Completed" tone="warning" /> : null}
-      {isMissed ? <StatusBadge label="Missed" tone="danger" /> : null}
+      {!isTemplate && isCompleted && task.reward_text ? <RewardBanner text={task.reward_text} /> : null}
+      {!isTemplate && isPartiallyCompleted ? <StatusBadge label="Partially Completed" tone="warning" /> : null}
+      {!isTemplate && isMissed ? <StatusBadge label="Missed" tone="danger" /> : null}
+
+      {isTemplate ? (
+        <Pressable
+          disabled={alreadyAdded || isAdding}
+          onPress={onAddToMyTasks}
+          style={[
+            styles.addButton,
+            { backgroundColor: alreadyAdded ? `${successColor}1A` : tintColor },
+          ]}>
+          <IconSymbol
+            name={alreadyAdded ? 'checkmark.circle.fill' : 'plus.circle.fill'}
+            size={18}
+            color={alreadyAdded ? successColor : '#fff'}
+          />
+          <ThemedText
+            style={[styles.addButtonLabel, { color: alreadyAdded ? successColor : '#fff' }]}>
+            {alreadyAdded ? 'Already Added' : isAdding ? 'Adding…' : 'Add to Your Own Tasks'}
+          </ThemedText>
+        </Pressable>
+      ) : null}
 
       {canManage ? (
         <View style={styles.actions}>
@@ -240,4 +273,14 @@ const styles = StyleSheet.create({
   counterSection: { gap: 8 },
   openCounterLink: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-end' },
   openCounterLabel: { fontSize: 12, fontWeight: '600' },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderCurve: 'continuous',
+  },
+  addButtonLabel: { fontSize: 14, fontWeight: '700' },
 });

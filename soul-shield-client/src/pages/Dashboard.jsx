@@ -42,7 +42,7 @@ export default function Dashboard() {
   const completedTasks = filteredTasks.filter(t => t.status === 'completed');
   const activeTasks = filteredTasks.filter(t => t.status !== 'completed');
 
-  const fixedTasks = activeTasks.filter(t => t.is_global);
+  const fixedTasks = activeTasks.filter(t => t.is_global && !t.already_added);
   const myTasks = activeTasks.filter(t => !t.is_global);
 
   // Mirrors the mobile app's category-section derivation: one row per real
@@ -174,14 +174,16 @@ export default function Dashboard() {
           every task inline here, mirroring the mobile app's dashboard. */}
       {!loading && !error && filteredTasks.length > 0 && (
         <div className="space-y-2.5">
-          <CategoryRow
-            title="Fixed Tasks"
-            count={fixedTasks.length}
-            accentColor="var(--color-warning)"
-            icon={Shield}
-            onClick={() => openSection(FIXED_SECTION_ID, 'Fixed Tasks')}
-          />
-          {categorySections.map((section) => (
+          {fixedTasks.length > 0 && (
+            <CategoryRow
+              title="Fixed Tasks"
+              count={fixedTasks.length}
+              accentColor="var(--color-warning)"
+              icon={Shield}
+              onClick={() => openSection(FIXED_SECTION_ID, 'Fixed Tasks')}
+            />
+          )}
+          {categorySections.filter((section) => section.count > 0).map((section) => (
             <CategoryRow
               key={section.id}
               title={section.title}

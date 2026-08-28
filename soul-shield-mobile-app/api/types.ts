@@ -60,6 +60,10 @@ export interface Task {
   is_active?: boolean;
   /** "HH:MM" 24-hour local time the task should remind at, on each of its recurrence_days. */
   reminder_time?: string | null;
+  /** Only meaningful when `is_global` is true: whether the current user has
+   * already cloned this fixed task into their own tasks via the
+   * add-to-my-tasks endpoint (see POST /tasks/{id}/add-to-my-tasks). */
+  already_added?: boolean;
   /** When present, this task's `status` is derived from these (pending if
    * none are completed, partially_completed if some are, completed if all
    * are) — the task itself can no longer be completed directly. */
@@ -125,6 +129,16 @@ export interface CompletionResponse {
  * after this action; `parent_reward_text` is only set when it just became
  * 'completed' (i.e. every sub-task is now done) — that's the one moment the
  * reward modal should fire for a sub-tasked parent. */
+/** Shape returned by POST /tasks/:id/add-to-my-tasks. Deliberately minimal —
+ * mirrors TaskMutationResponse's convention of not echoing the full task
+ * shape; the client relies on the next GET /tasks refetch for that. */
+export interface AddToMyTasksResponse {
+  already_added: boolean;
+  task_id: number;
+  category_id?: number | null;
+  category_name?: string;
+}
+
 export interface SubTaskCompletionResponse {
   id: number;
   sub_task_id: number;

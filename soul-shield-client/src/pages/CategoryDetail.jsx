@@ -64,7 +64,7 @@ export default function CategoryDetail() {
   }, [date, getTasks]);
 
   const categoryTasks = useMemo(() => {
-    if (specialId === 'fixed') return tasks.filter((t) => t.is_global);
+    if (specialId === 'fixed') return tasks.filter((t) => t.is_global && !t.already_added);
     if (specialId === 'uncategorized') return tasks.filter((t) => !t.is_global && t.category_id == null);
     if (specialId === 'completed') return tasks.filter((t) => t.status === 'completed');
     return tasks.filter((t) => t.category_id === categoryId);
@@ -147,6 +147,7 @@ export default function CategoryDetail() {
               key={task.task_id}
               task={task}
               date={date}
+              variant={specialId === 'fixed' ? 'template' : 'full'}
               isReadOnly={dateParam ? dateParam !== fmtDate(new Date()) : false}
               onEdit={openEdit}
               onDelete={handleDelete}

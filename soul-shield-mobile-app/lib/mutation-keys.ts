@@ -14,6 +14,7 @@ export const mutationKeys = {
     increment: ['tasks', 'increment'] as const,
     completeSubTask: ['tasks', 'completeSubTask'] as const,
     incrementSubTask: ['tasks', 'incrementSubTask'] as const,
+    addToMyTasks: ['tasks', 'addToMyTasks'] as const,
   },
   categories: {
     create: ['categories', 'create'] as const,

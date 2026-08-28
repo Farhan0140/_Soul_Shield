@@ -77,7 +77,7 @@ export default function HomeScreen() {
   const completedTasks = filteredTasks.filter((t) => t.status === 'completed');
   const activeTasks = filteredTasks.filter((t) => t.status !== 'completed');
 
-  const fixedTasks = activeTasks.filter((t) => t.is_global);
+  const fixedTasks = activeTasks.filter((t) => t.is_global && !t.already_added);
   const myTasks = activeTasks.filter((t) => !t.is_global);
 
   const categorySections = useMemo(() => {
@@ -213,27 +213,31 @@ export default function HomeScreen() {
            * (Fixed/Uncategorized/Completed) — opens its own dedicated page
            * instead of expanding inline; see category/[id].tsx for how it
            * derives Fixed/Uncategorized/Completed from useTasksQuery(date)
-           * since those don't have a backend category to fetch. */}
-          <CategorySection
-            title="Fixed Tasks"
-            count={fixedTasks.length}
-            accentColor={tintColor}
-            icon="shield.fill"
-            tasks={fixedTasks}
-            date={date}
-            isAdmin={isAdmin}
-            onPress={() =>
-              router.push({
-                pathname: '/category/[id]',
-                params: { id: FIXED_SECTION_KEY, name: 'Fixed Tasks', date },
-              })
-            }
-            onToggleComplete={handleToggleComplete}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onRewardEarned={handleRewardEarned}
-          />
-          {categorySections.map((section) => (
+           * since those don't have a backend category to fetch. Sections
+           * with zero tasks for the day are hidden entirely rather than
+           * shown as an empty row. */}
+          {fixedTasks.length > 0 ? (
+            <CategorySection
+              title="Fixed Tasks"
+              count={fixedTasks.length}
+              accentColor={tintColor}
+              icon="shield.fill"
+              tasks={fixedTasks}
+              date={date}
+              isAdmin={isAdmin}
+              onPress={() =>
+                router.push({
+                  pathname: '/category/[id]',
+                  params: { id: FIXED_SECTION_KEY, name: 'Fixed Tasks', date },
+                })
+              }
+              onToggleComplete={handleToggleComplete}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              onRewardEarned={handleRewardEarned}
+            />
+          ) : null}
+          {categorySections.filter((section) => section.tasks.length > 0).map((section) => (
             <CategorySection
               key={section.key}
               title={section.title}

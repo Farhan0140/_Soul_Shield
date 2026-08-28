@@ -1,5 +1,6 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from '@/api/client';
 import type {
+  AddToMyTasksResponse,
   CompletionResponse,
   SubTaskCompletionResponse,
   Task,
@@ -30,6 +31,10 @@ export function deleteTask(id: number, token: string | null) {
 
 export function completeTask(id: number, date: string | undefined, token: string | null) {
   return apiPost<CompletionResponse>(`/tasks/${id}/complete`, date ? { date } : {}, token);
+}
+
+export function addTaskToMyTasks(id: number, token: string | null) {
+  return apiPost<AddToMyTasksResponse>(`/tasks/${id}/add-to-my-tasks`, {}, token);
 }
 
 export function incrementTask(

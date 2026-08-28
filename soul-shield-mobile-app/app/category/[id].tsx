@@ -13,7 +13,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { PaginationBar } from '@/components/ui/pagination-bar';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { useAuth } from '@/context/auth-context';
-import { useCompleteTask, useDeleteTask } from '@/hooks/queries/use-task-mutations';
+import { useAddTaskToMyTasks, useCompleteTask, useDeleteTask } from '@/hooks/queries/use-task-mutations';
 import { useTasksQuery } from '@/hooks/queries/use-tasks';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { formatDisplayDate, todayISODate } from '@/lib/date';
@@ -62,10 +62,12 @@ export default function CategoryDetailScreen() {
 
   const [page, setPage] = useState(1);
   const [reward, setReward] = useState<{ text: string; taskTitle: string } | null>(null);
+  const [addingTaskId, setAddingTaskId] = useState<number | null>(null);
 
   const tasksQuery = useTasksQuery(date);
   const completeTask = useCompleteTask();
   const deleteTask = useDeleteTask(date);
+  const addToMyTasks = useAddTaskToMyTasks(date);
 
   const insets = useSafeAreaInsets();
   const background = useThemeColor({}, 'background');
@@ -77,7 +79,7 @@ export default function CategoryDetailScreen() {
   // task list (see the doc comment on SpecialCategoryId above for why).
   const categoryTasks = useMemo(() => {
     const all = tasksQuery.data ?? [];
-    if (specialId === 'fixed') return all.filter((t) => t.is_global);
+    if (specialId === 'fixed') return all.filter((t) => t.is_global && !t.already_added);
     if (specialId === 'uncategorized') return all.filter((t) => !t.is_global && t.category_id == null);
     if (specialId === 'completed') return all.filter((t) => t.status === 'completed');
     return all.filter((t) => t.category_id === categoryId);
@@ -141,6 +143,14 @@ export default function CategoryDetailScreen() {
     ]);
   };
 
+  const handleAddToMyTasks = (task: Task) => {
+    setAddingTaskId(task.task_id);
+    addToMyTasks.mutate(task.task_id, {
+      onError: (err) => Alert.alert('Could not add task', getErrorMessage(err)),
+      onSettled: () => setAddingTaskId(null),
+    });
+  };
+
   return (
     <View style={[styles.screen, { backgroundColor: background }]}>
       {/* Belt-and-suspenders alongside category/_layout.tsx's Stack.Screen
@@ -190,6 +200,10 @@ export default function CategoryDetailScreen() {
                 date={date}
                 isAdmin={isAdmin}
                 showCategoryBadge={specialId === 'completed'}
+                variant={specialId === 'fixed' ? 'template' : undefined}
+                alreadyAdded={task.already_added}
+                isAdding={addingTaskId === task.task_id}
+                onAddToMyTasks={() => handleAddToMyTasks(task)}
                 onToggleComplete={() => handleToggleComplete(task)}
                 onEdit={() => handleEdit(task)}
                 onDelete={() => handleDelete(task)}

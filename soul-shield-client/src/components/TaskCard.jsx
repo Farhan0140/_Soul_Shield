@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { m, AnimatePresence } from 'framer-motion';
-import { Check, ChevronDown, Edit2, Trash2, Shield, Sparkles, Loader2, Timer, ArrowUpRight } from 'lucide-react';
+import { Check, ChevronDown, Edit2, Trash2, Shield, Sparkles, Loader2, Timer, ArrowUpRight, PlusCircle, CheckCircle2 } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { useToast } from './Toast';
 import { useAuth } from '../context/AuthContext';
@@ -11,15 +11,20 @@ import SubTaskList from './SubTaskList';
 import RewardModal from './RewardModal';
 import TaskDetailsInline from './TaskDetailsInline';
 
-export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isReadOnly = false }) {
+// variant="template" renders a fixed/admin task as a read-only template card —
+// no completion controls or personal progress, just an "Add to Your Own Tasks"
+// action (see CategoryDetail.jsx's 'fixed' pseudo-category).
+export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isReadOnly = false, variant = 'full' }) {
   const { user } = useAuth();
-  const { completeTask, deleteTask } = useApi();
+  const { completeTask, deleteTask, addTaskToMyTasks } = useApi();
   const toast = useToast();
   const navigate = useNavigate();
   const [completing, setCompleting] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [rewardText, setRewardText] = useState(null);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
 
+  const isTemplate = variant === 'template';
   const isCounter = task.task_type === 'counter';
   const isTimer = task.task_type === 'timer';
   const isCompleted = task.status === 'completed';
@@ -29,9 +34,22 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
   const categoryColor = task.category_color || '#94a3b8';
 
   // Who can edit/delete?
-  const canManage = !isReadOnly && (
+  const canManage = !isTemplate && !isReadOnly && (
     task.is_global ? user?.role === 'admin' : true
   );
+
+  const handleAddToMyTasks = async () => {
+    setAdding(true);
+    try {
+      const res = await addTaskToMyTasks(task.task_id);
+      onUpdate({ already_added: true });
+      toast.success(res.already_added ? 'Already in your tasks.' : 'Added to your tasks!');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setAdding(false);
+    }
+  };
 
   const handleOpenTimer = () => {
     navigate(`/tasks/${task.task_id}/timer?date=${fmtDate(date)}`);
@@ -86,7 +104,7 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
       <div className="flex items-start gap-3">
         {/* Checkbox (normal tasks only, and only when there are no sub-tasks —
             a sub-tasked parent's completion is derived, not directly toggled) */}
-        {!isCounter && !isTimer && !hasSubTasks && (
+        {!isTemplate && !isCounter && !isTimer && !hasSubTasks && (
           <m.button
             whileTap={{ scale: 0.85 }}
             onClick={handleToggleComplete}
@@ -162,7 +180,7 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
       </div>
 
       {/* Counter widget */}
-      {isCounter && !hasSubTasks && (
+      {!isTemplate && isCounter && !hasSubTasks && (
         <CounterWidget
           task={task}
           date={date}
@@ -173,7 +191,7 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
       )}
 
       {/* Timer task — always opens the dedicated countdown page, never inline */}
-      {isTimer && !hasSubTasks && (
+      {!isTemplate && isTimer && !hasSubTasks && (
         <m.button
           whileTap={{ scale: 0.97 }}
           onClick={handleOpenTimer}
@@ -186,7 +204,7 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
       )}
 
       {/* Sub-tasks */}
-      {hasSubTasks && (
+      {!isTemplate && hasSubTasks && (
         <SubTaskList
           task={task}
           date={date}
@@ -198,7 +216,7 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
 
       {/* Reward text (completed normal/sub-tasked tasks; counter tasks show their own via CounterWidget) */}
       <AnimatePresence>
-        {isCompleted && !isCounter && task.reward_text && (
+        {!isTemplate && isCompleted && !isCounter && task.reward_text && (
           <m.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -215,6 +233,27 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
           </m.div>
         )}
       </AnimatePresence>
+
+      {/* Add-to-your-tasks action (template/fixed tasks only) */}
+      {isTemplate && (
+        <div className="mt-3 pt-3 border-t border-border">
+          {task.already_added ? (
+            <div className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-success/10 text-success font-semibold text-sm">
+              <CheckCircle2 className="w-4 h-4" /> Already Added
+            </div>
+          ) : (
+            <m.button
+              whileTap={{ scale: 0.97 }}
+              onClick={handleAddToMyTasks}
+              disabled={adding}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-semibold text-sm hover:shadow-lg hover:shadow-indigo-200 transition-shadow disabled:opacity-60"
+            >
+              {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
+              Add to Your Own Tasks
+            </m.button>
+          )}
+        </div>
+      )}
 
       {/* Action buttons */}
       {canManage && (

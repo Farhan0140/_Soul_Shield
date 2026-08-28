@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
-import type { Category, SubTask, Task, TaskStatus } from '@/api/types';
+import type { AddToMyTasksResponse, Category, SubTask, Task, TaskStatus } from '@/api/types';
 import {
+  addTaskToMyTasksMutationFn,
   completeSubTaskMutationFn,
   completeTaskMutationFn,
   createTaskMutationFn,
@@ -202,6 +203,31 @@ export function useCompleteTask() {
       if (context?.snapshot) restoreTaskCaches(queryClient, context.date, context.snapshot);
     },
     onSettled: () => invalidateTaskLists(queryClient),
+  });
+}
+
+/** Clones a fixed (is_global) task into the current user's own tasks (see
+ * POST /tasks/:id/add-to-my-tasks) — a structural change like useCreateTask,
+ * and may also create a new category server-side, hence the extra
+ * `categories` invalidation on top of the usual task-list ones. `date`
+ * targets which cached `tasks(date)` list to flip `already_added` on for the
+ * source fixed task (mirrors useDeleteTask/useUpdateTask's `date` param) —
+ * the mutation itself (and its durable replay default in
+ * lib/mutation-defaults.ts) only takes the task id, so variables stay
+ * identical whether this resolves live or replays headlessly. */
+export function useAddTaskToMyTasks(date: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: mutationKeys.tasks.addToMyTasks,
+    mutationFn: addTaskToMyTasksMutationFn,
+    onSuccess: (_data: AddToMyTasksResponse, taskId: number) => {
+      patchTaskInCaches(queryClient, date, taskId, (t) => ({ ...t, already_added: true }));
+      return refreshTaskCacheAfterStructuralChange(queryClient);
+    },
+    onSettled: () => {
+      invalidateTaskLists(queryClient);
+      queryClient.invalidateQueries({ queryKey: queryKeys.categories });
+    },
   });
 }
 

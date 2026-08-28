@@ -66,7 +66,10 @@ export default function SubTaskList({ task, date, onUpdate, onRewardEarned, disa
         const pct = isCounter ? Math.min(100, ((s.progress_count || 0) / (s.target_count || 1)) * 100) : 0;
 
         return (
-          <div key={s.sub_task_id} className="flex items-start gap-2">
+          <div
+            key={s.sub_task_id}
+            className="flex items-start gap-2 rounded-xl border border-border bg-bg p-2.5"
+          >
             {!isCounter && !isTimer && (
               <button
                 type="button"

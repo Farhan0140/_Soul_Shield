@@ -2,6 +2,7 @@ import type { QueryClient } from '@tanstack/react-query';
 
 import { createCategory, deleteCategory, updateCategory } from '@/api/categories';
 import {
+  addTaskToMyTasks,
   completeSubTask,
   completeTask,
   createTask,
@@ -76,6 +77,9 @@ export const incrementSubTaskMutationFn = async ({
   date?: string;
 }) => incrementSubTask(taskId, subTaskId, amount, date, await tokenStore.getToken());
 
+export const addTaskToMyTasksMutationFn = async (sourceTaskId: number) =>
+  addTaskToMyTasks(sourceTaskId, await tokenStore.getToken());
+
 export const createCategoryMutationFn = async (input: { name: string; color_hex?: string }) =>
   createCategory(input, await tokenStore.getToken());
 
@@ -142,6 +146,13 @@ export function registerMutationDefaults(queryClient: QueryClient) {
   queryClient.setMutationDefaults(mutationKeys.tasks.incrementSubTask, {
     mutationFn: incrementSubTaskMutationFn,
     onSettled: () => invalidateTaskLists(queryClient),
+  });
+  queryClient.setMutationDefaults(mutationKeys.tasks.addToMyTasks, {
+    mutationFn: addTaskToMyTasksMutationFn,
+    // Structural change (a new personal task, and possibly a new category) —
+    // same reasoning as create/update/delete above.
+    onSuccess: () => refreshTaskCacheAfterStructuralChange(queryClient),
+    onSettled: () => invalidateCategoryDependents(queryClient),
   });
   queryClient.setMutationDefaults(mutationKeys.categories.create, {
     mutationFn: createCategoryMutationFn,
