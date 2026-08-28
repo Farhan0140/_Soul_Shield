@@ -12,6 +12,7 @@ var (
 	ErrForbidden         = errors.New("You do not have permission to perform this action")
 	ErrInvalidRecurrence = errors.New("recurrence_days cannot be empty for this recurrence_type")
 	ErrTaskNotScheduled  = errors.New("this task is not scheduled for the given date")
+	ErrTaskNotGlobal     = errors.New("only fixed tasks can be added to your own tasks")
 
 	ErrCategoryExists   = errors.New("Category with this name already exists")
 	ErrCategoryNotFound = errors.New("Category not found")

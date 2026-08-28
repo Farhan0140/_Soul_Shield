@@ -44,7 +44,7 @@ func Serve() {
 
 	userHandler := user.NewHandler(cnf, userRepo, otpRepo, middlewares)
 	otpHandler := otp.NewHandler(otpRepo)
-	taskHandler := task.NewHandler(taskRepo, subTaskRepo)
+	taskHandler := task.NewHandler(taskRepo, subTaskRepo, categoryRepo)
 	categoryHandler := category.NewHandler(categoryRepo)
 
 	server := rest.NewServer(

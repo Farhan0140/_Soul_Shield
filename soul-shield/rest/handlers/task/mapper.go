@@ -2,8 +2,26 @@ package task
 
 import (
 	"soulsheld/repo"
+	"strings"
 	"time"
 )
+
+// isAlreadyAddedByUser - একটা fixed (is_global) task এর জন্য, user এর personal task
+// রেফারেন্সগুলোর মধ্যে lineage (source_task_id) বা case-insensitive/trimmed title ম্যাচ
+// খুঁজে বের করে - ListTasks এ প্রতিটা fixed task এ already_added ফ্ল্যাগ বসাতে ব্যবহার হয়
+// (repo.taskRepo.FindOwnedMatch এর মতোই লজিক, কিন্তু bulk এ Go তে - প্রতি task এ query এড়াতে)
+func isAlreadyAddedByUser(sourceTaskID int64, sourceTitle string, ownedRefs []repo.TaskRef) bool {
+	normalizedTitle := strings.ToLower(strings.TrimSpace(sourceTitle))
+	for _, ref := range ownedRefs {
+		if ref.SourceTaskID.Valid && ref.SourceTaskID.Int64 == sourceTaskID {
+			return true
+		}
+		if strings.ToLower(strings.TrimSpace(ref.Title)) == normalizedTitle {
+			return true
+		}
+	}
+	return false
+}
 
 // repo.Task -> TaskResponse (একটা task এর পূর্ণ তথ্য, Create/Update এর response এ ব্যবহার হয়)
 // subTasks প্যারামিটার optional - দিলে response এ embed হবে (কোনো নির্দিষ্ট date এর status ছাড়াই)

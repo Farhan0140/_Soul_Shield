@@ -130,6 +130,10 @@ type TaskWithStatusResponse struct {
 	RecurrenceDays []int64 `json:"recurrence_days,omitempty"`
 	ReminderTime   *string `json:"reminder_time,omitempty"`
 
+	// AlreadyAdded - is_global task এর জন্য, বর্তমান ইউজার আগেই এই fixed task টা
+	// নিজের task লিস্টে "Add to Your Own Tasks" দিয়ে যুক্ত করেছে কিনা (personal task এর জন্য সবসময় false)
+	AlreadyAdded bool `json:"already_added"`
+
 	SubTasks []SubTaskStatusResponse `json:"sub_tasks,omitempty"`
 }
 
@@ -182,6 +186,18 @@ type PaginatedTasksResponse struct {
 	TotalItems     int                      `json:"total_items" example:"23"`
 	CompletedItems int                      `json:"completed_items" example:"5"`
 	TotalPages     int                      `json:"total_pages" example:"3"`
+}
+
+// AddToMyTasksResponse - POST /tasks/{id}/add-to-my-tasks এর response। ইচ্ছাকৃতভাবে
+// ছোট রাখা হয়েছে - CreateTask এর মতোই, পুরো TaskWithStatusResponse শেপ (status/date সহ)
+// রিটার্ন করে না, client পরের GET /tasks কলে সেটা পাবে।
+type AddToMyTasksResponse struct {
+	// AlreadyAdded true হলে বোঝাবে নতুন কোনো task তৈরি হয়নি - user এর আগে থেকেই এই
+	// fixed task টার একটা personal copy আছে (lineage বা case-insensitive title ম্যাচে)
+	AlreadyAdded bool   `json:"already_added" example:"false"`
+	TaskID       int64  `json:"task_id" example:"12"`
+	CategoryID   *int64 `json:"category_id,omitempty" example:"3"`
+	CategoryName string `json:"category_name,omitempty" example:"Fitness"`
 }
 
 type SuccessResponse struct {

@@ -46,9 +46,19 @@ func (h *Handler) ListTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ownedRefs, err := h.taskRepo.ListOwnedRefs(userID)
+	if err != nil {
+		util.SendError(w, map[string]string{"error": "Failed to fetch tasks"}, http.StatusInternalServerError)
+		return
+	}
+
 	response := make([]TaskWithStatusResponse, len(tasks))
 	for i, t := range tasks {
-		response[i] = toTaskWithStatusResponse(t)
+		resp := toTaskWithStatusResponse(t)
+		if t.IsGlobal {
+			resp.AlreadyAdded = isAlreadyAddedByUser(t.TaskID, t.Title, ownedRefs)
+		}
+		response[i] = resp
 	}
 
 	util.SendData(w, response, http.StatusOK)

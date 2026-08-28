@@ -37,8 +37,17 @@ type Task struct {
 	TargetCount     sql.NullInt32  `db:"target_count" json:"target_count,omitempty"`
 	DurationSeconds sql.NullInt32  `db:"duration_seconds" json:"duration_seconds,omitempty"`
 	ReminderTime    sql.NullString `db:"reminder_time" json:"reminder_time,omitempty"`
+	SourceTaskID    sql.NullInt64  `db:"source_task_id" json:"source_task_id,omitempty"`
 	CreatedAt       time.Time      `db:"created_at" json:"created_at"`
 	UpdatedAt       time.Time      `db:"updated_at" json:"updated_at"`
+}
+
+// TaskRef - একটা personal task এর ন্যূনতম তথ্য (id/title/source_task_id), যা দিয়ে
+// bulk এ "already added" চেক করা যায় (ListOwnedRefs এ ব্যবহার হয়)
+type TaskRef struct {
+	ID           int64         `db:"id"`
+	Title        string        `db:"title"`
+	SourceTaskID sql.NullInt64 `db:"source_task_id"`
 }
 
 // TaskUpdate - সব ফিল্ড pointer, যাতে partial update করা যায় (nil মানে ঐ ফিল্ড change হবে না)

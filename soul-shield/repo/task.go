@@ -22,6 +22,12 @@ type TaskRepo interface {
 	ListForDateByCategory(userID int64, date time.Time, categoryID int64) ([]TaskWithStatus, error)
 	Complete(taskID int64, userID int64, date time.Time) (*TaskCompletion, error)
 	Increment(taskID int64, userID int64, date time.Time, amount int32) (*TaskCompletion, error) // নতুন
+
+	// FindOwnedMatch - user এর নিজের (is_global=false) task গুলোর মধ্যে sourceTaskID (lineage)
+	// অথবা title (case-insensitive) ম্যাচ করে এমন একটা task খুঁজে বের করে - "already added" চেক এ ব্যবহার হয়
+	FindOwnedMatch(userID int64, sourceTaskID int64, title string) (*Task, error)
+	// ListOwnedRefs - user এর সব personal task এর id/title/source_task_id (bulk "already added" গণনার জন্য)
+	ListOwnedRefs(userID int64) ([]TaskRef, error)
 }
 
 type taskRepo struct {
@@ -74,9 +80,9 @@ func (r *taskRepo) Create(task Task) (*Task, error) {
 		INSERT INTO tasks (
 			title, description, is_global, owner_id,
 			recurrence_type, recurrence_days, created_by,
-			category_id, reward_text, task_type, target_count, duration_seconds, reminder_time
+			category_id, reward_text, task_type, target_count, duration_seconds, reminder_time, source_task_id
 		)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
 		RETURNING id, is_active, created_at, updated_at
 	`
 
@@ -84,7 +90,7 @@ func (r *taskRepo) Create(task Task) (*Task, error) {
 		query,
 		task.Title, task.Description, task.IsGlobal, task.OwnerID,
 		task.RecurrenceType, task.RecurrenceDays, task.CreatedBy,
-		task.CategoryID, task.RewardText, task.TaskType, task.TargetCount, task.DurationSeconds, task.ReminderTime,
+		task.CategoryID, task.RewardText, task.TaskType, task.TargetCount, task.DurationSeconds, task.ReminderTime, task.SourceTaskID,
 	)
 
 	err := row.Scan(&task.ID, &task.IsActive, &task.CreatedAt, &task.UpdatedAt)
@@ -694,6 +700,36 @@ func (r *taskRepo) Increment(taskID int64, userID int64, date time.Time, amount 
 	}
 
 	return &completion, nil
+}
+
+// ---- FindOwnedMatch: "already added" ডুপ্লিকেট চেক - lineage (source_task_id) অথবা
+// title (case-insensitive, trimmed) ম্যাচ করলে সেই personal task রিটার্ন করে ----
+func (r *taskRepo) FindOwnedMatch(userID int64, sourceTaskID int64, title string) (*Task, error) {
+	var task Task
+	err := r.db.Get(&task, `
+		SELECT * FROM tasks
+		WHERE owner_id = $1 AND is_global = false
+			AND (source_task_id = $2 OR LOWER(TRIM(title)) = LOWER(TRIM($3)))
+		ORDER BY id
+		LIMIT 1
+	`, userID, sourceTaskID, title)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, util.ErrTaskNotFound
+		}
+		return nil, err
+	}
+	return &task, nil
+}
+
+// ---- ListOwnedRefs: user এর সব personal task এর id/title/source_task_id, bulk এ
+// "already added" ফ্ল্যাগ বসানোর জন্য (ListTasks হ্যান্ডলারে ব্যবহার হয়, per-task query এড়াতে) ----
+func (r *taskRepo) ListOwnedRefs(userID int64) ([]TaskRef, error) {
+	var refs []TaskRef
+	err := r.db.Select(&refs, `
+		SELECT id, title, source_task_id FROM tasks WHERE owner_id = $1 AND is_global = false
+	`, userID)
+	return refs, err
 }
 
 // ---- Helper ----

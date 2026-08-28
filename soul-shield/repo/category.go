@@ -30,6 +30,7 @@ type CategoryRepo interface {
 	Update(id int64, updates CategoryUpdate, ownerID int64) (*Category, error)
 	Delete(id int64, ownerID int64) error
 	GetByID(id int64) (*Category, error)
+	FindByOwnerAndNameCI(ownerID int64, name string) (*Category, error)
 }
 
 type categoryRepo struct {
@@ -71,6 +72,22 @@ func (r *categoryRepo) ListByOwner(ownerID int64) ([]Category, error) {
 func (r *categoryRepo) GetByID(id int64) (*Category, error) {
 	var cat Category
 	err := r.db.Get(&cat, `SELECT * FROM categories WHERE id = $1`, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, util.ErrCategoryNotFound
+		}
+		return nil, err
+	}
+	return &cat, nil
+}
+
+// FindByOwnerAndNameCI - case-insensitive নামে owner এর category খুঁজে বের করে
+// (admin task থেকে "Add to Your Own Tasks" করার সময় category reuse করতে ব্যবহার হয়)
+func (r *categoryRepo) FindByOwnerAndNameCI(ownerID int64, name string) (*Category, error) {
+	var cat Category
+	err := r.db.Get(&cat, `
+		SELECT * FROM categories WHERE owner_id = $1 AND LOWER(name) = LOWER($2) LIMIT 1
+	`, ownerID, name)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, util.ErrCategoryNotFound
