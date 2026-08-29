@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { getTaskHistory, getTasks } from '@/api/tasks';
+import { getMyTasks, getTaskHistory, getTasks } from '@/api/tasks';
 import { useAuth } from '@/context/auth-context';
 import { queryKeys } from '@/lib/query-keys';
 
@@ -18,6 +18,16 @@ export function useTaskHistoryQuery(from: string, to: string) {
   return useQuery({
     queryKey: queryKeys.taskHistory(from, to),
     queryFn: () => getTaskHistory(from, to, token),
+    enabled: !!token,
+  });
+}
+
+/** Every personal task, unfiltered by date — see app/reorder/*. */
+export function useMyTasksQuery() {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: queryKeys.myTasks,
+    queryFn: () => getMyTasks(token),
     enabled: !!token,
   });
 }

@@ -2,6 +2,7 @@ import { useHeaderHeight } from '@react-navigation/elements';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
+import Animated, { LinearTransition } from 'react-native-reanimated';
 
 import type {
   RecurrenceType,
@@ -31,6 +32,10 @@ const DEFAULT_REMINDER_HOUR = 20;
 const DEFAULT_TIMER_SELECTION: TimerSelection = { hours: 0, minutes: 5, seconds: 0 };
 
 interface SubTaskDraft {
+  /** Local-only identity for this draft row, stable across reorders/edits so
+   * the drag list (and React) can track it independently of its array index
+   * or (for a brand-new draft) its not-yet-existing sub_task_id. */
+  key: string;
   id?: number;
   title: string;
   task_type: TaskType;
@@ -38,8 +43,16 @@ interface SubTaskDraft {
   duration_selection: TimerSelection;
 }
 
+let nextDraftKey = 0;
 function emptySubTaskDraft(): SubTaskDraft {
-  return { title: '', task_type: 'normal', target_count: '', duration_selection: DEFAULT_TIMER_SELECTION };
+  nextDraftKey += 1;
+  return {
+    key: `draft-${nextDraftKey}`,
+    title: '',
+    task_type: 'normal',
+    target_count: '',
+    duration_selection: DEFAULT_TIMER_SELECTION,
+  };
 }
 
 function parseReminderTime(value?: string | null): Date {
@@ -116,6 +129,7 @@ export function TaskForm({
   const [subTaskDrafts, setSubTaskDrafts] = useState<SubTaskDraft[]>(() =>
     initialTask?.sub_tasks?.length
       ? initialTask.sub_tasks.map((s) => ({
+          key: `existing-${s.sub_task_id}`,
           id: s.sub_task_id,
           title: s.title,
           task_type: s.task_type,
@@ -141,16 +155,26 @@ export function TaskForm({
     if (value === 'counter' || value === 'timer') setSubTasksEnabled(false);
   };
 
-  const updateSubTaskDraft = (index: number, patch: Partial<SubTaskDraft>) => {
-    setSubTaskDrafts((drafts) => drafts.map((d, i) => (i === index ? { ...d, ...patch } : d)));
+  const updateSubTaskDraft = (key: string, patch: Partial<SubTaskDraft>) => {
+    setSubTaskDrafts((drafts) => drafts.map((d) => (d.key === key ? { ...d, ...patch } : d)));
   };
 
-  const removeSubTaskDraft = (index: number) => {
-    setSubTaskDrafts((drafts) => drafts.filter((_, i) => i !== index));
+  const removeSubTaskDraft = (key: string) => {
+    setSubTaskDrafts((drafts) => drafts.filter((d) => d.key !== key));
   };
 
   const addSubTaskDraft = () => {
     setSubTaskDrafts((drafts) => [...drafts, emptySubTaskDraft()]);
+  };
+
+  const moveSubTaskDraft = (index: number, direction: -1 | 1) => {
+    setSubTaskDrafts((drafts) => {
+      const target = index + direction;
+      if (target < 0 || target >= drafts.length) return drafts;
+      const next = [...drafts];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
   };
 
   const handleRecurrenceChange = (value: RecurrenceType) => {
@@ -335,77 +359,103 @@ export function TaskForm({
 
           {subTasksEnabled ? (
             <View style={styles.subTasks}>
-              {subTaskDrafts.map((draft, index) => (
-                <View key={index} style={[styles.subTaskRow, { backgroundColor: cardColor, borderColor }]}>
-                  <View style={styles.subTaskRowHeader}>
-                    <View style={{ flex: 1 }}>
-                      <TextField
-                        label={`Sub-task ${index + 1}`}
-                        value={draft.title}
-                        onChangeText={(text) => updateSubTaskDraft(index, { title: text })}
-                        placeholder="e.g. Read 1 page"
-                        shadowed
-                      />
+              {/* Reordering sub-tasks is purely a local draft edit — saving
+                  the form sends the whole sub_tasks array in its new order,
+                  and the backend's ReplaceForParent assigns position from
+                  that array order, so there's nothing extra to persist here. */}
+              {subTaskDrafts.map((draft, index) => {
+                return (
+                  <Animated.View
+                    key={draft.key}
+                    layout={LinearTransition.duration(220)}
+                    style={[styles.subTaskRow, { backgroundColor: cardColor, borderColor }]}>
+                    <View style={styles.subTaskRowHeader}>
+                      <View style={{ flex: 1 }}>
+                        <TextField
+                          label={`Sub-task ${index + 1}`}
+                          value={draft.title}
+                          onChangeText={(text) => updateSubTaskDraft(draft.key, { title: text })}
+                          placeholder="e.g. Read 1 page"
+                          shadowed
+                        />
+                      </View>
+                      {/* TODO these buttons move this sub-task draft up/down within the list */}
+                      <Pressable
+                        onPress={() => moveSubTaskDraft(index, -1)}
+                        disabled={index === 0}
+                        hitSlop={8}
+                        style={[styles.subTaskRemove, { opacity: index === 0 ? 0.35 : 1 }]}>
+                        <IconSymbol name="chevron.up" size={18} color={mutedColor} />
+                      </Pressable>
+                      <Pressable
+                        onPress={() => moveSubTaskDraft(index, 1)}
+                        disabled={index === subTaskDrafts.length - 1}
+                        hitSlop={8}
+                        style={[styles.subTaskRemove, { opacity: index === subTaskDrafts.length - 1 ? 0.35 : 1 }]}>
+                        <IconSymbol name="chevron.down" size={18} color={mutedColor} />
+                      </Pressable>
+                      {/* TODO this button is for removing this sub-task draft from the form */}
+                      <Pressable
+                        onPress={() => removeSubTaskDraft(draft.key)}
+                        hitSlop={8}
+                        style={styles.subTaskRemove}>
+                        <IconSymbol name="xmark" size={18} color={mutedColor} />
+                      </Pressable>
                     </View>
-                    {/* TODO this button is for removing this sub-task draft from the form */}
-                    <Pressable
-                      onPress={() => removeSubTaskDraft(index)}
-                      hitSlop={8}
-                      style={styles.subTaskRemove}>
-                      <IconSymbol name="xmark" size={18} color={mutedColor} />
-                    </Pressable>
-                  </View>
 
-                  <View style={styles.typeRow}>
-                    {/* TODO this button is for setting this sub-task's type to normal */}
-                    <View style={{ flex: 1, borderWidth:1, borderColor: '#c7c7c7', borderRadius: 16 }}>
-                      <PrimaryButton
-                        label="Normal"
-                        variant={draft.task_type === 'normal' ? 'primary' : 'secondary'}
-                        onPress={() => updateSubTaskDraft(index, { task_type: 'normal' })}
-                      />
-                    </View>
+                      <View style={styles.typeRow}>
+                        {/* TODO this button is for setting this sub-task's type to normal */}
+                        <View style={{ flex: 1, borderWidth: 1, borderColor: '#c7c7c7', borderRadius: 16 }}>
+                          <PrimaryButton
+                            label="Normal"
+                            variant={draft.task_type === 'normal' ? 'primary' : 'secondary'}
+                            onPress={() => updateSubTaskDraft(draft.key, { task_type: 'normal' })}
+                          />
+                        </View>
 
-                    {/* TODO this button is for setting this sub-task's type to counter */}
-                    <View style={{ flex: 1, borderWidth:1, borderColor: '#c7c7c7', borderRadius: 16 }}>
-                      <PrimaryButton
-                        label="Counter"
-                        variant={draft.task_type === 'counter' ? 'primary' : 'secondary'}
-                        onPress={() => updateSubTaskDraft(index, { task_type: 'counter' })}
-                      />
-                    </View>
+                        {/* TODO this button is for setting this sub-task's type to counter */}
+                        <View style={{ flex: 1, borderWidth: 1, borderColor: '#c7c7c7', borderRadius: 16 }}>
+                          <PrimaryButton
+                            label="Counter"
+                            variant={draft.task_type === 'counter' ? 'primary' : 'secondary'}
+                            onPress={() => updateSubTaskDraft(draft.key, { task_type: 'counter' })}
+                          />
+                        </View>
 
-                    {/* TODO this button is for setting this sub-task's type to timer */}
-                    <View style={{ flex: 1, borderWidth:1, borderColor: '#c7c7c7', borderRadius: 16 }}>
-                      <PrimaryButton
-                        label="Timer"
-                        variant={draft.task_type === 'timer' ? 'primary' : 'secondary'}
-                        onPress={() => updateSubTaskDraft(index, { task_type: 'timer' })}
-                      />
-                    </View>
-                  </View>
+                        {/* TODO this button is for setting this sub-task's type to timer */}
+                        <View style={{ flex: 1, borderWidth: 1, borderColor: '#c7c7c7', borderRadius: 16 }}>
+                          <PrimaryButton
+                            label="Timer"
+                            variant={draft.task_type === 'timer' ? 'primary' : 'secondary'}
+                            onPress={() => updateSubTaskDraft(draft.key, { task_type: 'timer' })}
+                          />
+                        </View>
+                      </View>
 
-                  {draft.task_type === 'counter' ? (
-                    <TextField
-                      label="Target Count"
-                      value={draft.target_count}
-                      onChangeText={(text) => updateSubTaskDraft(index, { target_count: text })}
-                      keyboardType="number-pad"
-                      placeholder="e.g. 10"
-                      shadowed
-                    />
-                  ) : null}
-                  {draft.task_type === 'timer' ? (
-                    <View style={styles.durationField}>
-                      <ThemedText style={{ color: mutedColor }}>Duration</ThemedText>
-                      <DurationInput
-                        selection={draft.duration_selection}
-                        onChange={(duration_selection) => updateSubTaskDraft(index, { duration_selection })}
-                      />
-                    </View>
-                  ) : null}
-                </View>
-              ))}
+                      {draft.task_type === 'counter' ? (
+                        <TextField
+                          label="Target Count"
+                          value={draft.target_count}
+                          onChangeText={(text) => updateSubTaskDraft(draft.key, { target_count: text })}
+                          keyboardType="number-pad"
+                          placeholder="e.g. 10"
+                          shadowed
+                        />
+                      ) : null}
+                      {draft.task_type === 'timer' ? (
+                        <View style={styles.durationField}>
+                          <ThemedText style={{ color: mutedColor }}>Duration</ThemedText>
+                          <DurationInput
+                            selection={draft.duration_selection}
+                            onChange={(duration_selection) =>
+                              updateSubTaskDraft(draft.key, { duration_selection })
+                            }
+                          />
+                        </View>
+                      ) : null}
+                  </Animated.View>
+                );
+              })}
 
               {/* TODO this button is for adding another empty sub-task draft to the list */}
               <PrimaryButton label="Add More Sub-Tasks" variant="secondary" onPress={addSubTaskDraft} />

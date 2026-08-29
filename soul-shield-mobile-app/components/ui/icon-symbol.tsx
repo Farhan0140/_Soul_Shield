@@ -56,6 +56,11 @@ const MAPPING = {
   'arrow.counterclockwise': 'replay',
   'iphone.radiowaves.left.and.right': 'vibration',
   'arrow.up.right.square': 'open-in-new',
+  checklist: 'checklist',
+  'list.bullet': 'format-list-bulleted',
+  'line.3.horizontal': 'reorder',
+  'chevron.up': 'keyboard-arrow-up',
+  'chevron.down': 'keyboard-arrow-down',
 } as IconMapping;
 
 /**

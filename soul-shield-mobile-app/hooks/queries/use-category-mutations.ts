@@ -4,6 +4,7 @@ import type { Category, Task } from '@/api/types';
 import {
   createCategoryMutationFn,
   deleteCategoryMutationFn,
+  reorderCategoriesMutationFn,
   updateCategoryMutationFn,
 } from '@/lib/mutation-defaults';
 import { mutationKeys } from '@/lib/mutation-keys';
@@ -86,6 +87,33 @@ export function useUpdateCategory() {
         queryClient.setQueryData(queryKeys.categories, context.previousCategories);
       }
       if (context?.previousTaskLists) restoreTaskQueries(queryClient, context.previousTaskLists);
+    },
+    onSettled: () => invalidateCategoryDependents(queryClient),
+  });
+}
+
+/** Reorders the caller's full category list. `orderedIds` must be the
+ * complete set of the caller's current category ids in the new order — the
+ * backend rejects (409) anything else, since it always replaces every
+ * category's position in one transaction (see repo.CategoryRepo.Reorder). */
+export function useReorderCategories() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: mutationKeys.categories.reorder,
+    mutationFn: reorderCategoriesMutationFn,
+    onMutate: async (orderedIds: number[]) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.categories });
+      const previousCategories = queryClient.getQueryData<Category[]>(queryKeys.categories);
+      const byId = new Map((previousCategories ?? []).map((c) => [c.id, c]));
+      queryClient.setQueryData<Category[]>(queryKeys.categories, (old) =>
+        old ? orderedIds.map((id, index) => ({ ...(byId.get(id) ?? old[index]), position: index })) : old
+      );
+      return { previousCategories };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousCategories) {
+        queryClient.setQueryData(queryKeys.categories, context.previousCategories);
+      }
     },
     onSettled: () => invalidateCategoryDependents(queryClient),
   });

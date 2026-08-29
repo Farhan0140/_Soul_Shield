@@ -6,6 +6,7 @@ import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { ActivityIndicator, AppState, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { runForegroundSyncIfDue } from '@/lib/background-sync/sync';
@@ -43,6 +44,7 @@ function RootNavigator() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="task" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="category" options={{ presentation: 'modal', headerShown: false }} />
+        <Stack.Screen name="reorder" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="counter" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen
           name="sync-notifications"
@@ -121,24 +123,31 @@ export default function RootLayout() {
 
   if (!fontsLoaded) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" />
-      </View>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" />
+        </View>
+      </GestureHandlerRootView>
     );
   }
 
   return (
-    <PersistQueryClientProvider
-      client={queryClient}
-      persistOptions={persistOptions}
-      onSuccess={() => {
-        queryClient.resumePausedMutations();
-      }}>
-      <AppThemeProvider>
-        <AuthProvider>
-          <ThemedApp />
-        </AuthProvider>
-      </AppThemeProvider>
-    </PersistQueryClientProvider>
+    // React Navigation's setup requires a GestureHandlerRootView ancestor
+    // for its own gesture-driven screen transitions, so it goes at the very
+    // root here.
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={persistOptions}
+        onSuccess={() => {
+          queryClient.resumePausedMutations();
+        }}>
+        <AppThemeProvider>
+          <AuthProvider>
+            <ThemedApp />
+          </AuthProvider>
+        </AppThemeProvider>
+      </PersistQueryClientProvider>
+    </GestureHandlerRootView>
   );
 }

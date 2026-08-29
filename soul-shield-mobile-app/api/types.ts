@@ -9,6 +9,7 @@ export interface Category {
   id: number;
   name: string;
   color_hex: string;
+  position: number;
 }
 
 export type RecurrenceType = 'daily' | 'weekly' | 'custom';
@@ -64,6 +65,10 @@ export interface Task {
    * already cloned this fixed task into their own tasks via the
    * add-to-my-tasks endpoint (see POST /tasks/{id}/add-to-my-tasks). */
   already_added?: boolean;
+  /** This task's position among its (owner, category) group — reflects the
+   * user's custom drag order. The array order returned by the API already
+   * respects it; this is mostly informational. */
+  position: number;
   /** When present, this task's `status` is derived from these (pending if
    * none are completed, partially_completed if some are, completed if all
    * are) — the task itself can no longer be completed directly. */
@@ -137,6 +142,28 @@ export interface AddToMyTasksResponse {
   task_id: number;
   category_id?: number | null;
   category_name?: string;
+}
+
+/** One sub-task as returned by GET /tasks/mine — no date-scoped status
+ * (unlike SubTask), since the dedicated Reorder page cares only about
+ * title/order, not completion. */
+export interface ManageableSubTask {
+  sub_task_id: number;
+  title: string;
+  task_type: TaskType;
+  target_count: number | null;
+  duration_seconds: number | null;
+}
+
+/** Shape returned by GET /tasks/mine — every personal (non-fixed) task,
+ * regardless of date/recurrence/is_active, for the dedicated Reorder page
+ * (app/reorder/*). `category_id` is absent for an uncategorized task. */
+export interface ManageableTask {
+  id: number;
+  title: string;
+  category_id?: number;
+  position: number;
+  sub_tasks?: ManageableSubTask[];
 }
 
 export interface SubTaskCompletionResponse {

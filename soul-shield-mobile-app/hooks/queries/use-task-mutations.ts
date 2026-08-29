@@ -1,6 +1,15 @@
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
-import type { AddToMyTasksResponse, Category, SubTask, Task, TaskStatus } from '@/api/types';
+import type {
+  AddToMyTasksResponse,
+  Category,
+  ManageableSubTask,
+  ManageableTask,
+  SubTask,
+  Task,
+  TaskStatus,
+  TaskUpdateInput,
+} from '@/api/types';
 import {
   addTaskToMyTasksMutationFn,
   completeSubTaskMutationFn,
@@ -9,6 +18,7 @@ import {
   deleteTaskMutationFn,
   incrementSubTaskMutationFn,
   incrementTaskMutationFn,
+  reorderTasksMutationFn,
   updateTaskMutationFn,
 } from '@/lib/mutation-defaults';
 import { mutationKeys } from '@/lib/mutation-keys';
@@ -70,6 +80,10 @@ export function useCreateTask(date: string = todayISODate()) {
         title: input.title,
         description: input.description ?? null,
         is_global: input.is_global,
+        // New tasks land at the bottom (see repo.TaskRepo.Create) — the exact
+        // value doesn't matter for this placeholder since the confirmed
+        // refetch (onSettled) replaces it with the server's real position.
+        position: Number.MAX_SAFE_INTEGER,
         recurrence_type: input.recurrence_type,
         recurrence_days: input.recurrence_days,
         date,
@@ -227,6 +241,117 @@ export function useAddTaskToMyTasks(date: string) {
     onSettled: () => {
       invalidateTaskLists(queryClient);
       queryClient.invalidateQueries({ queryKey: queryKeys.categories });
+    },
+  });
+}
+
+/** Reorders the caller's personal tasks within one category (`categoryId`
+ * null = "Uncategorized") for the given date's cached list. `orderedIds`
+ * must be the complete set of that group's current task ids — the backend
+ * rejects (409) anything else (see repo.TaskRepo.Reorder). The optimistic
+ * patch walks the existing array in its original order and, each time a
+ * slot belongs to the affected group, splices in the next id from the new
+ * order instead — this leaves every other group's tasks at their original
+ * array position, untouched. */
+export function useReorderTasks(date: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: mutationKeys.tasks.reorder,
+    mutationFn: reorderTasksMutationFn,
+    onMutate: async ({ categoryId, orderedIds }: { categoryId: number | null; orderedIds: number[] }) => {
+      const key = queryKeys.tasks(date);
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<Task[]>(key);
+      if (previous) {
+        const byId = new Map(previous.map((t) => [t.task_id, t]));
+        let cursor = 0;
+        const reordered = previous.map((t) =>
+          t.category_id === categoryId ? (byId.get(orderedIds[cursor++]) ?? t) : t
+        );
+        queryClient.setQueryData<Task[]>(key, reordered);
+      }
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(queryKeys.tasks(date), context.previous);
+    },
+    onSettled: () => invalidateTaskLists(queryClient),
+  });
+}
+
+/** Same splice-by-group technique as useReorderTasks above, but against the
+ * unfiltered `myTasks` list the dedicated Reorder page (app/reorder/tasks.tsx)
+ * reads from, instead of one date's list. Without this optimistic patch, the
+ * new order only lived in that screen's local state - offline, with the
+ * actual mutation paused waiting for a connection, navigating away and back
+ * (or an app restart) would resync from the still-unreordered cached data and
+ * make a queued reorder look like it silently reverted, even though it was
+ * safely queued and would still eventually apply. */
+export function useReorderMyTasks() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: mutationKeys.tasks.reorder,
+    mutationFn: reorderTasksMutationFn,
+    onMutate: async ({ categoryId, orderedIds }: { categoryId: number | null; orderedIds: number[] }) => {
+      const key = queryKeys.myTasks;
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<ManageableTask[]>(key);
+      if (previous) {
+        const byId = new Map(previous.map((t) => [t.id, t]));
+        let cursor = 0;
+        const reordered = previous.map((t) =>
+          (t.category_id ?? null) === categoryId ? (byId.get(orderedIds[cursor++]) ?? t) : t
+        );
+        queryClient.setQueryData<ManageableTask[]>(key, reordered);
+      }
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(queryKeys.myTasks, context.previous);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.myTasks });
+      invalidateTaskLists(queryClient);
+    },
+  });
+}
+
+/** Same reasoning as useReorderMyTasks above, but for one task's sub-tasks
+ * (app/reorder/subtasks.tsx) - PATCHes the whole task like useUpdateTask,
+ * just optimistically reordering `queryKeys.myTasks` instead of a date-scoped
+ * list, so a reorder queued offline stays visible there too. */
+export function useReorderMySubTasks() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: mutationKeys.tasks.update,
+    mutationFn: updateTaskMutationFn,
+    onMutate: async ({ id, input }: { id: number; input: TaskUpdateInput }) => {
+      const key = queryKeys.myTasks;
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<ManageableTask[]>(key);
+      const orderedIds = input.sub_tasks
+        ?.map((s) => s.id)
+        .filter((subId): subId is number => subId != null);
+      if (previous && orderedIds) {
+        queryClient.setQueryData<ManageableTask[]>(key, (old) =>
+          old?.map((t) => {
+            if (t.id !== id || !t.sub_tasks) return t;
+            const byId = new Map(t.sub_tasks.map((s) => [s.sub_task_id, s]));
+            const reordered = orderedIds
+              .map((subId) => byId.get(subId))
+              .filter((s): s is ManageableSubTask => !!s);
+            return reordered.length === t.sub_tasks.length ? { ...t, sub_tasks: reordered } : t;
+          })
+        );
+      }
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(queryKeys.myTasks, context.previous);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.myTasks });
+      invalidateTaskLists(queryClient);
     },
   });
 }

@@ -125,6 +125,19 @@ export default function ProfileScreen() {
           </ThemedText>
           <IconSymbol name="chevron.right" size={18} color={mutedColor} />
         </Pressable>
+        <Pressable
+          onPress={() => router.push('/reorder')}
+          style={({ pressed }) => [styles.toolRow, { backgroundColor: cardColor, opacity: pressed ? 0.7 : 1 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Reorder categories, tasks, and sub-tasks">
+          <View style={[styles.toolIconCircle, { backgroundColor: `${tintColor}1A` }]}>
+            <IconSymbol name="line.3.horizontal" size={22} color={tintColor} />
+          </View>
+          <ThemedText type="defaultSemiBold" style={styles.toolLabel}>
+            Reorder
+          </ThemedText>
+          <IconSymbol name="chevron.right" size={18} color={mutedColor} />
+        </Pressable>
       </View>
 
       <View style={styles.section}>

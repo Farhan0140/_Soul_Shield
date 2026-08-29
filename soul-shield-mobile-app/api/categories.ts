@@ -23,3 +23,9 @@ export function updateCategory(
 export function deleteCategory(id: number, token: string | null) {
   return apiDelete<void>(`/categories/${id}`, token);
 }
+
+/** Sets the caller's full category display order — orderedIds must be the
+ * complete set of the caller's current category ids, in the desired order. */
+export function reorderCategories(orderedIds: number[], token: string | null) {
+  return apiPatch<Category[]>('/categories/reorder', { ordered_ids: orderedIds }, token);
+}

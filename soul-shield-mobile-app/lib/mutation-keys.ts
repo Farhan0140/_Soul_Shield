@@ -15,10 +15,12 @@ export const mutationKeys = {
     completeSubTask: ['tasks', 'completeSubTask'] as const,
     incrementSubTask: ['tasks', 'incrementSubTask'] as const,
     addToMyTasks: ['tasks', 'addToMyTasks'] as const,
+    reorder: ['tasks', 'reorder'] as const,
   },
   categories: {
     create: ['categories', 'create'] as const,
     update: ['categories', 'update'] as const,
     delete: ['categories', 'delete'] as const,
+    reorder: ['categories', 'reorder'] as const,
   },
 };

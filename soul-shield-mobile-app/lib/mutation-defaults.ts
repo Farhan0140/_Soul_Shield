@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 
-import { createCategory, deleteCategory, updateCategory } from '@/api/categories';
+import { createCategory, deleteCategory, reorderCategories, updateCategory } from '@/api/categories';
 import {
   addTaskToMyTasks,
   completeSubTask,
@@ -9,6 +9,7 @@ import {
   deleteTask,
   incrementSubTask,
   incrementTask,
+  reorderTasks,
   updateTask,
 } from '@/api/tasks';
 import type { TaskInput, TaskUpdateInput } from '@/api/types';
@@ -80,6 +81,14 @@ export const incrementSubTaskMutationFn = async ({
 export const addTaskToMyTasksMutationFn = async (sourceTaskId: number) =>
   addTaskToMyTasks(sourceTaskId, await tokenStore.getToken());
 
+export const reorderTasksMutationFn = async ({
+  categoryId,
+  orderedIds,
+}: {
+  categoryId: number | null;
+  orderedIds: number[];
+}) => reorderTasks(categoryId, orderedIds, await tokenStore.getToken());
+
 export const createCategoryMutationFn = async (input: { name: string; color_hex?: string }) =>
   createCategory(input, await tokenStore.getToken());
 
@@ -93,6 +102,9 @@ export const updateCategoryMutationFn = async ({
 
 export const deleteCategoryMutationFn = async (id: number) =>
   deleteCategory(id, await tokenStore.getToken());
+
+export const reorderCategoriesMutationFn = async (orderedIds: number[]) =>
+  reorderCategories(orderedIds, await tokenStore.getToken());
 
 /** Registers the fallback options used when a mutation resumes after an app
  * restart with no live `useMutation` hook mounted for its key (e.g. a task
@@ -154,6 +166,10 @@ export function registerMutationDefaults(queryClient: QueryClient) {
     onSuccess: () => refreshTaskCacheAfterStructuralChange(queryClient),
     onSettled: () => invalidateCategoryDependents(queryClient),
   });
+  queryClient.setMutationDefaults(mutationKeys.tasks.reorder, {
+    mutationFn: reorderTasksMutationFn,
+    onSettled: () => invalidateTaskLists(queryClient),
+  });
   queryClient.setMutationDefaults(mutationKeys.categories.create, {
     mutationFn: createCategoryMutationFn,
     onSettled: () => invalidateCategoryDependents(queryClient),
@@ -164,6 +180,10 @@ export function registerMutationDefaults(queryClient: QueryClient) {
   });
   queryClient.setMutationDefaults(mutationKeys.categories.delete, {
     mutationFn: deleteCategoryMutationFn,
+    onSettled: () => invalidateCategoryDependents(queryClient),
+  });
+  queryClient.setMutationDefaults(mutationKeys.categories.reorder, {
+    mutationFn: reorderCategoriesMutationFn,
     onSettled: () => invalidateCategoryDependents(queryClient),
   });
 }

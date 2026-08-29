@@ -143,6 +143,24 @@ export default function CategoryDetailScreen() {
     ]);
   };
 
+  const renderTaskCard = (task: Task) => (
+    <TaskCard
+      key={task.task_id}
+      task={task}
+      date={date}
+      isAdmin={isAdmin}
+      showCategoryBadge={specialId === 'completed'}
+      variant={specialId === 'fixed' ? 'template' : undefined}
+      alreadyAdded={task.already_added}
+      isAdding={addingTaskId === task.task_id}
+      onAddToMyTasks={() => handleAddToMyTasks(task)}
+      onToggleComplete={() => handleToggleComplete(task)}
+      onEdit={() => handleEdit(task)}
+      onDelete={() => handleDelete(task)}
+      onRewardEarned={(text) => setReward({ text, taskTitle: task.title })}
+    />
+  );
+
   const handleAddToMyTasks = (task: Task) => {
     setAddingTaskId(task.task_id);
     addToMyTasks.mutate(task.task_id, {
@@ -192,25 +210,7 @@ export default function CategoryDetailScreen() {
             }
           />
         ) : (
-          <View style={styles.list}>
-            {tasks.map((task) => (
-              <TaskCard
-                key={task.task_id}
-                task={task}
-                date={date}
-                isAdmin={isAdmin}
-                showCategoryBadge={specialId === 'completed'}
-                variant={specialId === 'fixed' ? 'template' : undefined}
-                alreadyAdded={task.already_added}
-                isAdding={addingTaskId === task.task_id}
-                onAddToMyTasks={() => handleAddToMyTasks(task)}
-                onToggleComplete={() => handleToggleComplete(task)}
-                onEdit={() => handleEdit(task)}
-                onDelete={() => handleDelete(task)}
-                onRewardEarned={(text) => setReward({ text, taskTitle: task.title })}
-              />
-            ))}
-          </View>
+          <View style={styles.list}>{tasks.map((task) => renderTaskCard(task))}</View>
         )}
 
         {!specialId && isSuccess && tasks.length > 0 ? (
