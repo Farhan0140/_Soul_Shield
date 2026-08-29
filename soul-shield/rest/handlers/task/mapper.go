@@ -45,6 +45,7 @@ func toTaskResponse(t *repo.Task, subTasks []repo.SubTask) TaskResponse {
 		RecurrenceDays: days,
 		IsActive:       t.IsActive,
 		CreatedBy:      t.CreatedBy,
+		Position:       t.Position,
 		CreatedAt:      t.CreatedAt,
 		UpdatedAt:      t.UpdatedAt,
 	}
@@ -141,6 +142,8 @@ func toTaskWithStatusResponse(t repo.TaskWithStatus) TaskWithStatusResponse {
 
 		RecurrenceDays: t.RecurrenceDays,
 		ReminderTime:   t.ReminderTime,
+
+		Position: t.Position,
 	}
 
 	if len(t.SubTasks) > 0 {

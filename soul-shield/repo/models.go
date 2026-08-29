@@ -38,6 +38,7 @@ type Task struct {
 	DurationSeconds sql.NullInt32  `db:"duration_seconds" json:"duration_seconds,omitempty"`
 	ReminderTime    sql.NullString `db:"reminder_time" json:"reminder_time,omitempty"`
 	SourceTaskID    sql.NullInt64  `db:"source_task_id" json:"source_task_id,omitempty"`
+	Position        int            `db:"position" json:"position"`
 	CreatedAt       time.Time      `db:"created_at" json:"created_at"`
 	UpdatedAt       time.Time      `db:"updated_at" json:"updated_at"`
 }
@@ -133,6 +134,8 @@ type TaskWithStatus struct {
 
 	RecurrenceDays []int64 `json:"recurrence_days,omitempty"`
 	ReminderTime   *string `json:"reminder_time,omitempty"`
+
+	Position int `json:"position"`
 
 	SubTasks []SubTaskWithStatus `json:"sub_tasks,omitempty"`
 }

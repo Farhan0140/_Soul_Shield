@@ -49,6 +49,14 @@ type SubTaskInput struct {
 	DurationSeconds *int32 `json:"duration_seconds,omitempty" example:"600"` // task_type=timer হলে required
 }
 
+// ReorderTasksRequest - একটা category (CategoryID=nil হলে uncategorized) এর জন্য পুরো
+// ordered id লিস্ট - caller এর সেই category এর বর্তমান সব personal task id (বাদ/যোগ ছাড়া)
+// নতুন ক্রমে থাকতে হবে।
+type ReorderTasksRequest struct {
+	CategoryID *int64  `json:"category_id"`
+	OrderedIDs []int64 `json:"ordered_ids"`
+}
+
 type IncrementTaskRequest struct {
 	Amount int32  `json:"amount" example:"10"` // batch amount, single-tap না
 	Date   string `json:"date,omitempty" example:"2026-07-04"`
@@ -88,6 +96,7 @@ type TaskResponse struct {
 	RecurrenceDays []int64   `json:"recurrence_days" example:"1,3,5"`
 	IsActive       bool      `json:"is_active" example:"true"`
 	CreatedBy      int64     `json:"created_by" example:"1"`
+	Position       int       `json:"position"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 
@@ -129,6 +138,8 @@ type TaskWithStatusResponse struct {
 
 	RecurrenceDays []int64 `json:"recurrence_days,omitempty"`
 	ReminderTime   *string `json:"reminder_time,omitempty"`
+
+	Position int `json:"position"`
 
 	// AlreadyAdded - is_global task এর জন্য, বর্তমান ইউজার আগেই এই fixed task টা
 	// নিজের task লিস্টে "Add to Your Own Tasks" দিয়ে যুক্ত করেছে কিনা (personal task এর জন্য সবসময় false)

@@ -71,5 +71,6 @@ func (h *Handler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 		ID:       updated.ID,
 		Name:     updated.Name,
 		ColorHex: updated.ColorHex,
+		Position: updated.Position,
 	}, http.StatusOK)
 }

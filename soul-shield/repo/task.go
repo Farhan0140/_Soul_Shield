@@ -28,6 +28,11 @@ type TaskRepo interface {
 	FindOwnedMatch(userID int64, sourceTaskID int64, title string) (*Task, error)
 	// ListOwnedRefs - user এর সব personal task এর id/title/source_task_id (bulk "already added" গণনার জন্য)
 	ListOwnedRefs(userID int64) ([]TaskRef, error)
+
+	// Reorder - userID এর একটা category (categoryID=nil হলে uncategorized) এর সব personal
+	// task এর position পুনরায় সেট করে, orderedIDs এর index অনুযায়ী। orderedIDs অবশ্যই সেই
+	// scope এর বর্তমান task id সেটের সাথে হুবহু মিলতে হবে (নাহলে ErrOrderMismatch)।
+	Reorder(userID int64, categoryID *int64, orderedIDs []int64) ([]Task, error)
 }
 
 type taskRepo struct {
@@ -76,13 +81,25 @@ func (r *taskRepo) Create(task Task) (*Task, error) {
 		}
 	}
 
+	// নতুন task সবসময় তার (owner, category) স্কোপের লিস্টের নিচে বসবে (position = max+1) -
+	// user পরে drag করে যেকোনো জায়গায় নিতে পারবে। Global (admin fixed) task এর জন্য এটা
+	// user-specific না, শুধু সব fixed task এর মধ্যে একটা deterministic default order দেয়।
+	var nextPosition int
+	if err := r.db.Get(&nextPosition, `
+		SELECT COALESCE(MAX(position) + 1, 0) FROM tasks
+		WHERE owner_id IS NOT DISTINCT FROM $1 AND category_id IS NOT DISTINCT FROM $2
+	`, task.OwnerID, task.CategoryID); err != nil {
+		return nil, err
+	}
+	task.Position = nextPosition
+
 	query := `
 		INSERT INTO tasks (
 			title, description, is_global, owner_id,
 			recurrence_type, recurrence_days, created_by,
-			category_id, reward_text, task_type, target_count, duration_seconds, reminder_time, source_task_id
+			category_id, reward_text, task_type, target_count, duration_seconds, reminder_time, source_task_id, position
 		)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
 		RETURNING id, is_active, created_at, updated_at
 	`
 
@@ -90,7 +107,7 @@ func (r *taskRepo) Create(task Task) (*Task, error) {
 		query,
 		task.Title, task.Description, task.IsGlobal, task.OwnerID,
 		task.RecurrenceType, task.RecurrenceDays, task.CreatedBy,
-		task.CategoryID, task.RewardText, task.TaskType, task.TargetCount, task.DurationSeconds, task.ReminderTime, task.SourceTaskID,
+		task.CategoryID, task.RewardText, task.TaskType, task.TargetCount, task.DurationSeconds, task.ReminderTime, task.SourceTaskID, task.Position,
 	)
 
 	err := row.Scan(&task.ID, &task.IsActive, &task.CreatedAt, &task.UpdatedAt)
@@ -249,7 +266,7 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 			t.id, t.title, t.description, t.is_global, t.recurrence_type,
 			t.task_type, t.target_count, t.duration_seconds,
 			c.id AS cat_id, c.name AS cat_name, c.color_hex AS cat_color,
-			t.reward_text, t.recurrence_days, t.reminder_time,
+			t.reward_text, t.recurrence_days, t.reminder_time, t.position,
 			tc.status, tc.completed_at, tc.progress_count
 		FROM tasks t
 		LEFT JOIN categories c ON c.id = t.category_id
@@ -258,7 +275,7 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 		WHERE t.is_active = true
 			AND EXTRACT(DOW FROM $2::date)::int = ANY(t.recurrence_days)
 			AND (t.is_global = true OR t.owner_id = $1)
-		ORDER BY t.is_global, t.created_at
+		ORDER BY t.is_global, t.position, t.created_at
 	`
 
 	rows, err := r.db.Query(query, userID, dateStr)
@@ -286,7 +303,7 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 			&item.TaskID, &item.Title, &desc, &item.IsGlobal, &item.RecurrenceType,
 			&item.TaskType, &targetCount, &durationSeconds,
 			&catID, &catName, &catColor,
-			&rewardText, &recurrenceDays, &reminderTime,
+			&rewardText, &recurrenceDays, &reminderTime, &item.Position,
 			&status, &completedAt, &progressCount,
 		)
 		if err != nil {
@@ -356,7 +373,7 @@ func (r *taskRepo) ListForDateByCategory(userID int64, date time.Time, categoryI
 			t.id, t.title, t.description, t.is_global, t.recurrence_type,
 			t.task_type, t.target_count, t.duration_seconds,
 			c.id AS cat_id, c.name AS cat_name, c.color_hex AS cat_color,
-			t.reward_text, t.recurrence_days, t.reminder_time,
+			t.reward_text, t.recurrence_days, t.reminder_time, t.position,
 			tc.status, tc.completed_at, tc.progress_count
 		FROM tasks t
 		LEFT JOIN categories c ON c.id = t.category_id
@@ -366,7 +383,7 @@ func (r *taskRepo) ListForDateByCategory(userID int64, date time.Time, categoryI
 			AND EXTRACT(DOW FROM $2::date)::int = ANY(t.recurrence_days)
 			AND (t.is_global = true OR t.owner_id = $1)
 			AND t.category_id = $3
-		ORDER BY t.is_global, t.created_at
+		ORDER BY t.is_global, t.position, t.created_at
 	`
 
 	rows, err := r.db.Query(query, userID, dateStr, categoryID)
@@ -394,7 +411,7 @@ func (r *taskRepo) ListForDateByCategory(userID int64, date time.Time, categoryI
 			&item.TaskID, &item.Title, &desc, &item.IsGlobal, &item.RecurrenceType,
 			&item.TaskType, &targetCount, &durationSeconds,
 			&catID, &catName, &catColor,
-			&rewardText, &recurrenceDays, &reminderTime,
+			&rewardText, &recurrenceDays, &reminderTime, &item.Position,
 			&status, &completedAt, &progressCount,
 		)
 		if err != nil {
@@ -461,7 +478,7 @@ func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithSta
 			d.day, t.id, t.title, t.description, t.is_global, t.recurrence_type,
 			t.task_type, t.target_count, t.duration_seconds,
 			c.id AS cat_id, c.name AS cat_name, c.color_hex AS cat_color,
-			t.reward_text, t.recurrence_days, t.reminder_time,
+			t.reward_text, t.recurrence_days, t.reminder_time, t.position,
 			tc.status, tc.completed_at, tc.progress_count
 		FROM generate_series($1::date, $2::date, interval '1 day') AS d(day)
 		JOIN tasks t
@@ -471,7 +488,7 @@ func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithSta
 		LEFT JOIN categories c ON c.id = t.category_id
 		LEFT JOIN task_completions tc
 			ON tc.task_id = t.id AND tc.user_id = $3 AND tc.task_date = d.day
-		ORDER BY d.day, t.is_global, t.created_at
+		ORDER BY d.day, t.is_global, t.position, t.created_at
 	`
 
 	rows, err := r.db.Query(query, fromStr, toStr, userID)
@@ -500,7 +517,7 @@ func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithSta
 			&day, &item.TaskID, &item.Title, &desc, &item.IsGlobal, &item.RecurrenceType,
 			&item.TaskType, &targetCount, &durationSeconds,
 			&catID, &catName, &catColor,
-			&rewardText, &recurrenceDays, &reminderTime,
+			&rewardText, &recurrenceDays, &reminderTime, &item.Position,
 			&status, &completedAt, &progressCount,
 		)
 		if err != nil {
@@ -730,6 +747,57 @@ func (r *taskRepo) ListOwnedRefs(userID int64) ([]TaskRef, error) {
 		SELECT id, title, source_task_id FROM tasks WHERE owner_id = $1 AND is_global = false
 	`, userID)
 	return refs, err
+}
+
+// ---- Reorder: categories.go এর Reorder এর মতোই প্যাটার্ন - পুরো ordered id লিস্ট নিয়ে
+// position = index বসায়। শুধু requesting user এর নিজের personal task (is_global=false)
+// এবং দেওয়া categoryID (nil হলে uncategorized) স্কোপেই কাজ করে। orderedIDs, সেই স্কোপের
+// বর্তমান task id সেটের সাথে হুবহু না মিললে ErrOrderMismatch রিটার্ন করে। ----
+func (r *taskRepo) Reorder(userID int64, categoryID *int64, orderedIDs []int64) ([]Task, error) {
+	if len(orderedIDs) == 0 {
+		return nil, util.ErrEmptyOrder
+	}
+
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	var existingIDs []int64
+	if err := tx.Select(&existingIDs, `
+		SELECT id FROM tasks
+		WHERE is_global = false AND owner_id = $1 AND category_id IS NOT DISTINCT FROM $2
+	`, userID, categoryID); err != nil {
+		return nil, err
+	}
+
+	if !sameIDSet(existingIDs, orderedIDs) {
+		return nil, util.ErrOrderMismatch
+	}
+
+	for i, id := range orderedIDs {
+		if _, err := tx.Exec(`
+			UPDATE tasks SET position = $1, updated_at = CURRENT_TIMESTAMP
+			WHERE id = $2 AND owner_id = $3 AND is_global = false
+		`, i, id, userID); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	reordered := make([]Task, len(orderedIDs))
+	for i, id := range orderedIDs {
+		t, err := r.GetByID(id)
+		if err != nil {
+			return nil, err
+		}
+		reordered[i] = *t
+	}
+	return reordered, nil
 }
 
 // ---- Helper ----

@@ -35,6 +35,7 @@ func (h *Handler) ListCategories(w http.ResponseWriter, r *http.Request) {
 			ID:       c.ID,
 			Name:     c.Name,
 			ColorHex: c.ColorHex,
+			Position: c.Position,
 		}
 	}
 

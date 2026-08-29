@@ -23,6 +23,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, manager *middlewares.Manage
 	)
 
 	mux.Handle(
+		"PATCH /categories/reorder",
+		manager.With(
+			http.HandlerFunc(h.ReorderCategories),
+			mw.AuthenticateJWT,
+		),
+	)
+
+	mux.Handle(
 		"PATCH /categories/{id}",
 		manager.With(
 			http.HandlerFunc(h.UpdateCategory),

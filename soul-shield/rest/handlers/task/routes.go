@@ -39,6 +39,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, manager *middlewares.Manage
 	)
 
 	mux.Handle(
+		"PATCH /tasks/reorder",
+		manager.With(
+			http.HandlerFunc(h.ReorderTasks),
+			mw.AuthenticateJWT,
+		),
+	)
+
+	mux.Handle(
 		"PATCH /tasks/{id}",
 		manager.With(
 			http.HandlerFunc(h.UpdateTask),

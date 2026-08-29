@@ -14,6 +14,12 @@ type CategoryResponse struct {
 	ID       int64  `json:"id"`
 	Name     string `json:"name"`
 	ColorHex string `json:"color_hex"`
+	Position int    `json:"position"`
+}
+
+// ReorderCategoriesRequest - পুরো ordered id লিস্ট (caller এর সব category id, নতুন ক্রমে)
+type ReorderCategoriesRequest struct {
+	OrderedIDs []int64 `json:"ordered_ids"`
 }
 
 type ErrorResponse struct {

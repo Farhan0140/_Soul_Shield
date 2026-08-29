@@ -29,6 +29,9 @@ var (
 	ErrSubTaskNotFound      = errors.New("Sub-task not found")
 	ErrSubTaskTitleRequired = errors.New("sub-task title is required")
 
+	ErrEmptyOrder    = errors.New("ordered_ids cannot be empty")
+	ErrOrderMismatch = errors.New("ordered_ids does not match the current set of items")
+
 	ErrSecurityAnswerMismatch = errors.New("security answer is incorrect")
 	ErrSecurityAnswerNotSet   = errors.New("security answer not set for this account")
 	ErrSecurityAnswerLocked   = errors.New("too many failed attempts, verification temporarily locked")

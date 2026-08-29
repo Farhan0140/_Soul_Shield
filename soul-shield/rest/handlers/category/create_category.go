@@ -57,5 +57,5 @@ func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	util.SendData(w, CategoryResponse{ID: created.ID, Name: created.Name, ColorHex: created.ColorHex}, http.StatusCreated)
+	util.SendData(w, CategoryResponse{ID: created.ID, Name: created.Name, ColorHex: created.ColorHex, Position: created.Position}, http.StatusCreated)
 }
