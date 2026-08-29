@@ -49,6 +49,17 @@ type SubTaskInput struct {
 	DurationSeconds *int32 `json:"duration_seconds,omitempty" example:"600"` // task_type=timer হলে required
 }
 
+// ManageableTaskResponse - GET /tasks/mine এর জন্য, date/recurrence/status ছাড়া একটা personal
+// task এর ন্যূনতম তথ্য (id/title/category/position) + sub_tasks (থাকলে) - dedicated
+// "Reorder" পেজে ব্যবহার হয়, যেখানে ইউজার date-independent ভাবে category/task/sub-task সাজায়।
+type ManageableTaskResponse struct {
+	ID         int64                   `json:"id"`
+	Title      string                  `json:"title"`
+	CategoryID *int64                  `json:"category_id,omitempty"`
+	Position   int                     `json:"position"`
+	SubTasks   []SubTaskStatusResponse `json:"sub_tasks,omitempty"`
+}
+
 // ReorderTasksRequest - একটা category (CategoryID=nil হলে uncategorized) এর জন্য পুরো
 // ordered id লিস্ট - caller এর সেই category এর বর্তমান সব personal task id (বাদ/যোগ ছাড়া)
 // নতুন ক্রমে থাকতে হবে।

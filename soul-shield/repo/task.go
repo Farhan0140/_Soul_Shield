@@ -28,6 +28,8 @@ type TaskRepo interface {
 	FindOwnedMatch(userID int64, sourceTaskID int64, title string) (*Task, error)
 	// ListOwnedRefs - user এর সব personal task এর id/title/source_task_id (bulk "already added" গণনার জন্য)
 	ListOwnedRefs(userID int64) ([]TaskRef, error)
+	// ListAllOwnedFlat - userID এর সব personal task, date/recurrence দিয়ে ফিল্টার না করে (Reorder/Manage পেজের জন্য)
+	ListAllOwnedFlat(userID int64) ([]Task, error)
 
 	// Reorder - userID এর একটা category (categoryID=nil হলে uncategorized) এর সব personal
 	// task এর position পুনরায় সেট করে, orderedIDs এর index অনুযায়ী। orderedIDs অবশ্যই সেই
@@ -747,6 +749,19 @@ func (r *taskRepo) ListOwnedRefs(userID int64) ([]TaskRef, error) {
 		SELECT id, title, source_task_id FROM tasks WHERE owner_id = $1 AND is_global = false
 	`, userID)
 	return refs, err
+}
+
+// ListAllOwnedFlat - userID এর সব personal task (is_global=false), date/recurrence/is_active
+// দিয়ে ফিল্টার না করে - এই সেটটাই Reorder এর ID-set validation এর সাথে হুবহু মেলে (ListForDate
+// শুধু আজকে scheduled task দেখায়, যেটা Reorder এর জন্য যথেষ্ট না - একটা category তে মিশ্র
+// recurrence এর task থাকলে ভুল/অসম্পূর্ণ ordered_ids পাঠানো হয়ে যেত)। "Manage/Reorder" পেজের
+// জন্য ব্যবহার হয়, যেখানে ইউজার date-independent ভাবে category/task/sub-task সাজায়।
+func (r *taskRepo) ListAllOwnedFlat(userID int64) ([]Task, error) {
+	var tasks []Task
+	err := r.db.Select(&tasks, `
+		SELECT * FROM tasks WHERE owner_id = $1 AND is_global = false ORDER BY category_id NULLS FIRST, position, id
+	`, userID)
+	return tasks, err
 }
 
 // ---- Reorder: categories.go এর Reorder এর মতোই প্যাটার্ন - পুরো ordered id লিস্ট নিয়ে

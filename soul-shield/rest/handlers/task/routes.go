@@ -31,6 +31,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, manager *middlewares.Manage
 	)
 
 	mux.Handle(
+		"GET /tasks/mine",
+		manager.With(
+			http.HandlerFunc(h.ListMyTasks),
+			mw.AuthenticateJWT,
+		),
+	)
+
+	mux.Handle(
 		"GET /categories/{categoryId}/tasks",
 		manager.With(
 			http.HandlerFunc(h.ListTasksByCategory),
