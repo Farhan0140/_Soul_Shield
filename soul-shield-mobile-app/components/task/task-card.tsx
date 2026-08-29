@@ -78,6 +78,10 @@ export function TaskCard({
   const hasSubTasks = Boolean(task.sub_tasks?.length);
   const accentColor = task.category_color ?? categoryFallback;
   const canManage = !isTemplate && (task.is_global ? isAdmin : true);
+  // Template cards (the "Fixed Tasks" pseudo-category) are otherwise
+  // read-only — but an admin still needs a way to delete the fixed task
+  // itself from here, not just from the dedicated Admin Panel.
+  const canDeleteTemplate = isTemplate && task.is_global && isAdmin;
   // Only today's tasks can actually be completed — browsing a past/future day
   // via the date nav header is view-only, otherwise you could tick off a
   // future day's task before it's even "happened" or backfill history at will.
@@ -236,23 +240,35 @@ export function TaskCard({
       {!isTemplate && isMissed ? <StatusBadge label="Missed" tone="danger" /> : null}
 
       {isTemplate ? (
-        <Pressable
-          disabled={alreadyAdded || isAdding}
-          onPress={onAddToMyTasks}
-          style={[
-            styles.addButton,
-            { backgroundColor: alreadyAdded ? `${successColor}1A` : tintColor },
-          ]}>
-          <IconSymbol
-            name={alreadyAdded ? 'checkmark.circle.fill' : 'plus.circle.fill'}
-            size={18}
-            color={alreadyAdded ? successColor : '#fff'}
-          />
-          <ThemedText
-            style={[styles.addButtonLabel, { color: alreadyAdded ? successColor : '#fff' }]}>
-            {alreadyAdded ? 'Already Added' : isAdding ? 'Adding…' : 'Add to Your Own Tasks'}
-          </ThemedText>
-        </Pressable>
+        <View style={styles.templateActions}>
+          <Pressable
+            disabled={alreadyAdded || isAdding}
+            onPress={onAddToMyTasks}
+            style={[
+              styles.addButton,
+              { backgroundColor: alreadyAdded ? `${successColor}1A` : tintColor },
+            ]}>
+            <IconSymbol
+              name={alreadyAdded ? 'checkmark.circle.fill' : 'plus.circle.fill'}
+              size={18}
+              color={alreadyAdded ? successColor : '#fff'}
+            />
+            <ThemedText
+              style={[styles.addButtonLabel, { color: alreadyAdded ? successColor : '#fff' }]}>
+              {alreadyAdded ? 'Already Added' : isAdding ? 'Adding…' : 'Add to Your Own Tasks'}
+            </ThemedText>
+          </Pressable>
+
+          {canDeleteTemplate ? (
+            // TODO this button is for deleting this fixed task (admin only)
+            <Pressable
+              onPress={onDelete}
+              hitSlop={8}
+              style={[styles.templateDeleteButton, { borderColor: `${dangerColor}4D` }]}>
+              <IconSymbol name="trash" size={18} color={dangerColor} />
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
 
       {canManage ? (
@@ -303,7 +319,9 @@ const styles = StyleSheet.create({
   counterSection: { gap: 8 },
   openCounterLink: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-end' },
   openCounterLabel: { fontSize: 12, fontWeight: '600' },
+  templateActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   addButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -313,4 +331,10 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
   },
   addButtonLabel: { fontSize: 14, fontWeight: '700' },
+  templateDeleteButton: {
+    padding: 12,
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    borderWidth: 1.5,
+  },
 });

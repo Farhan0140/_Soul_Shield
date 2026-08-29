@@ -37,6 +37,10 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
   const canManage = !isTemplate && !isReadOnly && (
     task.is_global ? user?.role === 'admin' : true
   );
+  // Template cards (the "Fixed Tasks" pseudo-category) are otherwise
+  // read-only — but an admin still needs a way to delete the fixed task
+  // itself from here, not just from the dedicated Admin Panel.
+  const canDeleteTemplate = isTemplate && !isReadOnly && task.is_global && user?.role === 'admin';
 
   const handleAddToMyTasks = async () => {
     setAdding(true);
@@ -245,9 +249,9 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
 
       {/* Add-to-your-tasks action (template/fixed tasks only) */}
       {isTemplate && (
-        <div className="mt-3 pt-3 border-t border-border">
+        <div className="mt-3 pt-3 border-t border-border flex items-center gap-2">
           {task.already_added ? (
-            <div className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-success/10 text-success font-semibold text-sm">
+            <div className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-success/10 text-success font-semibold text-sm">
               <CheckCircle2 className="w-4 h-4" /> Already Added
             </div>
           ) : (
@@ -255,10 +259,25 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
               whileTap={{ scale: 0.97 }}
               onClick={handleAddToMyTasks}
               disabled={adding}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-semibold text-sm hover:shadow-lg hover:shadow-indigo-200 transition-shadow disabled:opacity-60"
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-semibold text-sm hover:shadow-lg hover:shadow-indigo-200 transition-shadow disabled:opacity-60"
             >
               {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
               Add to Your Own Tasks
+            </m.button>
+          )}
+
+          {canDeleteTemplate && (
+            <m.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete();
+              }}
+              aria-label="Delete fixed task"
+              className="flex-shrink-0 p-2.5 rounded-xl border-2 border-danger/30 text-danger hover:bg-danger/10 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
             </m.button>
           )}
         </div>
