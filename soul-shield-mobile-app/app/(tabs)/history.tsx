@@ -26,7 +26,10 @@ export default function HistoryScreen() {
 
   const tasksByDate = useMemo(() => {
     const map = new Map<string, Task[]>();
+    // Fixed/admin-created tasks aren't the user's own history — exclude them
+    // so counts and the heatmap only reflect tasks the user actually owns.
     for (const task of historyQuery.data ?? []) {
+      if (task.is_global) continue;
       const list = map.get(task.date) ?? [];
       list.push(task);
       map.set(task.date, list);
