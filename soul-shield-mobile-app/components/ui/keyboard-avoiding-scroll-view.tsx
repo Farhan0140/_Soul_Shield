@@ -12,7 +12,15 @@ export function KeyboardAvoidingScrollView({
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      // AndroidManifest.xml sets windowSoftInputMode="adjustResize" (Expo's
+      // default), so Android already natively resizes the whole screen when
+      // the keyboard opens. Giving KeyboardAvoidingView a behavior here too
+      // would resize/pad it a second time on top of that, which is what was
+      // leaving a large empty gap above the keyboard (and, since the two
+      // resize sources can fall out of sync, sometimes left it stuck there
+      // after the keyboard closed too). iOS has no such native resize, so it
+      // still needs 'padding' here.
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={keyboardVerticalOffset}>
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"

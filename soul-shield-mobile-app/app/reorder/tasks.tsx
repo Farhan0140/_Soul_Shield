@@ -108,7 +108,7 @@ export default function ReorderTasksScreen() {
 
   if (selected === null) {
     return (
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content}>
         <ThemedText style={[styles.hint, { color: mutedColor }]}>
           Pick a category to reorder its tasks.
         </ThemedText>
@@ -133,7 +133,7 @@ export default function ReorderTasksScreen() {
             <IconSymbol name="chevron.right" size={18} color={mutedColor} />
           </Pressable>
         ))}
-      </View>
+      </ScrollView>
     );
   }
 

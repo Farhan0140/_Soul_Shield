@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -60,7 +61,10 @@ function ArrowButton({
 }) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        if (process.env.EXPO_OS === 'ios') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress();
+      }}
       disabled={disabled}
       hitSlop={8}
       style={({ pressed }) => [

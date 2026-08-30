@@ -114,7 +114,7 @@ export default function ReorderSubTasksScreen() {
       );
     }
     return (
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content}>
         <ThemedText style={[styles.hint, { color: mutedColor }]}>
           Pick a task to reorder its sub-tasks.
         </ThemedText>
@@ -130,7 +130,7 @@ export default function ReorderSubTasksScreen() {
             <IconSymbol name="chevron.right" size={18} color={mutedColor} />
           </Pressable>
         ))}
-      </View>
+      </ScrollView>
     );
   }
 
