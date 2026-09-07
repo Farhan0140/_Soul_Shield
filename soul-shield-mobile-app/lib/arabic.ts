@@ -12,5 +12,5 @@ export function containsArabic(text: string): boolean {
 }
 
 /** Registered with expo-font's useFonts in app/_layout.tsx — the family name
- * used to reference assets/fonts/KFGQPCUthmanTahaNaskh-Regular.ttf. */
-export const ARABIC_FONT_FAMILY = 'KFGQPCUthmanTahaNaskh';
+ * used to reference assets/fonts/Indopak_Nastaleeq_font.ttf. */
+export const ARABIC_FONT_FAMILY = 'IndopakNastaleeq';

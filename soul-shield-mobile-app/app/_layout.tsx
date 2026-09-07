@@ -77,7 +77,7 @@ export default function RootLayout() {
   // spinner below) avoids a flash of the wrong font on any text that needs
   // it before the local asset finishes registering.
   const [fontsLoaded] = useFonts({
-    [ARABIC_FONT_FAMILY]: require('@/assets/fonts/KFGQPCUthmanTahaNaskh-Regular.ttf'),
+    [ARABIC_FONT_FAMILY]: require('@/assets/fonts/Indopak_Nastaleeq_font.ttf'),
   });
 
   useEffect(() => {
