@@ -36,4 +36,8 @@ var (
 	ErrSecurityAnswerNotSet   = errors.New("security answer not set for this account")
 	ErrSecurityAnswerLocked   = errors.New("too many failed attempts, verification temporarily locked")
 	ErrInvalidResetToken      = errors.New("invalid or expired reset token")
+
+	ErrLastReadNotFound = errors.New("no last-read position saved yet")
+	ErrBookmarkExists   = errors.New("this verse is already bookmarked")
+	ErrBookmarkNotFound = errors.New("Bookmark not found")
 )

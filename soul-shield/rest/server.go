@@ -7,6 +7,7 @@ import (
 	"soulsheld/config"
 	"soulsheld/rest/handlers/category"
 	otp "soulsheld/rest/handlers/opt"
+	"soulsheld/rest/handlers/quran"
 	"soulsheld/rest/handlers/task"
 	"soulsheld/rest/handlers/user"
 	"soulsheld/rest/middlewares"
@@ -22,6 +23,7 @@ type Server struct {
 	otpHandler      *otp.Handler
 	taskHandler     *task.Handler
 	categoryHandler *category.Handler
+	quranHandler    *quran.Handler
 }
 
 func NewServer(
@@ -31,6 +33,7 @@ func NewServer(
 	otpHandler *otp.Handler,
 	taskHandler *task.Handler,
 	categoryHandler *category.Handler,
+	quranHandler *quran.Handler,
 ) *Server {
 	return &Server{
 		cnf:         cnf,
@@ -39,6 +42,7 @@ func NewServer(
 		otpHandler:  otpHandler,
 		taskHandler: taskHandler,
 		categoryHandler: categoryHandler,
+		quranHandler:    quranHandler,
 	}
 }
 
@@ -64,6 +68,7 @@ func (server *Server) Start() {
 	server.otpHandler.RegisterRoutes(mux)
 	server.taskHandler.RegisterRoutes(mux, manager, server.middlewares)
 	server.categoryHandler.RegisterRoutes(mux, manager, server.middlewares)
+	server.quranHandler.RegisterRoutes(mux, manager, server.middlewares)
 
 	// addr := ":" + strconv.Itoa(server.cnf.HttpPort)
 	// fmt.Println("Server is Running on port ", addr)

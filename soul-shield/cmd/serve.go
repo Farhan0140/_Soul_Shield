@@ -9,6 +9,7 @@ import (
 	"soulsheld/rest"
 	"soulsheld/rest/handlers/category"
 	otp "soulsheld/rest/handlers/opt"
+	"soulsheld/rest/handlers/quran"
 	"soulsheld/rest/handlers/task"
 	"soulsheld/rest/handlers/user"
 	"soulsheld/rest/middlewares"
@@ -41,11 +42,13 @@ func Serve() {
 	taskRepo := repo.NewTaskRepo(dbCon)
 	subTaskRepo := repo.NewSubTaskRepo(dbCon)
 	categoryRepo := repo.NewCategoryRepo(dbCon)
+	quranRepo := repo.NewQuranRepo(dbCon)
 
 	userHandler := user.NewHandler(cnf, userRepo, otpRepo, middlewares)
 	otpHandler := otp.NewHandler(otpRepo)
 	taskHandler := task.NewHandler(taskRepo, subTaskRepo, categoryRepo)
 	categoryHandler := category.NewHandler(categoryRepo)
+	quranHandler := quran.NewHandler(quranRepo)
 
 	server := rest.NewServer(
 		cnf,
@@ -54,6 +57,7 @@ func Serve() {
 		otpHandler,
 		taskHandler,
 		categoryHandler,
+		quranHandler,
 	)
 	server.Start()
 }

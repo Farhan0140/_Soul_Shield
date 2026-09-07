@@ -1,0 +1,29 @@
+package quran
+
+import (
+	"net/http"
+	"soulsheld/repo"
+	"soulsheld/util"
+)
+
+type Handler struct {
+	quranRepo repo.QuranRepo
+}
+
+func NewHandler(quranRepo repo.QuranRepo) *Handler {
+	return &Handler{quranRepo: quranRepo}
+}
+
+// getUserID: JWT middleware থেকে context এ বসানো userID বের করে
+func getUserID(r *http.Request) (int64, bool) {
+	val := r.Context().Value("userID")
+	id, ok := val.(int64)
+	if !ok {
+		return 0, false
+	}
+	return int64(id), true
+}
+
+func unauthorized(w http.ResponseWriter) {
+	util.SendError(w, map[string]string{"error": "Unauthorize"}, http.StatusUnauthorized)
+}

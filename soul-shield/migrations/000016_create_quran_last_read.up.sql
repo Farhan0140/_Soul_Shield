@@ -1,0 +1,7 @@
+-- +migrate Up
+CREATE TABLE IF NOT EXISTS quran_last_read (
+    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    surah_no SMALLINT NOT NULL CHECK (surah_no BETWEEN 1 AND 114),
+    ayah_no SMALLINT NOT NULL CHECK (ayah_no >= 1),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
