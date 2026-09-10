@@ -20,6 +20,7 @@ const (
 type UserRepo interface {
 	Create(user User) (*User, error)
 	Find(email, password string) (*User, error)
+	GetByID(id int64) (*User, error)
 	Update(email string, password string) error
 	VerifySecurityAnswer(email, answer, ipAddress string) error
 }
@@ -146,6 +147,25 @@ func (r *userRepo) Find(email, password string) (*User, error) {
 	if err != nil {
 		fmt.Println(err)
 		return nil, nil
+	}
+
+	return &user, nil
+}
+
+func (r *userRepo) GetByID(id int64) (*User, error) {
+	var user User
+	query := `
+		SELECT id, full_name, email, role, created_at
+		FROM users
+		WHERE id = $1
+		LIMIT 1
+	`
+	err := r.db.Get(&user, query, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, util.ErrUserNotFound
+		}
+		return nil, err
 	}
 
 	return &user, nil

@@ -183,11 +183,12 @@ type SubTaskWithStatus struct {
 
 // User Model
 type User struct {
-	ID        int64  `json:"id" db:"id"`
-	Full_Name string `json:"full_name" db:"full_name"`
-	Email     string `json:"email" db:"email"`
-	Password  string `json:"password" db:"password"`
-	Role      string `json:"role" db:"role"`
+	ID        int64     `json:"id" db:"id"`
+	Full_Name string    `json:"full_name" db:"full_name"`
+	Email     string    `json:"email" db:"email"`
+	Password  string    `json:"password" db:"password"`
+	Role      string    `json:"role" db:"role"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
 
 	// SecurityAnswer is the plaintext answer supplied on registration. It is never persisted
 	// as-is (db:"-") — Create() hashes it into SecurityAnswerHash before the INSERT.

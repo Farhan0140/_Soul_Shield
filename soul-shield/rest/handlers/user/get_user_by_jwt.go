@@ -32,5 +32,19 @@ func (h *Handler) GetUserByJWT(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	util.SendData(w, claims, http.StatusOK)
+	user, err := h.userRepo.GetByID(claims.ID)
+	if err != nil {
+		util.SendError(w, map[string]string{
+			"error": "Internal Server Error",
+		}, http.StatusInternalServerError)
+		return
+	}
+
+	util.SendData(w, map[string]any{
+		"id":         claims.ID,
+		"full_name":  claims.Full_Name,
+		"email":      claims.Email,
+		"role":       claims.Role,
+		"created_at": user.CreatedAt,
+	}, http.StatusOK)
 }
