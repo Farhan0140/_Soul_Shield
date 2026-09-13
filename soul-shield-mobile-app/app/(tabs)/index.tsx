@@ -6,13 +6,13 @@ import type { Task } from '@/api/types';
 import { ThemedText } from '@/components/themed-text';
 import { DateNavHeader } from '@/components/dashboard/date-nav-header';
 import { ProgressSummaryBar } from '@/components/dashboard/progress-summary-bar';
-import { SourceFilterRow, type SourceFilter } from '@/components/filters/source-filter';
-import { StatusTabs, type StatusFilter } from '@/components/filters/status-tabs';
-import { TaskTypeFilterRow, type TaskTypeFilter } from '@/components/filters/task-type-filter';
+import { FiltersMenu } from '@/components/filters/filters-menu';
+import type { SourceFilter } from '@/components/filters/source-filter';
+import type { StatusFilter } from '@/components/filters/status-tabs';
+import type { TaskTypeFilter } from '@/components/filters/task-type-filter';
 import { CategorySection } from '@/components/task/category-section';
 import { RewardModal } from '@/components/task/reward-modal';
 import { ErrorState } from '@/components/ui/error-state';
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { useAuth } from '@/context/auth-context';
 import { useCategoriesQuery } from '@/hooks/queries/use-categories';
@@ -50,9 +50,6 @@ export default function HomeScreen() {
   const deleteTask = useDeleteTask(date);
   useTaskRemindersSync();
 
-  const cardColor = useThemeColor({}, 'card');
-  const borderColor = useThemeColor({}, 'border');
-  const mutedColor = useThemeColor({}, 'muted');
   const tintColor = useThemeColor({}, 'tint');
   const successColor = useThemeColor({}, 'success');
   const categoryFallback = useThemeColor({}, 'categoryFallback');
@@ -110,13 +107,6 @@ export default function HomeScreen() {
     ];
   }, [categories, myTasks, categoryFallback]);
 
-  const hasActiveFilters = status !== 'all' || taskType !== 'all' || source !== 'all';
-
-  const clearFilters = () => {
-    setStatus('all');
-    setTaskType('all');
-    setSource('all');
-  };
 
   const handleToggleComplete = (task: Task) => {
     completeTask.mutate(
@@ -169,26 +159,14 @@ export default function HomeScreen() {
 
       {tasks.length > 0 ? <ProgressSummaryBar completed={completedCount} total={tasks.length} /> : null}
 
-      <View style={[styles.filters, { backgroundColor: cardColor, borderColor }]}>
-        <View style={styles.filtersHeader}>
-          <View style={styles.filtersHeaderLeft}>
-            <IconSymbol name="line.3.horizontal.decrease" size={16} color={mutedColor} />
-            <ThemedText type="defaultSemiBold" style={styles.filtersHeaderLabel}>
-              Filters
-            </ThemedText>
-          </View>
-          {hasActiveFilters ? (
-            <Pressable onPress={clearFilters} hitSlop={8}>
-              <ThemedText type="link" style={styles.clearLabel}>
-                Clear
-              </ThemedText>
-            </Pressable>
-          ) : null}
-        </View>
-        <StatusTabs value={status} onChange={setStatus} />
-        <TaskTypeFilterRow value={taskType} onChange={setTaskType} />
-        <SourceFilterRow value={source} onChange={setSource} />
-      </View>
+      <FiltersMenu
+        status={status}
+        onStatusChange={setStatus}
+        taskType={taskType}
+        onTaskTypeChange={setTaskType}
+        source={source}
+        onSourceChange={setSource}
+      />
 
       {tasksQuery.isPending && !isOnline ? (
         // Distinct from the isLoading skeleton below: with no connection and
@@ -298,17 +276,6 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   content: { flexGrow: 1, padding: 20, paddingBottom: 120, gap: 16 },
-  filters: {
-    gap: 12,
-    padding: 16,
-    borderRadius: 18,
-    borderCurve: 'continuous',
-    borderWidth: 1,
-  },
-  filtersHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  filtersHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  filtersHeaderLabel: { fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5 },
-  clearLabel: { fontSize: 13 },
   skeletons: { gap: 12 },
   sections: { gap: 12 },
 });
