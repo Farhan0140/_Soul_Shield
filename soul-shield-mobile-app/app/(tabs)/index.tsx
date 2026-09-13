@@ -4,6 +4,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { Task } from '@/api/types';
 import { ThemedText } from '@/components/themed-text';
+import { DailyVerseCard } from '@/components/dashboard/daily-verse-card';
 import { DateNavHeader } from '@/components/dashboard/date-nav-header';
 import { ProgressSummaryBar } from '@/components/dashboard/progress-summary-bar';
 import { FiltersMenu } from '@/components/filters/filters-menu';
@@ -156,6 +157,8 @@ export default function HomeScreen() {
         onNext={() => setDate((d) => addDays(d, 1))}
         onToday={() => setDate(todayISODate())}
       />
+
+      <DailyVerseCard />
 
       {tasks.length > 0 ? <ProgressSummaryBar completed={completedCount} total={tasks.length} /> : null}
 
