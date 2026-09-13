@@ -1,7 +1,8 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 
+import { useArabicFont } from '@/context/arabic-font-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { ARABIC_FONT_FAMILY, containsArabic } from '@/lib/arabic';
+import { containsArabic } from '@/lib/arabic';
 
 export type ThemedTextProps = TextProps & {
   lightColor?: string;
@@ -18,10 +19,12 @@ export function ThemedText({
   ...rest
 }: ThemedTextProps) {
   const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+  const { fontFamily: arabicFontFamily } = useArabicFont();
   // Auto-detects Arabic script (e.g. a task title/description written in
-  // Arabic) and switches to the Indopak Nastaleeq font for it — unless the
-  // caller already asked for a specific fontFamily of its own (e.g. the
-  // Fonts.mono digits in the timer screens), which still wins.
+  // Arabic) and switches to the user's chosen Arabic font for it (see
+  // context/arabic-font-context.tsx) — unless the caller already asked for a
+  // specific fontFamily of its own (e.g. the Fonts.mono digits in the timer
+  // screens), which still wins.
   const isArabic = typeof children === 'string' && containsArabic(children);
   const callerStyle = StyleSheet.flatten(style);
   const arabicApplies = isArabic && !callerStyle?.fontFamily;
@@ -50,7 +53,7 @@ export function ThemedText({
   const arabicOverride = arabicApplies
     ? { fontWeight: 'normal' as const, fontSize: baseFontSize * 1.15, lineHeight: baseFontSize * 1.15 * 1.8 }
     : undefined;
-  const arabicFontStyle = arabicApplies ? { fontFamily: ARABIC_FONT_FAMILY } : undefined;
+  const arabicFontStyle = arabicApplies ? { fontFamily: arabicFontFamily } : undefined;
 
   return (
     <Text

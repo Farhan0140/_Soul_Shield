@@ -13,11 +13,12 @@ import { runForegroundSyncIfDue } from '@/lib/background-sync/sync';
 import { registerBackgroundSync } from '@/lib/background-sync/task';
 import { ensureTimerNotificationChannel } from '@/lib/timer/notifications';
 import { ensureTimerTaskNotificationChannel } from '@/lib/timer-task/notifications';
+import { ArabicFontProvider } from '@/context/arabic-font-context';
 import { AuthProvider, useAuth } from '@/context/auth-context';
 import { SyncNotificationsProvider } from '@/context/sync-notifications-context';
 import { AppThemeProvider, useAppTheme } from '@/context/theme-context';
 import { ThemeScheme } from '@/constants/theme';
-import { ARABIC_FONT_FAMILY } from '@/lib/arabic';
+import { ARABIC_FONT_OPTIONS } from '@/lib/arabic';
 import '@/lib/network';
 import { getNavigationTheme } from '@/lib/navigation-theme';
 import { ensureNotificationSetup } from '@/lib/notifications';
@@ -71,14 +72,15 @@ function ThemedApp() {
 }
 
 export default function RootLayout() {
-  // Registered once here so every ThemedText in the app can reference it by
-  // name (see components/themed-text.tsx's Arabic-script auto-detection) —
-  // gating the initial render on this (same pattern as the auth-loading
-  // spinner below) avoids a flash of the wrong font on any text that needs
-  // it before the local asset finishes registering.
-  const [fontsLoaded] = useFonts({
-    [ARABIC_FONT_FAMILY]: require('@/assets/fonts/Indopak_Nastaleeq_font.ttf'),
-  });
+  // Every bundled Arabic font is registered once here, up front — not just
+  // whichever one is currently selected — so switching the preference in
+  // Profile (see context/arabic-font-context.tsx) is an instant re-render,
+  // not another async font load. Gating the initial render on this (same
+  // pattern as the auth-loading spinner below) avoids a flash of the wrong
+  // font on any text that needs it before the assets finish registering.
+  const [fontsLoaded] = useFonts(
+    Object.fromEntries(ARABIC_FONT_OPTIONS.map((option) => [option.familyName, option.asset]))
+  );
 
   useEffect(() => {
     ensureNotificationSetup();
@@ -142,11 +144,13 @@ export default function RootLayout() {
         onSuccess={() => {
           queryClient.resumePausedMutations();
         }}>
-        <AppThemeProvider>
-          <AuthProvider>
-            <ThemedApp />
-          </AuthProvider>
-        </AppThemeProvider>
+        <ArabicFontProvider>
+          <AppThemeProvider>
+            <AuthProvider>
+              <ThemedApp />
+            </AuthProvider>
+          </AppThemeProvider>
+        </ArabicFontProvider>
       </PersistQueryClientProvider>
     </GestureHandlerRootView>
   );

@@ -6,6 +6,7 @@ const TOKEN_KEY = 'soulshield_auth_token';
 const REMEMBERED_EMAIL_KEY = 'soulshield_remembered_email';
 const THEME_KEY = 'soulshield_theme';
 const CACHED_USER_KEY = 'soulshield_cached_user';
+const ARABIC_FONT_KEY = 'soulshield_arabic_font';
 
 export const tokenStore = {
   getToken: () => SecureStore.getItemAsync(TOKEN_KEY),
@@ -39,4 +40,9 @@ export const rememberedEmailStore = {
 export const themePreferenceStore = {
   get: () => SecureStore.getItemAsync(THEME_KEY),
   set: (theme: string) => SecureStore.setItemAsync(THEME_KEY, theme),
+};
+
+export const arabicFontStore = {
+  get: () => SecureStore.getItemAsync(ARABIC_FONT_KEY),
+  set: (fontId: string) => SecureStore.setItemAsync(ARABIC_FONT_KEY, fontId),
 };

@@ -11,6 +11,52 @@ export function containsArabic(text: string): boolean {
   return ARABIC_SCRIPT_PATTERN.test(text);
 }
 
-/** Registered with expo-font's useFonts in app/_layout.tsx — the family name
- * used to reference assets/fonts/Indopak_Nastaleeq_font.ttf. */
-export const ARABIC_FONT_FAMILY = 'IndopakNastaleeq';
+export interface ArabicFontOption {
+  /** Stable key persisted to disk (see lib/secure-store.ts) — independent of
+   * familyName so the asset file backing an id can change without orphaning
+   * a saved preference. */
+  id: string;
+  /** Family name registered with expo-font's useFonts in app/_layout.tsx. */
+  familyName: string;
+  /** Shown in the Arabic Font picker (profile/arabic-font-picker.tsx). */
+  displayName: string;
+  asset: number;
+}
+
+/** Every Arabic font bundled under assets/fonts, registered with expo-font
+ * in app/_layout.tsx and selectable from the Profile screen (see
+ * context/arabic-font-context.tsx + profile/arabic-font-picker.tsx). Adding
+ * a font is just adding an entry here — nothing else needs to enumerate
+ * them separately. */
+export const ARABIC_FONT_OPTIONS: ArabicFontOption[] = [
+  {
+    id: 'indopak',
+    familyName: 'IndopakNastaleeq',
+    displayName: 'Indopak Nastaleeq',
+    asset: require('@/assets/fonts/Indopak_Nastaleeq_font.ttf'),
+  },
+  {
+    id: 'uthman-taha',
+    familyName: 'UthmanTahaNaskh',
+    displayName: 'Uthman Taha Naskh',
+    asset: require('@/assets/fonts/KFGQPCUthmanTahaNaskh-Regular.ttf'),
+  },
+  {
+    id: 'me-quran',
+    familyName: 'MeQuran',
+    displayName: 'Me Quran',
+    asset: require('@/assets/fonts/me_quran Regular.ttf'),
+  },
+  {
+    id: 'noore-hidayat',
+    familyName: 'NooreHidayat',
+    displayName: 'Noore Hidayat',
+    asset: require('@/assets/fonts/noorehidayat Regular.ttf'),
+  },
+];
+
+export const DEFAULT_ARABIC_FONT_ID = ARABIC_FONT_OPTIONS[0].id;
+
+/** Sample line (Al-Fatiha 1:1) shown next to each option in the picker so
+ * switching fonts is a visual choice, not a guess from the name alone. */
+export const ARABIC_FONT_DEMO_TEXT = 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ';

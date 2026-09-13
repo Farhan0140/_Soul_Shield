@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { ArabicFontPicker } from '@/components/profile/arabic-font-picker';
 import { ThemePicker } from '@/components/profile/theme-picker';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { PrimaryButton } from '@/components/ui/primary-button';
@@ -103,6 +104,16 @@ export default function ProfileScreen() {
           </ThemedText>
         </View>
         <ThemePicker />
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <IconSymbol name="textformat" size={16} color={mutedColor} />
+          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+            Arabic Font
+          </ThemedText>
+        </View>
+        <ArabicFontPicker />
       </View>
 
       <View style={styles.section}>

@@ -61,6 +61,7 @@ const MAPPING = {
   'line.3.horizontal': 'reorder',
   'chevron.up': 'keyboard-arrow-up',
   'chevron.down': 'keyboard-arrow-down',
+  'textformat': 'text-fields',
 } as IconMapping;
 
 /**
