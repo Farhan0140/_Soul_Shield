@@ -1,7 +1,7 @@
 import { eq, isNull, sql } from 'drizzle-orm';
 
 import type { SyncTask } from '@/api/sync-types';
-import type { RecurrenceType, SubTask, Task, TaskStatus, TaskType } from '@/api/types';
+import type { ManageableTask, RecurrenceType, SubTask, Task, TaskStatus, TaskType } from '@/api/types';
 import { listActiveCategories } from '@/lib/db/categories-repo';
 import { getLocalDb } from '@/lib/db/client';
 import { listSubTaskCompletionsInRange, listTaskCompletionsInRange } from '@/lib/db/completions-repo';
@@ -224,6 +224,29 @@ export function listAllOwnedTasksFlat() {
     .all()
     .filter((t) => !t.isGlobal)
     .sort((a, b) => a.position - b.position);
+}
+
+/** listAllOwnedTasksFlat reshaped into the ManageableTask[] wire shape (see
+ * api/types.ts) the Reorder pages already consume - the on-device
+ * equivalent of GET /tasks/mine, for hooks/queries/use-tasks.ts's
+ * useMyTasksQuery. */
+export function deriveManageableTasks(): ManageableTask[] {
+  const ownedTasks = listAllOwnedTasksFlat();
+  const subTasksByParent = listActiveSubTasksByParents(ownedTasks.map((t) => t.uuid));
+
+  return ownedTasks.map((t) => ({
+    id: t.uuid,
+    title: t.title,
+    category_id: t.categoryUuid ?? undefined,
+    position: t.position,
+    sub_tasks: subTasksByParent.get(t.uuid)?.map((s) => ({
+      sub_task_id: s.uuid,
+      title: s.title,
+      task_type: s.taskType as TaskType,
+      target_count: s.targetCount,
+      duration_seconds: s.durationSeconds,
+    })),
+  }));
 }
 
 // ---- Local writes: see categories-repo.ts's equivalent section comment -

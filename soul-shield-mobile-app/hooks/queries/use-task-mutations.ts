@@ -9,6 +9,7 @@ import {
 import { replaceSubTasksForParentLocal } from '@/lib/db/sub-tasks-repo';
 import { createTaskLocal, deriveTasksForDate, reorderTasksLocal, softDeleteTaskLocal, updateTaskLocal } from '@/lib/db/tasks-repo';
 import { newUuid } from '@/lib/db/uuid';
+import { pullLocalDatabase } from '@/lib/background-sync/pull';
 import { todayISODate } from '@/lib/date';
 import {
   addTaskToMyTasksMutationFn,
@@ -174,11 +175,15 @@ export function useAddTaskToMyTasks(date: string) {
   return useMutation({
     mutationKey: mutationKeys.tasks.addToMyTasks,
     mutationFn: addTaskToMyTasksMutationFn,
-    // The new task/category only exist locally once the next sync pull
-    // brings them in (see lib/background-sync/pull.ts) - onSettled below
-    // invalidates so that pull's result shows up as soon as it lands;
-    // there's nothing to do here with the AddToMyTasksResponse itself.
-    onSuccess: (_data: AddToMyTasksResponse) => {},
+    // The new task/category only exist locally once a sync pull brings them
+    // in (see lib/background-sync/pull.ts) - triggered right away here
+    // instead of waiting for the next scheduled trigger, so "already_added"
+    // reflects correctly without the user needing to background/reopen the
+    // app first. Swallowed on failure the same way every other opportunistic
+    // pull call site does - the next scheduled trigger still catches it.
+    onSuccess: async (_data: AddToMyTasksResponse) => {
+      await pullLocalDatabase().catch(() => {});
+    },
     onSettled: () => {
       invalidateTaskLists(queryClient);
       queryClient.invalidateQueries({ queryKey: queryKeys.categories });

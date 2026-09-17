@@ -1,6 +1,7 @@
 import { eq, isNull, sql } from 'drizzle-orm';
 
 import type { SyncCategory } from '@/api/sync-types';
+import type { Category } from '@/api/types';
 import { checkForConflict } from '@/lib/db/conflicts-repo';
 import { getLocalDb } from '@/lib/db/client';
 import { categories, tasks } from '@/lib/db/schema';
@@ -55,6 +56,18 @@ export function listActiveCategories() {
   const db = getLocalDb();
   if (!db) return [];
   return db.select().from(categories).where(isNull(categories.deletedAt)).orderBy(categories.position).all();
+}
+
+/** listActiveCategories reshaped into the Category[] wire shape (see
+ * api/types.ts) for hooks/queries/use-categories.ts's useCategoriesQuery -
+ * same reasoning as tasks-repo.ts's deriveManageableTasks. */
+export function deriveCategories(): Category[] {
+  return listActiveCategories().map((c) => ({
+    id: c.uuid,
+    name: c.name,
+    color_hex: c.colorHex,
+    position: c.position,
+  }));
 }
 
 export function getCategoryByUuid(uuid: string) {
