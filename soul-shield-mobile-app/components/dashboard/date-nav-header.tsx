@@ -20,8 +20,11 @@ export function DateNavHeader({ date, onPrev, onNext, onToday }: DateNavHeaderPr
 
   return (
     <View style={styles.container}>
-      <ThemedText type="title">Today&apos;s Tasks</ThemedText>
-      <SyncStatus />
+      <View style={styles.titleRow}>
+        <ThemedText type="title">Today&apos;s Tasks</ThemedText>
+        <SyncLabel />
+      </View>
+      <SyncProgressBar />
       <View style={styles.row}>
         <Pressable onPress={onPrev} hitSlop={8} style={styles.arrow}>
           <IconSymbol name="chevron.left" size={20} color={tint} />
@@ -52,17 +55,30 @@ const SYNC_BAR_HEIGHT = 2;
 const SYNC_BAR_SEGMENT_RATIO = 0.4;
 const SYNC_BAR_SWEEP_MS = 900;
 
-/** "Syncing…"/"Synced"/"Sync failed" label plus a thin (2px) sweeping bar,
- * both under the "Today's Tasks" title — the label is the explicit answer to
- * "is it syncing right now", the bar is the same at-a-glance motion cue this
- * had before. Both driven by the same background-sync phase (see
- * lib/background-sync/sync-status.ts): 'idle' renders nothing (no layout
- * reserved), so a session that hasn't synced yet looks exactly like before
- * this existed. */
-function SyncStatus() {
-  const tint = useThemeColor({}, 'tint');
+/** "Syncing…"/"Synced"/"Sync failed", top-right of the "Today's Tasks" title
+ * row — the explicit answer to "is it syncing right now". 'idle' renders
+ * nothing (no layout reserved), so a session that hasn't synced yet looks
+ * exactly like before this existed. */
+function SyncLabel() {
   const mutedColor = useThemeColor({}, 'muted');
   const errorColor = useThemeColor({}, 'danger');
+  const phase = useBackgroundSyncPhase();
+
+  if (phase === 'idle') return null;
+
+  return (
+    <ThemedText style={[styles.syncLabel, { color: phase === 'failed' ? errorColor : mutedColor }]}>
+      {phase === 'syncing' ? 'Syncing…' : phase === 'synced' ? 'Synced' : 'Sync failed'}
+    </ThemedText>
+  );
+}
+
+/** Thin (2px) bar under the "Today's Tasks" title that appears only while a
+ * sync is actually in flight — the same at-a-glance motion cue this had
+ * before SyncLabel existed, kept in its original position (unlike the label,
+ * which now sits top-right on the title row instead of stacked underneath). */
+function SyncProgressBar() {
+  const tint = useThemeColor({}, 'tint');
   const phase = useBackgroundSyncPhase();
   const [trackWidth, setTrackWidth] = useState(0);
   const sweep = useRef(new Animated.Value(0)).current;
@@ -84,7 +100,7 @@ function SyncStatus() {
     return () => animation.stop();
   }, [isSyncing, trackWidth, sweep]);
 
-  if (phase === 'idle') return null;
+  if (!isSyncing) return null;
 
   const handleLayout = (event: LayoutChangeEvent) => setTrackWidth(event.nativeEvent.layout.width);
   const segmentWidth = trackWidth * SYNC_BAR_SEGMENT_RATIO;
@@ -94,21 +110,14 @@ function SyncStatus() {
   });
 
   return (
-    <View style={styles.syncContainer}>
-      <ThemedText style={[styles.syncLabel, { color: phase === 'failed' ? errorColor : mutedColor }]}>
-        {phase === 'syncing' ? 'Syncing…' : phase === 'synced' ? 'Synced' : 'Sync failed'}
-      </ThemedText>
-      {isSyncing ? (
-        <View style={styles.syncTrack} onLayout={handleLayout} pointerEvents="none">
-          {trackWidth > 0 ? (
-            <Animated.View
-              style={[
-                styles.syncSegment,
-                { width: segmentWidth, backgroundColor: tint, transform: [{ translateX }] },
-              ]}
-            />
-          ) : null}
-        </View>
+    <View style={styles.syncTrack} onLayout={handleLayout} pointerEvents="none">
+      {trackWidth > 0 ? (
+        <Animated.View
+          style={[
+            styles.syncSegment,
+            { width: segmentWidth, backgroundColor: tint, transform: [{ translateX }] },
+          ]}
+        />
       ) : null}
     </View>
   );
@@ -116,11 +125,11 @@ function SyncStatus() {
 
 const styles = StyleSheet.create({
   container: { gap: 8 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   arrow: { padding: 4 },
   date: { flex: 1 },
   today: { fontSize: 14 },
-  syncContainer: { gap: 4 },
   syncLabel: { fontSize: 12 },
   syncTrack: {
     height: SYNC_BAR_HEIGHT,
