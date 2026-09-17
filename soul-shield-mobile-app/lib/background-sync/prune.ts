@@ -61,6 +61,16 @@ export function pruneExpiredTaskCache(queryClient: QueryClient): void {
     }
   }
 
+  // Same rolling window as tasks(date) above, but nothing ever mutates a
+  // dailyVerse entry, so there's no pending-mutation protection to check —
+  // any date before today is simply superseded.
+  for (const query of queryClient.getQueryCache().findAll({ queryKey: ['dailyVerse'] })) {
+    const date = query.queryKey[1] as string | undefined;
+    if (date && date < today) {
+      queryClient.removeQueries({ queryKey: query.queryKey, exact: true });
+    }
+  }
+
   // Every successful sync mints a brand-new taskHistory(from, dhakaToday) key
   // (dhakaToday changes daily, see lib/background-sync/time.ts) rather than
   // overwriting yesterday's — any entry not matching today's Dhaka date is

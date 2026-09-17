@@ -16,7 +16,7 @@ export function useDailyVerseQuery() {
     queryKey: queryKeys.dailyVerse(date),
     queryFn: async () => {
       const surahs = await getSurahList();
-      const { surahNo, ayahNo } = pickDailyVerseRef(surahs);
+      const { surahNo, ayahNo } = pickDailyVerseRef(surahs, date);
       return getVerse(surahNo, ayahNo);
     },
     staleTime: Infinity,

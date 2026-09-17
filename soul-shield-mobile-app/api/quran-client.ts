@@ -5,12 +5,17 @@ import { ApiError } from '@/lib/errors';
 // EXPO_PUBLIC_API_URL, and no JSON request body ever leaves this client.
 const BASE_URL = 'https://quranapi.pages.dev/api';
 
-async function request<T>(path: string): Promise<T> {
+async function request<T>(path: string, timeoutMs?: number): Promise<T> {
+  const controller = timeoutMs ? new AbortController() : undefined;
+  const timeout = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
+
   let response: Response;
   try {
-    response = await fetch(`${BASE_URL}${path}`);
+    response = await fetch(`${BASE_URL}${path}`, { signal: controller?.signal });
   } catch {
     throw new ApiError('Network error', 0, 'NETWORK_ERROR');
+  } finally {
+    if (timeout) clearTimeout(timeout);
   }
 
   if (!response.ok) {
@@ -20,4 +25,4 @@ async function request<T>(path: string): Promise<T> {
   return response.json();
 }
 
-export const quranApiGet = <T,>(path: string) => request<T>(path);
+export const quranApiGet = <T,>(path: string, timeoutMs?: number) => request<T>(path, timeoutMs);

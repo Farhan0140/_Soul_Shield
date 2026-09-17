@@ -24,10 +24,10 @@ export interface Verse {
  * used to map a single running index across the whole Quran onto a
  * surah/ayah pair (see lib/daily-verse.ts). Static content: fetch once,
  * cache forever. */
-export function getSurahList() {
-  return quranApiGet<SurahListEntry[]>('/surah.json');
+export function getSurahList(timeoutMs?: number) {
+  return quranApiGet<SurahListEntry[]>('/surah.json', timeoutMs);
 }
 
-export function getVerse(surahNo: number, ayahNo: number) {
-  return quranApiGet<Verse>(`/${surahNo}/${ayahNo}.json`);
+export function getVerse(surahNo: number, ayahNo: number, timeoutMs?: number) {
+  return quranApiGet<Verse>(`/${surahNo}/${ayahNo}.json`, timeoutMs);
 }

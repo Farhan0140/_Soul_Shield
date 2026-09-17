@@ -3,10 +3,12 @@ import { QueryClient, dehydrate } from '@tanstack/react-query';
 
 import { fetchMe } from '@/api/auth';
 import { getCategories } from '@/api/categories';
+import { getSurahList, getVerse, type Verse } from '@/api/quran-content';
 import { getTaskHistory, getTasks } from '@/api/tasks';
 import { recordSyncOutcome } from '@/lib/background-sync/state';
 import { currentDhakaDateString } from '@/lib/background-sync/time';
 import { assertCategoryArray, assertTaskArray, assertUser } from '@/lib/background-sync/validate';
+import { pickDailyVerseRef } from '@/lib/daily-verse';
 import { addDays, dateRange, todayISODate } from '@/lib/date';
 import { syncAllTaskReminders } from '@/lib/notifications';
 import { PERSIST_BUSTER, persister } from '@/lib/persister';
@@ -31,6 +33,27 @@ const FORWARD_WINDOW_DAYS = 3;
  * of leaving the background task (and the OS's wake-lock budget for it)
  * hanging indefinitely. */
 const REQUEST_TIMEOUT_MS = 20_000;
+
+/** Fetches the forward-window's worth of "verse of the day" entries in one
+ * pass (see components/dashboard/daily-verse-card.tsx) — a single surah-list
+ * fetch shared across every date, then one verse fetch per date. Callers
+ * treat a failure here as non-fatal (see runFullBackgroundSyncInner): the
+ * third-party quranapi.pages.dev API being slow or unreachable must never
+ * block or abort the task/category sync that the offline guarantee actually
+ * depends on. */
+async function prefetchDailyVerses(
+  dates: string[],
+  timeoutMs: number
+): Promise<{ date: string; verse: Verse }[]> {
+  const surahs = await getSurahList(timeoutMs);
+  return Promise.all(
+    dates.map(async (date) => {
+      const { surahNo, ayahNo } = pickDailyVerseRef(surahs, date);
+      const verse = await getVerse(surahNo, ayahNo, timeoutMs);
+      return { date, verse };
+    })
+  );
+}
 
 /** Full refresh: pulls categories, today + the next FORWARD_WINDOW_DAYS days
  * of tasks, and a rolling backward history window fresh from the API, then
@@ -90,16 +113,29 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
     // exactly or the prefetch would land under a key nothing ever reads.
     const forwardDates = dateRange(todayISODate(), addDays(todayISODate(), FORWARD_WINDOW_DAYS));
 
-    // All requests must succeed for any of them to be written — a partial
-    // batch (e.g. categories refreshed but tasks failed) would leave the
-    // local cache internally inconsistent, which is worse than just leaving
-    // last night's snapshot in place until the next attempt.
-    const [categoriesRaw, forwardTasksRaw, historyRaw, meRaw] = await Promise.all([
+    // Categories + the forward task window + history must succeed together
+    // or not at all — a partial batch (e.g. categories refreshed but tasks
+    // failed) would leave the local cache internally inconsistent, which is
+    // worse than just leaving last night's snapshot in place until the next
+    // attempt. This is the actual offline guarantee (today + FORWARD_WINDOW_DAYS
+    // of tasks), so it's kept strictly atomic.
+    //
+    // `me` and the daily-verse prefetch are logically unrelated to that
+    // guarantee and to each other, so each gets its own independent
+    // catch(() => null) instead of joining the Promise.all above — a slow
+    // (e.g. cold-starting) /users/me response or an unreachable third-party
+    // verse API must never abort tomorrow's task prefetch. All three start
+    // in parallel regardless; only the critical group is awaited before the
+    // others so a failure there still aborts the whole sync as before.
+    const criticalPromise = Promise.all([
       getCategories(token, REQUEST_TIMEOUT_MS),
       Promise.all(forwardDates.map((date) => getTasks(date, token, REQUEST_TIMEOUT_MS))),
       getTaskHistory(from, dhakaToday, token, REQUEST_TIMEOUT_MS),
-      fetchMe(token, REQUEST_TIMEOUT_MS),
     ]);
+    const mePromise = fetchMe(token, REQUEST_TIMEOUT_MS).catch(() => null);
+    const versesPromise = prefetchDailyVerses(forwardDates, REQUEST_TIMEOUT_MS).catch(() => null);
+
+    const [categoriesRaw, forwardTasksRaw, historyRaw] = await criticalPromise;
 
     const categories = assertCategoryArray(categoriesRaw);
     const forwardTasksByDate = forwardDates.map((date, i) => ({
@@ -107,7 +143,10 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
       tasks: assertTaskArray(forwardTasksRaw[i], `tasks ${date}`),
     }));
     const history = assertTaskArray(historyRaw, 'task history');
-    const me = assertUser(meRaw);
+
+    const meRaw = await mePromise;
+    const me = meRaw ? assertUser(meRaw) : null;
+    const verses = await versesPromise;
 
     if (liveClient) {
       // App is mounted and online right now — write straight into it so
@@ -120,6 +159,11 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
         liveClient.setQueryData(queryKeys.tasks(date), tasks);
       }
       liveClient.setQueryData(queryKeys.taskHistory(from, dhakaToday), history);
+      if (verses) {
+        for (const { date, verse } of verses) {
+          liveClient.setQueryData(queryKeys.dailyVerse(date), verse);
+        }
+      }
     } else {
       // No live client — dehydrating a throwaway one guarantees the fresh
       // snapshot contains exactly these queries and nothing left over from a
@@ -131,6 +175,11 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
         freshClient.setQueryData(queryKeys.tasks(date), tasks);
       }
       freshClient.setQueryData(queryKeys.taskHistory(from, dhakaToday), history);
+      if (verses) {
+        for (const { date, verse } of verses) {
+          freshClient.setQueryData(queryKeys.dailyVerse(date), verse);
+        }
+      }
       const fresh = dehydrate(freshClient);
 
       const previous = await persister.restoreClient();
@@ -145,8 +194,11 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
     }
 
     // `me` is cached via SecureStore, not the react-query persister (see
-    // lib/persister.ts) — updated separately for the same reason.
-    await cachedUserStore.set(me);
+    // lib/persister.ts) — updated separately for the same reason. Skipped
+    // when the independent fetchMe above failed (see mePromise): leaving
+    // last-known-good in place is strictly better than blocking or
+    // corrupting this sync over an unrelated, non-critical endpoint.
+    if (me) await cachedUserStore.set(me);
 
     // Self-heals notification scheduling the same way the foreground
     // hook (use-task-reminders-sync.ts) does, so a task edited on another
