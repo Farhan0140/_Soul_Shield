@@ -13,7 +13,7 @@ import { syncAllTaskReminders } from '@/lib/notifications';
 import { PERSIST_BUSTER, persister } from '@/lib/persister';
 import { queryKeys } from '@/lib/query-keys';
 import { cachedUserStore, tokenStore } from '@/lib/secure-store';
-import { setSyncStatus } from '@/lib/background-sync/sync-status';
+import { setSyncPhase } from '@/lib/background-sync/sync-status';
 
 /** How many days beyond today to keep the "verse of the day" pre-fetched
  * (see components/dashboard/daily-verse-card.tsx) - unrelated to task/
@@ -85,7 +85,9 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
     // (the periodic background task, or the app coming back online) will
     // naturally get another chance: the background task re-checks on its own
     // next OS-scheduled wake-up within today's sync window, and the reconnect
-    // listener only fires once connectivity actually returns.
+    // listener only fires once connectivity actually returns. Back to
+    // 'idle' rather than 'synced'/'failed' - nothing was actually attempted.
+    setSyncPhase('idle');
     await recordSyncOutcome('skipped-offline');
     return;
   }
@@ -94,6 +96,7 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
   if (!token) {
     // Signed out — nothing to sync, and nothing to retry until a login
     // happens (which fetches everything fresh on its own anyway).
+    setSyncPhase('idle');
     await recordSyncOutcome('skipped-signed-out');
     return;
   }
@@ -170,7 +173,9 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
     await syncAllTaskReminders(listAllActiveTasksForReminders());
 
     await recordSyncOutcome('success');
+    setSyncPhase('synced');
   } catch (error) {
+    setSyncPhase('failed');
     await recordSyncOutcome('failed', error instanceof Error ? error.message : String(error));
     throw error;
   }
@@ -186,14 +191,14 @@ let syncInFlight: Promise<void> | null = null;
 
 export function runFullBackgroundSync(liveClient?: QueryClient): Promise<void> {
   if (syncInFlight) return syncInFlight;
-  // Toggled around the coalesced run (not inside runFullBackgroundSyncInner
-  // itself) so every caller sharing this in-flight promise sees one
-  // true→false transition, not one per caller — see sync-status.ts, read by
-  // DateNavHeader's thin progress indicator.
-  setSyncStatus(true);
+  // Set here (not inside runFullBackgroundSyncInner) so every caller sharing
+  // this in-flight promise sees one idle→syncing transition, not one per
+  // caller — runFullBackgroundSyncInner itself owns every other transition
+  // (synced/failed/back to idle on a skip), see sync-status.ts, read by
+  // DateNavHeader's "Syncing…"/"Synced" label and thin progress indicator.
+  setSyncPhase('syncing');
   syncInFlight = runFullBackgroundSyncInner(liveClient).finally(() => {
     syncInFlight = null;
-    setSyncStatus(false);
   });
   return syncInFlight;
 }

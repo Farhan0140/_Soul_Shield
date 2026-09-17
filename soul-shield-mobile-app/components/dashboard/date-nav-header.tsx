@@ -3,7 +3,7 @@ import { Animated, Easing, LayoutChangeEvent, Pressable, StyleSheet, View } from
 
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { useBackgroundSyncStatus } from '@/hooks/use-background-sync-status';
+import { useBackgroundSyncPhase } from '@/hooks/use-background-sync-status';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { formatDisplayDate, isToday } from '@/lib/date';
 
@@ -21,7 +21,7 @@ export function DateNavHeader({ date, onPrev, onNext, onToday }: DateNavHeaderPr
   return (
     <View style={styles.container}>
       <ThemedText type="title">Today&apos;s Tasks</ThemedText>
-      <SyncProgressBar />
+      <SyncStatus />
       <View style={styles.row}>
         <Pressable onPress={onPrev} hitSlop={8} style={styles.arrow}>
           <IconSymbol name="chevron.left" size={20} color={tint} />
@@ -52,16 +52,21 @@ const SYNC_BAR_HEIGHT = 2;
 const SYNC_BAR_SEGMENT_RATIO = 0.4;
 const SYNC_BAR_SWEEP_MS = 900;
 
-/** Thin (2px) bar under the "Today's Tasks" title that appears only while
- * the background sync (today + the forward offline-window prefetch, see
- * lib/background-sync/sync.ts) is actually in flight, and disappears the
- * moment it settles — so there's a visible signal that the offline window is
- * being (re)downloaded, without a layout-shifting spinner or skeleton. */
-function SyncProgressBar() {
+/** "Syncing…"/"Synced"/"Sync failed" label plus a thin (2px) sweeping bar,
+ * both under the "Today's Tasks" title — the label is the explicit answer to
+ * "is it syncing right now", the bar is the same at-a-glance motion cue this
+ * had before. Both driven by the same background-sync phase (see
+ * lib/background-sync/sync-status.ts): 'idle' renders nothing (no layout
+ * reserved), so a session that hasn't synced yet looks exactly like before
+ * this existed. */
+function SyncStatus() {
   const tint = useThemeColor({}, 'tint');
-  const isSyncing = useBackgroundSyncStatus();
+  const mutedColor = useThemeColor({}, 'muted');
+  const errorColor = useThemeColor({}, 'danger');
+  const phase = useBackgroundSyncPhase();
   const [trackWidth, setTrackWidth] = useState(0);
   const sweep = useRef(new Animated.Value(0)).current;
+  const isSyncing = phase === 'syncing';
 
   useEffect(() => {
     if (!isSyncing || trackWidth === 0) return;
@@ -79,7 +84,7 @@ function SyncProgressBar() {
     return () => animation.stop();
   }, [isSyncing, trackWidth, sweep]);
 
-  if (!isSyncing) return null;
+  if (phase === 'idle') return null;
 
   const handleLayout = (event: LayoutChangeEvent) => setTrackWidth(event.nativeEvent.layout.width);
   const segmentWidth = trackWidth * SYNC_BAR_SEGMENT_RATIO;
@@ -89,14 +94,21 @@ function SyncProgressBar() {
   });
 
   return (
-    <View style={styles.syncTrack} onLayout={handleLayout} pointerEvents="none">
-      {trackWidth > 0 ? (
-        <Animated.View
-          style={[
-            styles.syncSegment,
-            { width: segmentWidth, backgroundColor: tint, transform: [{ translateX }] },
-          ]}
-        />
+    <View style={styles.syncContainer}>
+      <ThemedText style={[styles.syncLabel, { color: phase === 'failed' ? errorColor : mutedColor }]}>
+        {phase === 'syncing' ? 'Syncing…' : phase === 'synced' ? 'Synced' : 'Sync failed'}
+      </ThemedText>
+      {isSyncing ? (
+        <View style={styles.syncTrack} onLayout={handleLayout} pointerEvents="none">
+          {trackWidth > 0 ? (
+            <Animated.View
+              style={[
+                styles.syncSegment,
+                { width: segmentWidth, backgroundColor: tint, transform: [{ translateX }] },
+              ]}
+            />
+          ) : null}
+        </View>
       ) : null}
     </View>
   );
@@ -108,6 +120,8 @@ const styles = StyleSheet.create({
   arrow: { padding: 4 },
   date: { flex: 1 },
   today: { fontSize: 14 },
+  syncContainer: { gap: 4 },
+  syncLabel: { fontSize: 12 },
   syncTrack: {
     height: SYNC_BAR_HEIGHT,
     borderRadius: SYNC_BAR_HEIGHT / 2,
