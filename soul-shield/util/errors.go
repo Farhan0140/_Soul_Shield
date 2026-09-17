@@ -40,4 +40,8 @@ var (
 	ErrLastReadNotFound = errors.New("no last-read position saved yet")
 	ErrBookmarkExists   = errors.New("this verse is already bookmarked")
 	ErrBookmarkNotFound = errors.New("Bookmark not found")
+
+	ErrInvalidSyncResource = errors.New("unknown sync resource")
+	ErrInvalidSyncOp       = errors.New("unknown sync op for this resource")
+	ErrSyncParentNotFound  = errors.New("referenced parent uuid not found")
 )
