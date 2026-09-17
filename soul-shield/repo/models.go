@@ -120,7 +120,14 @@ type TaskCompletion struct {
 // }
 
 type TaskWithStatus struct {
-	TaskID         int64      `json:"task_id"`
+	// UUID/CategoryUUID back the wire response's task_id/category_id - the
+	// mobile app has expected string uuids there since the local-first
+	// cutover (see repo/sync.go), not the numeric TaskID/CategoryID below,
+	// which stay int64 purely for internal joins (sub-task aggregation,
+	// reward-text cache, already-added lookups - see
+	// rest/handlers/task/mapper.go, subtask_merge.go).
+	UUID           string     `json:"-"`
+	TaskID         int64      `json:"-"`
 	Title          string     `json:"title"`
 	Description    string     `json:"description"`
 	IsGlobal       bool       `json:"is_global"`
@@ -129,7 +136,8 @@ type TaskWithStatus struct {
 	Status         string     `json:"status"`
 	CompletedAt    *time.Time `json:"completed_at,omitempty"`
 
-	CategoryID    *int64  `json:"category_id,omitempty"`
+	CategoryID    *int64  `json:"-"`
+	CategoryUUID  *string `json:"-"`
 	CategoryName  *string `json:"category_name,omitempty"`
 	CategoryColor *string `json:"category_color,omitempty"`
 
@@ -182,8 +190,12 @@ type SubTaskCompletion struct {
 
 // SubTaskWithStatus - একটা নির্দিষ্ট দিনের জন্য sub-task + তার status (list/history endpoint এ ব্যবহার হয়)
 type SubTaskWithStatus struct {
-	SubTaskID       int64      `json:"sub_task_id"`
-	ParentTaskID    int64      `json:"parent_task_id"`
+	// UUID backs the wire response's sub_task_id (string) - SubTaskID/ParentTaskID
+	// stay int64 for internal joins (see TaskWithStatus's UUID doc comment above).
+	UUID            string     `json:"-"`
+	ParentTaskUUID  string     `json:"-"`
+	SubTaskID       int64      `json:"-"`
+	ParentTaskID    int64      `json:"-"`
 	Title           string     `json:"title"`
 	TaskType        string     `json:"task_type"`
 	TargetCount     *int32     `json:"target_count,omitempty"`

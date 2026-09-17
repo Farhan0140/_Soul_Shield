@@ -11,7 +11,7 @@ type UpdateCategoryRequest struct {
 }
 
 type CategoryResponse struct {
-	ID       int64  `json:"id"`
+	ID       string `json:"id"`
 	Name     string `json:"name"`
 	ColorHex string `json:"color_hex"`
 	Position int    `json:"position"`

@@ -41,15 +41,29 @@ func (h *Handler) ListMyTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// category_id in the response is the category's uuid (see repo.Task's UUID
+	// doc comment in repo/models.go) - ListAllOwnedFlat doesn't join
+	// categories, so resolve id -> uuid via this user's own category list.
+	categories, err := h.categoryRepo.ListByOwner(userID)
+	if err != nil {
+		util.SendError(w, map[string]string{"error": "Failed to fetch tasks"}, http.StatusInternalServerError)
+		return
+	}
+	categoryUUIDByID := make(map[int64]string, len(categories))
+	for _, c := range categories {
+		categoryUUIDByID[c.ID] = c.UUID
+	}
+
 	response := make([]ManageableTaskResponse, len(tasks))
 	for i, t := range tasks {
-		var categoryID *int64
+		var categoryID *string
 		if t.CategoryID.Valid {
-			id := t.CategoryID.Int64
-			categoryID = &id
+			if uuid, ok := categoryUUIDByID[t.CategoryID.Int64]; ok {
+				categoryID = &uuid
+			}
 		}
 
-		item := ManageableTaskResponse{ID: t.ID, Title: t.Title, CategoryID: categoryID, Position: t.Position}
+		item := ManageableTaskResponse{ID: t.UUID, Title: t.Title, CategoryID: categoryID, Position: t.Position}
 		if subs := subsByParent[t.ID]; len(subs) > 0 {
 			item.SubTasks = make([]SubTaskStatusResponse, len(subs))
 			for j, s := range subs {

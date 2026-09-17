@@ -32,7 +32,7 @@ func (h *Handler) ListCategories(w http.ResponseWriter, r *http.Request) {
 	response := make([]CategoryResponse, len(categories))
 	for i, c := range categories {
 		response[i] = CategoryResponse{
-			ID:       c.ID,
+			ID:       c.UUID,
 			Name:     c.Name,
 			ColorHex: c.ColorHex,
 			Position: c.Position,

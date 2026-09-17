@@ -302,9 +302,9 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 
 	query := `
 		SELECT
-			t.id, t.title, t.description, t.is_global, t.recurrence_type,
+			t.id, t.uuid, t.title, t.description, t.is_global, t.recurrence_type,
 			t.task_type, t.target_count, t.duration_seconds,
-			c.id AS cat_id, c.name AS cat_name, c.color_hex AS cat_color,
+			c.id AS cat_id, c.uuid AS cat_uuid, c.name AS cat_name, c.color_hex AS cat_color,
 			t.reward_text, t.recurrence_days, t.reminder_time, t.position,
 			tc.status, tc.completed_at, tc.progress_count
 		FROM tasks t
@@ -333,16 +333,16 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 		var status sql.NullString
 		var completedAt sql.NullTime
 		var catID sql.NullInt64
-		var catName, catColor sql.NullString
+		var catUUID, catName, catColor sql.NullString
 		var targetCount sql.NullInt32
 		var durationSeconds sql.NullInt32
 		var progressCount sql.NullInt32
 		var recurrenceDays pq.Int64Array
 
 		err := rows.Scan(
-			&item.TaskID, &item.Title, &desc, &item.IsGlobal, &item.RecurrenceType,
+			&item.TaskID, &item.UUID, &item.Title, &desc, &item.IsGlobal, &item.RecurrenceType,
 			&item.TaskType, &targetCount, &durationSeconds,
-			&catID, &catName, &catColor,
+			&catID, &catUUID, &catName, &catColor,
 			&rewardText, &recurrenceDays, &reminderTime, &item.Position,
 			&status, &completedAt, &progressCount,
 		)
@@ -383,9 +383,11 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 		}
 		if catID.Valid {
 			id := catID.Int64
+			uuid := catUUID.String
 			name := catName.String
 			color := catColor.String
 			item.CategoryID = &id
+			item.CategoryUUID = &uuid
 			item.CategoryName = &name
 			item.CategoryColor = &color
 		}
@@ -410,9 +412,9 @@ func (r *taskRepo) ListForDateByCategory(userID int64, date time.Time, categoryI
 
 	query := `
 		SELECT
-			t.id, t.title, t.description, t.is_global, t.recurrence_type,
+			t.id, t.uuid, t.title, t.description, t.is_global, t.recurrence_type,
 			t.task_type, t.target_count, t.duration_seconds,
-			c.id AS cat_id, c.name AS cat_name, c.color_hex AS cat_color,
+			c.id AS cat_id, c.uuid AS cat_uuid, c.name AS cat_name, c.color_hex AS cat_color,
 			t.reward_text, t.recurrence_days, t.reminder_time, t.position,
 			tc.status, tc.completed_at, tc.progress_count
 		FROM tasks t
@@ -442,16 +444,16 @@ func (r *taskRepo) ListForDateByCategory(userID int64, date time.Time, categoryI
 		var status sql.NullString
 		var completedAt sql.NullTime
 		var catID sql.NullInt64
-		var catName, catColor sql.NullString
+		var catUUID, catName, catColor sql.NullString
 		var targetCount sql.NullInt32
 		var durationSeconds sql.NullInt32
 		var progressCount sql.NullInt32
 		var recurrenceDays pq.Int64Array
 
 		err := rows.Scan(
-			&item.TaskID, &item.Title, &desc, &item.IsGlobal, &item.RecurrenceType,
+			&item.TaskID, &item.UUID, &item.Title, &desc, &item.IsGlobal, &item.RecurrenceType,
 			&item.TaskType, &targetCount, &durationSeconds,
-			&catID, &catName, &catColor,
+			&catID, &catUUID, &catName, &catColor,
 			&rewardText, &recurrenceDays, &reminderTime, &item.Position,
 			&status, &completedAt, &progressCount,
 		)
@@ -492,9 +494,11 @@ func (r *taskRepo) ListForDateByCategory(userID int64, date time.Time, categoryI
 		}
 		if catID.Valid {
 			id := catID.Int64
+			uuid := catUUID.String
 			name := catName.String
 			color := catColor.String
 			item.CategoryID = &id
+			item.CategoryUUID = &uuid
 			item.CategoryName = &name
 			item.CategoryColor = &color
 		}
@@ -516,9 +520,9 @@ func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithSta
 
 	query := `
 		SELECT
-			d.day, t.id, t.title, t.description, t.is_global, t.recurrence_type,
+			d.day, t.id, t.uuid, t.title, t.description, t.is_global, t.recurrence_type,
 			t.task_type, t.target_count, t.duration_seconds,
-			c.id AS cat_id, c.name AS cat_name, c.color_hex AS cat_color,
+			c.id AS cat_id, c.uuid AS cat_uuid, c.name AS cat_name, c.color_hex AS cat_color,
 			t.reward_text, t.recurrence_days, t.reminder_time, t.position,
 			tc.status, tc.completed_at, tc.progress_count
 		FROM generate_series($1::date, $2::date, interval '1 day') AS d(day)
@@ -549,16 +553,16 @@ func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithSta
 		var status sql.NullString
 		var completedAt sql.NullTime
 		var catID sql.NullInt64
-		var catName, catColor sql.NullString
+		var catUUID, catName, catColor sql.NullString
 		var targetCount sql.NullInt32
 		var durationSeconds sql.NullInt32
 		var progressCount sql.NullInt32
 		var recurrenceDays pq.Int64Array
 
 		err := rows.Scan(
-			&day, &item.TaskID, &item.Title, &desc, &item.IsGlobal, &item.RecurrenceType,
+			&day, &item.TaskID, &item.UUID, &item.Title, &desc, &item.IsGlobal, &item.RecurrenceType,
 			&item.TaskType, &targetCount, &durationSeconds,
-			&catID, &catName, &catColor,
+			&catID, &catUUID, &catName, &catColor,
 			&rewardText, &recurrenceDays, &reminderTime, &item.Position,
 			&status, &completedAt, &progressCount,
 		)
@@ -601,9 +605,11 @@ func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithSta
 		}
 		if catID.Valid {
 			id := catID.Int64
+			uuid := catUUID.String
 			name := catName.String
 			color := catColor.String
 			item.CategoryID = &id
+			item.CategoryUUID = &uuid
 			item.CategoryName = &name
 			item.CategoryColor = &color
 		}

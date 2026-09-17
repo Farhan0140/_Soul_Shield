@@ -53,9 +53,9 @@ type SubTaskInput struct {
 // task এর ন্যূনতম তথ্য (id/title/category/position) + sub_tasks (থাকলে) - dedicated
 // "Reorder" পেজে ব্যবহার হয়, যেখানে ইউজার date-independent ভাবে category/task/sub-task সাজায়।
 type ManageableTaskResponse struct {
-	ID         int64                   `json:"id"`
+	ID         string                  `json:"id"`
 	Title      string                  `json:"title"`
-	CategoryID *int64                  `json:"category_id,omitempty"`
+	CategoryID *string                 `json:"category_id,omitempty"`
 	Position   int                     `json:"position"`
 	SubTasks   []SubTaskStatusResponse `json:"sub_tasks,omitempty"`
 }
@@ -116,7 +116,7 @@ type TaskResponse struct {
 
 // SubTaskStatusResponse - sub-task এর তথ্য + (list/history endpoint এ) একটা নির্দিষ্ট দিনের status
 type SubTaskStatusResponse struct {
-	SubTaskID       int64      `json:"sub_task_id" example:"5"`
+	SubTaskID       string     `json:"sub_task_id" example:"5"`
 	Title           string     `json:"title" example:"Read 1 page"`
 	TaskType        string     `json:"task_type" example:"normal"`
 	TargetCount     *int32     `json:"target_count,omitempty" example:"10"`
@@ -127,7 +127,7 @@ type SubTaskStatusResponse struct {
 }
 
 type TaskWithStatusResponse struct {
-	TaskID         int64      `json:"task_id"`
+	TaskID         string     `json:"task_id"`
 	Title          string     `json:"title"`
 	Description    string     `json:"description"`
 	IsGlobal       bool       `json:"is_global"`
@@ -136,7 +136,7 @@ type TaskWithStatusResponse struct {
 	Status         string     `json:"status"`
 	CompletedAt    *time.Time `json:"completed_at,omitempty"`
 
-	CategoryID    *int64  `json:"category_id,omitempty"`
+	CategoryID    *string `json:"category_id,omitempty"`
 	CategoryName  *string `json:"category_name,omitempty"`
 	CategoryColor *string `json:"category_color,omitempty"`
 

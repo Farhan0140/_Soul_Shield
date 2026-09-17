@@ -73,7 +73,7 @@ func toSubTaskResponse(s repo.SubTask) SubTaskStatusResponse {
 		durationSeconds = &v
 	}
 	return SubTaskStatusResponse{
-		SubTaskID:       s.ID,
+		SubTaskID:       s.UUID,
 		Title:           s.Title,
 		TaskType:        s.TaskType,
 		TargetCount:     targetCount,
@@ -84,7 +84,7 @@ func toSubTaskResponse(s repo.SubTask) SubTaskStatusResponse {
 // repo.SubTaskWithStatus -> SubTaskStatusResponse (List/History endpoint এর জন্য, নির্দিষ্ট date এর status সহ)
 func toSubTaskWithStatusResponse(s repo.SubTaskWithStatus) SubTaskStatusResponse {
 	return SubTaskStatusResponse{
-		SubTaskID:       s.SubTaskID,
+		SubTaskID:       s.UUID,
 		Title:           s.Title,
 		TaskType:        s.TaskType,
 		TargetCount:     s.TargetCount,
@@ -120,7 +120,7 @@ func toSubTaskCompletionResponse(c *repo.SubTaskCompletion, parentStatus string,
 // repo.TaskWithStatus -> TaskWithStatusResponse (List/History endpoint এর জন্য, প্রতিটা item এ status+category+counter তথ্য থাকে)
 func toTaskWithStatusResponse(t repo.TaskWithStatus) TaskWithStatusResponse {
 	resp := TaskWithStatusResponse{
-		TaskID:         t.TaskID,
+		TaskID:         t.UUID,
 		Title:          t.Title,
 		Description:    t.Description,
 		IsGlobal:       t.IsGlobal,
@@ -129,7 +129,7 @@ func toTaskWithStatusResponse(t repo.TaskWithStatus) TaskWithStatusResponse {
 		Status:         t.Status,
 		CompletedAt:    t.CompletedAt,
 
-		CategoryID:    t.CategoryID,
+		CategoryID:    t.CategoryUUID,
 		CategoryName:  t.CategoryName,
 		CategoryColor: t.CategoryColor,
 

@@ -171,7 +171,7 @@ func (r *subTaskRepo) ListWithStatusForDate(userID int64, parentTaskIDs []int64,
 
 	query := `
 		SELECT
-			st.id, st.parent_task_id, st.title, st.task_type, st.target_count, st.duration_seconds, st.position,
+			st.id, st.uuid, st.parent_task_id, st.title, st.task_type, st.target_count, st.duration_seconds, st.position,
 			stc.status, stc.completed_at, stc.progress_count
 		FROM sub_tasks st
 		LEFT JOIN sub_task_completions stc
@@ -208,7 +208,7 @@ func (r *subTaskRepo) ListWithStatusForRange(userID int64, parentTaskIDs []int64
 
 	query := `
 		SELECT
-			d.day, st.id, st.parent_task_id, st.title, st.task_type, st.target_count, st.duration_seconds, st.position,
+			d.day, st.id, st.uuid, st.parent_task_id, st.title, st.task_type, st.target_count, st.duration_seconds, st.position,
 			stc.status, stc.completed_at, stc.progress_count
 		FROM generate_series($1::date, $2::date, interval '1 day') AS d(day)
 		JOIN sub_tasks st ON st.parent_task_id = ANY($3) AND st.deleted_at IS NULL
@@ -230,7 +230,7 @@ func (r *subTaskRepo) ListWithStatusForRange(userID int64, parentTaskIDs []int64
 		var progressCount sql.NullInt32
 
 		err := rows.Scan(
-			&day, &s.ID, &s.ParentTaskID, &s.Title, &s.TaskType, &s.TargetCount, &s.DurationSeconds, &s.Position,
+			&day, &s.ID, &s.UUID, &s.ParentTaskID, &s.Title, &s.TaskType, &s.TargetCount, &s.DurationSeconds, &s.Position,
 			&status, &completedAt, &progressCount,
 		)
 		if err != nil {
@@ -399,6 +399,7 @@ func (r *subTaskRepo) checkScheduled(parent *Task, date time.Time) error {
 
 func toSubTaskWithStatus(s SubTask, status sql.NullString, completedAt sql.NullTime, progressCount sql.NullInt32, dateStr, today string) SubTaskWithStatus {
 	item := SubTaskWithStatus{
+		UUID:         s.UUID,
 		SubTaskID:    s.ID,
 		ParentTaskID: s.ParentTaskID,
 		Title:        s.Title,
@@ -440,7 +441,7 @@ func scanSubTaskWithStatus(rows rowScanner, dateStr, today string) (SubTaskWithS
 	var completedAt sql.NullTime
 	var progressCount sql.NullInt32
 
-	err := rows.Scan(&s.ID, &s.ParentTaskID, &s.Title, &s.TaskType, &s.TargetCount, &s.DurationSeconds, &s.Position, &status, &completedAt, &progressCount)
+	err := rows.Scan(&s.ID, &s.UUID, &s.ParentTaskID, &s.Title, &s.TaskType, &s.TargetCount, &s.DurationSeconds, &s.Position, &status, &completedAt, &progressCount)
 	if err != nil {
 		return SubTaskWithStatus{}, err
 	}
