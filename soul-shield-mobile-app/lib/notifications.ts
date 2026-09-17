@@ -63,7 +63,7 @@ async function setReminderIdMap(map: Record<string, string[]>): Promise<void> {
 
 /** Cancels any reminders previously scheduled for this task, so re-scheduling
  * (or removing the reminder) never leaves stale duplicates behind. */
-export async function cancelTaskReminders(taskId: number): Promise<void> {
+export async function cancelTaskReminders(taskId: string): Promise<void> {
   const map = await getReminderIdMap();
   const ids = map[taskId];
   if (!ids?.length) return;
@@ -124,7 +124,7 @@ export async function scheduleTaskReminders(task: ReminderTask): Promise<void> {
  * app startup), de-duplicated by task_id since the same task can appear
  * multiple times across a multi-day range. */
 export async function syncAllTaskReminders(tasks: ReminderTask[]): Promise<void> {
-  const byId = new Map<number, ReminderTask>();
+  const byId = new Map<string, ReminderTask>();
   for (const task of tasks) byId.set(task.task_id, task);
   await Promise.all([...byId.values()].map((task) => scheduleTaskReminders(task)));
 }

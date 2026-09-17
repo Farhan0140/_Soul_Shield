@@ -78,7 +78,7 @@ export default function HomeScreen() {
   const myTasks = activeTasks.filter((t) => !t.is_global);
 
   const categorySections = useMemo(() => {
-    const byCategory = new Map<number, Task[]>();
+    const byCategory = new Map<string, Task[]>();
     const uncategorized: Task[] = [];
     for (const task of myTasks) {
       if (task.category_id == null) {
@@ -92,7 +92,7 @@ export default function HomeScreen() {
     return [
       ...categories.map((cat) => ({
         key: String(cat.id),
-        categoryId: cat.id as number | null,
+        categoryId: cat.id as string | null,
         title: cat.name,
         accentColor: cat.color_hex,
         tasks: byCategory.get(cat.id) ?? [],

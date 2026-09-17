@@ -36,7 +36,7 @@ interface SubTaskDraft {
    * the drag list (and React) can track it independently of its array index
    * or (for a brand-new draft) its not-yet-existing sub_task_id. */
   key: string;
-  id?: number;
+  id?: string;
   title: string;
   task_type: TaskType;
   target_count: string;
@@ -98,7 +98,7 @@ export function TaskForm({
 
   const [title, setTitle] = useState(initialTask?.title ?? '');
   const [description, setDescription] = useState(initialTask?.description ?? '');
-  const [categoryId, setCategoryId] = useState<number | null>(initialTask?.category_id ?? null);
+  const [categoryId, setCategoryId] = useState<string | null>(initialTask?.category_id ?? null);
   const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>(
     initialTask?.recurrence_type ?? 'daily'
   );

@@ -218,7 +218,9 @@ type AddToMyTasksResponse struct {
 	// fixed task টার একটা personal copy আছে (lineage বা case-insensitive title ম্যাচে)
 	AlreadyAdded bool   `json:"already_added" example:"false"`
 	TaskID       int64  `json:"task_id" example:"12"`
+	TaskUUID     string `json:"task_uuid"`
 	CategoryID   *int64 `json:"category_id,omitempty" example:"3"`
+	CategoryUUID string `json:"category_uuid,omitempty"`
 	CategoryName string `json:"category_name,omitempty" example:"Fitness"`
 }
 

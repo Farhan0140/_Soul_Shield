@@ -34,7 +34,7 @@ export default function ReorderCategoriesScreen() {
   // implicit on every tap, so this can safely diverge from the query data
   // until the user taps Save.
   const [items, setItems] = useState<Category[]>(categoriesQuery.data ?? []);
-  const [savedOrder, setSavedOrder] = useState<number[]>((categoriesQuery.data ?? []).map((c) => c.id));
+  const [savedOrder, setSavedOrder] = useState<string[]>((categoriesQuery.data ?? []).map((c) => c.id));
   useEffect(() => {
     setItems(categoriesQuery.data ?? []);
     setSavedOrder((categoriesQuery.data ?? []).map((c) => c.id));

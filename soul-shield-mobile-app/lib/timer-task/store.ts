@@ -22,8 +22,8 @@ export interface TaskTimerState {
   /** Elapsed ms banked from previous running segments (before the most
    * recent pause/resume) — added to `Date.now() - startedAt` while running. */
   accumulatedMs: number;
-  taskId: number;
-  subTaskId: number | null;
+  taskId: string;
+  subTaskId: string | null;
   /** YYYY-MM-DD this run belongs to. */
   date: string;
   taskTitle: string;
@@ -38,7 +38,7 @@ export interface TaskTimerState {
   completionDispatched: boolean;
 }
 
-export function taskTimerKey(taskId: number, date: string, subTaskId: number | null): string {
+export function taskTimerKey(taskId: string, date: string, subTaskId: string | null): string {
   return `soulshield_timer_task_${taskId}_${subTaskId ?? 'main'}_${date}`;
 }
 

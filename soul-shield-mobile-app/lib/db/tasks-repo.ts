@@ -1,7 +1,7 @@
-import { eq, isNull } from 'drizzle-orm';
+import { eq, isNull, sql } from 'drizzle-orm';
 
 import type { SyncTask } from '@/api/sync-types';
-import type { TaskStatus } from '@/api/types';
+import type { RecurrenceType, SubTask, Task, TaskStatus, TaskType } from '@/api/types';
 import { listActiveCategories } from '@/lib/db/categories-repo';
 import { getLocalDb } from '@/lib/db/client';
 import { listSubTaskCompletionsInRange, listTaskCompletionsInRange } from '@/lib/db/completions-repo';
@@ -70,35 +70,10 @@ export function upsertTaskFromSync(row: SyncTask): void {
     .run();
 }
 
-export interface DerivedSubTask {
-  subTaskUuid: string;
-  title: string;
-  taskType: string;
-  targetCount: number | null;
-  durationSeconds: number | null;
-  progressCount: number;
-  status: TaskStatus;
-}
-
-export interface DerivedTask {
-  taskUuid: string;
-  title: string;
-  description: string | null;
-  isGlobal: boolean;
-  recurrenceType: string;
-  date: string;
-  status: TaskStatus;
-  categoryUuid: string | null;
-  categoryName: string | null;
-  categoryColor: string | null;
-  rewardText: string | null;
-  taskType: string;
-  targetCount: number | null;
-  durationSeconds: number | null;
-  progressCount: number;
-  reminderTime: string | null;
-  position: number;
-  subTasks?: DerivedSubTask[];
+export function getTaskByUuid(uuid: string) {
+  const db = getLocalDb();
+  if (!db) return undefined;
+  return db.select().from(tasks).where(eq(tasks.uuid, uuid)).get();
 }
 
 /** completed == every sub-task done, partially_completed == some done,
@@ -108,7 +83,7 @@ export interface DerivedTask {
  * derived this way, never read from its own completion row (which
  * shouldn't exist for one - the app never lets a sub-tasked parent be
  * completed directly). */
-function computeParentStatus(subs: DerivedSubTask[], date: string, today: string): TaskStatus {
+function computeParentStatus(subs: SubTask[], date: string, today: string): TaskStatus {
   const completed = subs.filter((s) => s.status === 'completed').length;
   if (completed === subs.length) return 'completed';
   if (completed > 0) return 'partially_completed';
@@ -120,18 +95,21 @@ function defaultStatus(date: string, today: string): TaskStatus {
 }
 
 /** The on-device port of soul-shield/repo/task.go's ListForRange (+
- * subtask_merge.go's attachSubTasksForRange folded in) - same recurrence-day
+ * subtask_merge.go's attachSubTasksForRange, + the `already_added` check
+ * ListTasks's handler layer does for fixed tasks) - same recurrence-day
  * matching, same missed-vs-pending default, same reward-text gating on
- * completed status, same sub-tasked-parent status override. Works for any
- * date range that's been synced locally (see lib/background-sync/pull.ts),
- * online or offline, instead of only whatever the old fixed prefetch window
- * happened to cover - see the local-first plan's Phase 3/5 context.
+ * completed status, same sub-tasked-parent status override. Returns the
+ * exact same `Task` shape the app already reads everywhere (see
+ * api/types.ts) so hooks/queries/use-tasks.ts's queryFn can return this
+ * directly - works for any date range that's been synced locally (see
+ * lib/background-sync/pull.ts), online or offline, instead of only
+ * whatever the old fixed prefetch window happened to cover.
  *
  * Deliberately does everything in JS over a handful of flat queries rather
  * than a SQL join per day (no generate_series/array `= ANY` in SQLite) -
  * fine at this app's per-user data scale, same reasoning the plan gave for
  * this whole approach. */
-export function deriveTasksForRange(fromDate: string, toDate: string): DerivedTask[] {
+export function deriveTasksForRange(fromDate: string, toDate: string): Task[] {
   const db = getLocalDb();
   if (!db) return [];
 
@@ -141,6 +119,18 @@ export function deriveTasksForRange(fromDate: string, toDate: string): DerivedTa
   const categoryById = new Map(listActiveCategories().map((c) => [c.uuid, c]));
   const taskUuids = activeTasks.map((t) => t.uuid);
   const subTasksByParent = listActiveSubTasksByParents(taskUuids);
+
+  // "already_added": a fixed (is_global) task counts as added once the
+  // user has a personal task whose source_task_uuid points at it, or whose
+  // title case-insensitively matches - same lineage-or-title dedupe as
+  // repo/task.go's FindOwnedMatch.
+  const ownedSourceUuids = new Set<string>();
+  const ownedTitles = new Set<string>();
+  for (const t of activeTasks) {
+    if (t.isGlobal) continue;
+    if (t.sourceTaskUuid) ownedSourceUuids.add(t.sourceTaskUuid);
+    ownedTitles.add(t.title.trim().toLowerCase());
+  }
 
   // (taskUuid, date) -> completion, built once for the whole range instead
   // of queried per task/day.
@@ -152,7 +142,7 @@ export function deriveTasksForRange(fromDate: string, toDate: string): DerivedTa
   );
 
   const today = todayISODate();
-  const results: DerivedTask[] = [];
+  const results: Task[] = [];
 
   for (const date of dateRange(fromDate, toDate)) {
     const weekday = weekdayIndex(date);
@@ -165,43 +155,48 @@ export function deriveTasksForRange(fromDate: string, toDate: string): DerivedTa
       const status: TaskStatus = (completion?.status as TaskStatus | undefined) ?? defaultStatus(date, today);
       const category = task.categoryUuid ? categoryById.get(task.categoryUuid) : undefined;
 
-      const item: DerivedTask = {
-        taskUuid: task.uuid,
+      const item: Task = {
+        task_id: task.uuid,
         title: task.title,
         description: task.description,
-        isGlobal: task.isGlobal,
-        recurrenceType: task.recurrenceType,
+        is_global: task.isGlobal,
+        recurrence_type: task.recurrenceType as RecurrenceType,
+        recurrence_days: recurrenceDays,
         date,
         status,
-        categoryUuid: task.categoryUuid,
-        categoryName: category?.name ?? null,
-        categoryColor: category?.colorHex ?? null,
-        rewardText: status === 'completed' ? task.rewardText : null,
-        taskType: task.taskType,
-        targetCount: task.targetCount,
-        durationSeconds: task.durationSeconds,
-        progressCount: completion?.progressCount ?? 0,
-        reminderTime: task.reminderTime,
+        category_id: task.categoryUuid,
+        category_name: category?.name ?? null,
+        category_color: category?.colorHex ?? null,
+        reward_text: status === 'completed' ? task.rewardText : null,
+        task_type: task.taskType as TaskType,
+        target_count: task.targetCount,
+        duration_seconds: task.durationSeconds,
+        progress_count: completion?.progressCount ?? 0,
+        is_active: task.isActive,
+        reminder_time: task.reminderTime,
         position: task.position,
+        already_added: task.isGlobal
+          ? ownedSourceUuids.has(task.uuid) || ownedTitles.has(task.title.trim().toLowerCase())
+          : undefined,
       };
 
       const rawSubTasks = subTasksByParent.get(task.uuid);
       if (rawSubTasks && rawSubTasks.length > 0) {
-        const subs: DerivedSubTask[] = rawSubTasks.map((s) => {
+        const subs: SubTask[] = rawSubTasks.map((s) => {
           const subCompletion = subTaskCompletionByKey.get(`${s.uuid}|${date}`);
           return {
-            subTaskUuid: s.uuid,
+            sub_task_id: s.uuid,
             title: s.title,
-            taskType: s.taskType,
-            targetCount: s.targetCount,
-            durationSeconds: s.durationSeconds,
-            progressCount: subCompletion?.progressCount ?? 0,
+            task_type: s.taskType as TaskType,
+            target_count: s.targetCount,
+            duration_seconds: s.durationSeconds,
+            progress_count: subCompletion?.progressCount ?? 0,
             status: (subCompletion?.status as TaskStatus | undefined) ?? defaultStatus(date, today),
           };
         });
-        item.subTasks = subs;
+        item.sub_tasks = subs;
         item.status = computeParentStatus(subs, date, today);
-        item.rewardText = item.status === 'completed' ? task.rewardText : null;
+        item.reward_text = item.status === 'completed' ? task.rewardText : null;
       }
 
       results.push(item);
@@ -211,6 +206,143 @@ export function deriveTasksForRange(fromDate: string, toDate: string): DerivedTa
   return results;
 }
 
-export function deriveTasksForDate(date: string): DerivedTask[] {
+export function deriveTasksForDate(date: string): Task[] {
   return deriveTasksForRange(date, date);
+}
+
+/** Every personal (non-fixed) task, unfiltered by date/recurrence/is_active
+ * - the on-device port of repo/task.go's ListAllOwnedFlat, for the Reorder
+ * pages (app/reorder/*), which need the complete category/task set, not
+ * just today's scheduled subset. */
+export function listAllOwnedTasksFlat() {
+  const db = getLocalDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(tasks)
+    .where(isNull(tasks.deletedAt))
+    .all()
+    .filter((t) => !t.isGlobal)
+    .sort((a, b) => a.position - b.position);
+}
+
+// ---- Local writes: see categories-repo.ts's equivalent section comment -
+// every function here is for a change made on this device, setting
+// syncedAt: null and this device's own clock as updatedAt. ----
+
+export interface CreateTaskLocalInput {
+  title: string;
+  description?: string | null;
+  recurrenceType: string;
+  recurrenceDays: number[];
+  categoryUuid?: string | null;
+  rewardText?: string | null;
+  taskType: string;
+  targetCount?: number | null;
+  durationSeconds?: number | null;
+  reminderTime?: string | null;
+  sourceTaskUuid?: string | null;
+}
+
+/** `uuid` is generated by the caller (hooks/queries/use-task-mutations.ts,
+ * via lib/db/uuid.ts) rather than here, so the same identity is used both
+ * for this local write and for the sync push mutationFn builds from the
+ * same mutation variables - see that file's useCreateTask. */
+export function createTaskLocal(uuid: string, input: CreateTaskLocalInput) {
+  const db = getLocalDb();
+  if (!db) return null;
+
+  const now = new Date().toISOString();
+  const maxPosition =
+    db
+      .select({ max: sql<number | null>`max(${tasks.position})` })
+      .from(tasks)
+      .where(isNull(tasks.deletedAt))
+      .get()?.max ?? -1;
+
+  const row = {
+    uuid,
+    title: input.title,
+    description: input.description ?? null,
+    isGlobal: false,
+    recurrenceType: input.recurrenceType,
+    recurrenceDays: encodeIntArray(input.recurrenceDays),
+    isActive: true,
+    categoryUuid: input.categoryUuid ?? null,
+    rewardText: input.rewardText ?? null,
+    taskType: input.taskType,
+    targetCount: input.targetCount ?? null,
+    durationSeconds: input.durationSeconds ?? null,
+    reminderTime: input.reminderTime ?? null,
+    sourceTaskUuid: input.sourceTaskUuid ?? null,
+    position: maxPosition + 1,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null,
+    syncedAt: null,
+  };
+  db.insert(tasks).values(row).run();
+  return row;
+}
+
+export interface UpdateTaskLocalInput {
+  title?: string;
+  description?: string | null;
+  recurrenceType?: string;
+  recurrenceDays?: number[];
+  isActive?: boolean;
+  categoryUuid?: string | null;
+  rewardText?: string | null;
+  targetCount?: number | null;
+  durationSeconds?: number | null;
+  reminderTime?: string | null;
+}
+
+export function updateTaskLocal(uuid: string, input: UpdateTaskLocalInput): void {
+  const db = getLocalDb();
+  if (!db) return;
+
+  const now = new Date().toISOString();
+  db.update(tasks)
+    .set({
+      ...(input.title !== undefined ? { title: input.title } : {}),
+      ...(input.description !== undefined ? { description: input.description } : {}),
+      ...(input.recurrenceType !== undefined ? { recurrenceType: input.recurrenceType } : {}),
+      ...(input.recurrenceDays !== undefined ? { recurrenceDays: encodeIntArray(input.recurrenceDays) } : {}),
+      ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+      ...(input.categoryUuid !== undefined ? { categoryUuid: input.categoryUuid } : {}),
+      ...(input.rewardText !== undefined ? { rewardText: input.rewardText } : {}),
+      ...(input.targetCount !== undefined ? { targetCount: input.targetCount } : {}),
+      ...(input.durationSeconds !== undefined ? { durationSeconds: input.durationSeconds } : {}),
+      ...(input.reminderTime !== undefined ? { reminderTime: input.reminderTime } : {}),
+      updatedAt: now,
+      syncedAt: null,
+    })
+    .where(eq(tasks.uuid, uuid))
+    .run();
+}
+
+/** Soft-deletes locally and cascades to its sub-tasks, matching
+ * repo/task.go's Delete (see categories-repo.ts's softDeleteCategoryLocal
+ * for the same reasoning re: no automatic ON DELETE CASCADE here). */
+export function softDeleteTaskLocal(uuid: string): void {
+  const db = getLocalDb();
+  if (!db) return;
+
+  const now = new Date().toISOString();
+  db.update(tasks).set({ deletedAt: now, updatedAt: now, syncedAt: null }).where(eq(tasks.uuid, uuid)).run();
+}
+
+/** Sets position = index for each uuid in the new order, scoped to one
+ * (owner, category) group - see categories-repo.ts's reorderCategoriesLocal
+ * for why this doesn't replicate the backend's atomic exact-set-match
+ * validation. */
+export function reorderTasksLocal(orderedUuids: string[]): void {
+  const db = getLocalDb();
+  if (!db) return;
+
+  const now = new Date().toISOString();
+  orderedUuids.forEach((uuid, index) => {
+    db.update(tasks).set({ position: index, updatedAt: now, syncedAt: null }).where(eq(tasks.uuid, uuid)).run();
+  });
 }

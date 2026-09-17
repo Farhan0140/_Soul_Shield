@@ -17,6 +17,7 @@ type TaskRepo interface {
 	Update(id int64, updates TaskUpdate, requestingUserID int64, role string) (*Task, error)
 	Delete(id int64, requestingUserID int64, role string) error
 	GetByID(id int64) (*Task, error)
+	GetByUUID(uuid string) (*Task, error)
 	ListForDate(userID int64, date time.Time) ([]TaskWithStatus, error)
 	ListForRange(userID int64, from, to time.Time) ([]TaskWithStatus, error)
 	ListForDateByCategory(userID int64, date time.Time, categoryID int64) ([]TaskWithStatus, error)
@@ -102,7 +103,7 @@ func (r *taskRepo) Create(task Task) (*Task, error) {
 			category_id, reward_text, task_type, target_count, duration_seconds, reminder_time, source_task_id, position
 		)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
-		RETURNING id, is_active, created_at, updated_at
+		RETURNING id, uuid, is_active, created_at, updated_at
 	`
 
 	row := r.db.QueryRow(
@@ -112,7 +113,7 @@ func (r *taskRepo) Create(task Task) (*Task, error) {
 		task.CategoryID, task.RewardText, task.TaskType, task.TargetCount, task.DurationSeconds, task.ReminderTime, task.SourceTaskID, task.Position,
 	)
 
-	err := row.Scan(&task.ID, &task.IsActive, &task.CreatedAt, &task.UpdatedAt)
+	err := row.Scan(&task.ID, &task.UUID, &task.IsActive, &task.CreatedAt, &task.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -269,6 +270,22 @@ func (r *taskRepo) GetByID(id int64) (*Task, error) {
 	var task Task
 
 	err := r.db.Get(&task, `SELECT * FROM tasks WHERE id = $1 AND deleted_at IS NULL`, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, util.ErrTaskNotFound
+		}
+		return nil, err
+	}
+
+	return &task, nil
+}
+
+// ---- GetByUUID: mobile app এর sync push endpoint uuid দিয়ে task resolve করার জন্য
+// ব্যবহার করে (repo/sync_push.go) - এখানেও add-to-my-tasks এর uuid-aware রুটে ----
+func (r *taskRepo) GetByUUID(uuid string) (*Task, error) {
+	var task Task
+
+	err := r.db.Get(&task, `SELECT * FROM tasks WHERE uuid = $1 AND deleted_at IS NULL`, uuid)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, util.ErrTaskNotFound

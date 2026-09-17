@@ -40,7 +40,7 @@ export default function ReorderSubTasksScreen() {
   const mutedColor = useThemeColor({}, 'muted');
   const insets = useSafeAreaInsets();
 
-  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [items, setItems] = useState<ManageableSubTask[]>([]);
   // Order last confirmed with the server (or, while offline, last queued
   // optimistically) for the current task - useReorderMySubTasks writes the
@@ -49,7 +49,7 @@ export default function ReorderSubTasksScreen() {
   // reaches the server, which is what keeps a reorder queued offline visibly
   // "saved" instead of looking reverted if this screen unmounts and remounts
   // before reconnecting.
-  const [savedOrder, setSavedOrder] = useState<number[]>([]);
+  const [savedOrder, setSavedOrder] = useState<string[]>([]);
 
   // Only tasks that already have sub-tasks are worth picking here.
   const tasksWithSubTasks = useMemo(

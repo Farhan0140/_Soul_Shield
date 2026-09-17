@@ -21,7 +21,7 @@ import { getErrorMessage } from '@/lib/errors';
 /** Sentinel selection for the "Uncategorized" group — distinct from `null`,
  * which instead means "no group picked yet" (the picker step). */
 const UNCATEGORIZED = 'uncategorized';
-type Selection = number | typeof UNCATEGORIZED;
+type Selection = string | typeof UNCATEGORIZED;
 
 function swap<T>(arr: T[], i: number, j: number): T[] {
   const next = [...arr];
@@ -46,7 +46,7 @@ export default function ReorderTasksScreen() {
   // the server, which is what keeps a reorder queued offline visibly "saved"
   // instead of looking reverted if this screen unmounts and remounts before
   // reconnecting.
-  const [savedOrder, setSavedOrder] = useState<number[]>([]);
+  const [savedOrder, setSavedOrder] = useState<string[]>([]);
 
   const groups = useMemo(() => {
     const tasks = myTasksQuery.data ?? [];
@@ -87,7 +87,7 @@ export default function ReorderTasksScreen() {
 
   const handleSave = () => {
     reorderTasks.mutate({
-      categoryId: selected === UNCATEGORIZED ? null : (selected as number),
+      categoryId: selected === UNCATEGORIZED ? null : selected,
       orderedIds: items.map((t) => t.id),
     });
   };

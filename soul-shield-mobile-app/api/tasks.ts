@@ -1,15 +1,13 @@
-import { apiDelete, apiGet, apiPatch, apiPost } from '@/api/client';
-import type {
-  AddToMyTasksResponse,
-  CompletionResponse,
-  ManageableTask,
-  SubTaskCompletionResponse,
-  Task,
-  TaskInput,
-  TaskMutationResponse,
-  TaskUpdateInput,
-} from '@/api/types';
+import { apiGet, apiPost } from '@/api/client';
+import type { AddToMyTasksResponse, ManageableTask, Task } from '@/api/types';
 
+// Read-only network fallback, used only while the on-device SQLite store
+// isn't available yet (see lib/db/client.ts's getLocalDb - most likely
+// right after this app version first ships, before the required native
+// rebuild has happened on this device). Once local-first reads are live,
+// these exist purely as that transitional safety net so the app shows real
+// data instead of an empty list, not as the normal path — see
+// hooks/queries/use-tasks.ts.
 export function getTasks(date: string, token: string | null, timeoutMs?: number) {
   return apiGet<Task[]>(`/tasks?date=${date}`, token, timeoutMs);
 }
@@ -18,85 +16,19 @@ export function getTaskHistory(from: string, to: string, token: string | null, t
   return apiGet<Task[]>(`/tasks/history?from=${from}&to=${to}`, token, timeoutMs);
 }
 
-/** Every personal task, unfiltered by date/recurrence — powers the
- * dedicated Reorder page (app/reorder/*), which needs the complete
- * category/task set the reorder endpoints validate against, not just
- * today's scheduled subset. */
 export function getMyTasks(token: string | null) {
   return apiGet<ManageableTask[]>('/tasks/mine', token);
 }
 
-export function createTask(input: TaskInput, token: string | null) {
-  return apiPost<TaskMutationResponse>('/tasks', input, token);
-}
-
-export function updateTask(id: number, input: TaskUpdateInput, token: string | null) {
-  return apiPatch<TaskMutationResponse>(`/tasks/${id}`, input, token);
-}
-
-export function deleteTask(id: number, token: string | null) {
-  return apiDelete<void>(`/tasks/${id}`, token);
-}
-
-/** Sets the caller's personal task display order within one category
- * (categoryId=null for "Uncategorized"). orderedIds must be the complete
- * set of that category's current personal task ids, in the desired order. */
-export function reorderTasks(
-  categoryId: number | null,
-  orderedIds: number[],
-  token: string | null
-) {
-  return apiPatch<TaskMutationResponse[]>(
-    '/tasks/reorder',
-    { category_id: categoryId, ordered_ids: orderedIds },
-    token
-  );
-}
-
-export function completeTask(id: number, date: string | undefined, token: string | null) {
-  return apiPost<CompletionResponse>(`/tasks/${id}/complete`, date ? { date } : {}, token);
-}
-
-export function addTaskToMyTasks(id: number, token: string | null) {
-  return apiPost<AddToMyTasksResponse>(`/tasks/${id}/add-to-my-tasks`, {}, token);
-}
-
-export function incrementTask(
-  id: number,
-  amount: number,
-  date: string | undefined,
-  token: string | null
-) {
-  return apiPost<CompletionResponse>(
-    `/tasks/${id}/increment`,
-    date ? { amount, date } : { amount },
-    token
-  );
-}
-
-export function completeSubTask(
-  taskId: number,
-  subTaskId: number,
-  date: string | undefined,
-  token: string | null
-) {
-  return apiPost<SubTaskCompletionResponse>(
-    `/tasks/${taskId}/subtasks/${subTaskId}/complete`,
-    date ? { date } : {},
-    token
-  );
-}
-
-export function incrementSubTask(
-  taskId: number,
-  subTaskId: number,
-  amount: number,
-  date: string | undefined,
-  token: string | null
-) {
-  return apiPost<SubTaskCompletionResponse>(
-    `/tasks/${taskId}/subtasks/${subTaskId}/increment`,
-    date ? { amount, date } : { amount },
-    token
-  );
+/** Deliberately still a direct network call, not routed through the
+ * local-first sync push (see lib/mutation-defaults.ts) - the backend's
+ * add-to-my-tasks does real server-side work no offline device can safely
+ * replicate (case-insensitive category-name dedupe/reuse against the
+ * user's current category list, "already added" duplicate detection),
+ * so it stays an online-only action. Resolves the source fixed task by
+ * uuid (see soul-shield's rest/handlers/task/add_to_my_tasks.go's
+ * AddToMyTasksByUUID) since the mobile app only ever knows a global task
+ * by its uuid, never its server-internal id. */
+export function addTaskToMyTasks(sourceTaskUuid: string, token: string | null) {
+  return apiPost<AddToMyTasksResponse>(`/tasks/by-uuid/${sourceTaskUuid}/add-to-my-tasks`, {}, token);
 }

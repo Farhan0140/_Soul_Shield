@@ -5,39 +5,37 @@ import type { TaskInput, TaskUpdateInput } from '@/api/types';
 import { TaskForm } from '@/components/task/task-form';
 import { useAuth } from '@/context/auth-context';
 import { useCreateTask } from '@/hooks/queries/use-task-mutations';
-import { useNetworkStatus } from '@/hooks/use-network-status';
 import { getErrorMessage } from '@/lib/errors';
 import { scheduleTaskReminders } from '@/lib/notifications';
 
 export default function NewTaskScreen() {
   const { global } = useLocalSearchParams<{ global?: string }>();
   const { user } = useAuth();
-  const { isOnline } = useNetworkStatus();
   const createTask = useCreateTask();
   const [error, setError] = useState<string | null>(null);
 
   const isAdmin = user?.role === 'admin';
 
-  // TaskForm always emits a fully-populated TaskInput in create mode.
+  // TaskForm always emits a fully-populated TaskInput in create mode. The
+  // new task's uuid is known synchronously (the local SQLite write already
+  // happened by the time .mutate() returns - see
+  // hooks/queries/use-task-mutations.ts's useCreateTask), so reminders are
+  // scheduled right away instead of waiting for the push to confirm, which
+  // may not happen for a while if offline.
   const handleSubmit = (input: TaskInput | TaskUpdateInput) => {
     setError(null);
     const fullInput = input as TaskInput;
-    createTask.mutate(fullInput, {
-      onSuccess: (data) => {
-        scheduleTaskReminders({
-          task_id: data.id,
-          title: fullInput.title,
-          reminder_time: fullInput.reminder_time,
-          recurrence_days: fullInput.recurrence_days,
-          is_active: true,
-        });
-        router.back();
-      },
+    const uuid = createTask.mutate(fullInput, {
       onError: (err) => setError(getErrorMessage(err)),
     });
-    // Offline: the mutation queues silently rather than resolving, so don't
-    // leave the form stuck on "saving" — it'll sync automatically once online.
-    if (!isOnline) router.back();
+    scheduleTaskReminders({
+      task_id: uuid,
+      title: fullInput.title,
+      reminder_time: fullInput.reminder_time,
+      recurrence_days: fullInput.recurrence_days,
+      is_active: true,
+    });
+    router.back();
   };
 
   return (

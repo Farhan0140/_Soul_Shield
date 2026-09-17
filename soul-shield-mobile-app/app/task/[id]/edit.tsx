@@ -5,7 +5,6 @@ import type { Task, TaskUpdateInput } from '@/api/types';
 import { TaskForm } from '@/components/task/task-form';
 import { useAuth } from '@/context/auth-context';
 import { useUpdateTask } from '@/hooks/queries/use-task-mutations';
-import { useNetworkStatus } from '@/hooks/use-network-status';
 import { getErrorMessage } from '@/lib/errors';
 import { todayISODate } from '@/lib/date';
 import { scheduleTaskReminders } from '@/lib/notifications';
@@ -13,7 +12,6 @@ import { scheduleTaskReminders } from '@/lib/notifications';
 export default function EditTaskScreen() {
   const { id, task: taskParam } = useLocalSearchParams<{ id: string; task: string }>();
   const { user } = useAuth();
-  const { isOnline } = useNetworkStatus();
   const [error, setError] = useState<string | null>(null);
 
   const initialTask = useMemo<Task | undefined>(() => {
@@ -31,26 +29,22 @@ export default function EditTaskScreen() {
   const handleSubmit = (input: TaskUpdateInput) => {
     setError(null);
     updateTask.mutate(
-      { id: Number(id), input },
-      {
-        onSuccess: () => {
-          // Merge in case reminder_time was edited without touching recurrence
-          // (recurrence_days is only sent when the user actually changed it).
-          scheduleTaskReminders({
-            task_id: Number(id),
-            title: input.title ?? initialTask?.title ?? '',
-            reminder_time: input.reminder_time ?? initialTask?.reminder_time,
-            recurrence_days: input.recurrence_days ?? initialTask?.recurrence_days,
-            is_active: input.is_active ?? initialTask?.is_active,
-          });
-          router.back();
-        },
-        onError: (err) => setError(getErrorMessage(err)),
-      }
+      { id, input },
+      { onError: (err) => setError(getErrorMessage(err)) }
     );
-    // Offline: the mutation queues silently rather than resolving, so don't
-    // leave the form stuck on "saving" — the optimistic patch already applied.
-    if (!isOnline) router.back();
+    // The local SQLite write already happened synchronously (see
+    // hooks/queries/use-task-mutations.ts's useUpdateTask) - reminders are
+    // rescheduled right away rather than waiting for the push to confirm.
+    // Merge in case reminder_time was edited without touching recurrence
+    // (recurrence_days is only sent when the user actually changed it).
+    scheduleTaskReminders({
+      task_id: id,
+      title: input.title ?? initialTask?.title ?? '',
+      reminder_time: input.reminder_time ?? initialTask?.reminder_time,
+      recurrence_days: input.recurrence_days ?? initialTask?.recurrence_days,
+      is_active: input.is_active ?? initialTask?.is_active,
+    });
+    router.back();
   };
 
   return (

@@ -95,6 +95,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, manager *middlewares.Manage
 	)
 
 	mux.Handle(
+		"POST /tasks/by-uuid/{uuid}/add-to-my-tasks",
+		manager.With(
+			http.HandlerFunc(h.AddToMyTasksByUUID),
+			mw.AuthenticateJWT,
+		),
+	)
+
+	mux.Handle(
 		"POST /tasks/{taskId}/subtasks/{subTaskId}/complete",
 		manager.With(
 			http.HandlerFunc(h.CompleteSubTask),

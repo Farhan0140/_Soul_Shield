@@ -35,7 +35,6 @@ export default function CounterTaskScreen() {
     date?: string;
   }>();
   const date = dateParam || todayISODate();
-  const numericTaskId = Number(taskId);
   const isSubTask = !!subTaskId;
 
   const [reward, setReward] = useState<{ text: string; taskTitle: string } | null>(null);
@@ -53,11 +52,11 @@ export default function CounterTaskScreen() {
   const tasksQuery = useTasksQuery(date);
 
   const task = useMemo(
-    () => tasksQuery.data?.find((t) => t.task_id === numericTaskId),
-    [tasksQuery.data, numericTaskId]
+    () => tasksQuery.data?.find((t) => t.task_id === taskId),
+    [tasksQuery.data, taskId]
   );
   const subTask = useMemo(
-    () => (isSubTask ? task?.sub_tasks?.find((s) => s.sub_task_id === Number(subTaskId)) : undefined),
+    () => (isSubTask ? task?.sub_tasks?.find((s) => s.sub_task_id === subTaskId) : undefined),
     [task, isSubTask, subTaskId]
   );
 
@@ -67,7 +66,7 @@ export default function CounterTaskScreen() {
   // CounterTaskControls uses for a main counter task, so its debounced,
   // offline-safe buffering behaves exactly the same here.
   const buffer = useTaskIncrementBuffer({
-    taskId: numericTaskId,
+    taskId,
     date,
     serverProgressCount: !isSubTask ? task?.progress_count ?? 0 : 0,
     targetCount: !isSubTask ? task?.target_count ?? 0 : 0,

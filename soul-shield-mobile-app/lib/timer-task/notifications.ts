@@ -13,15 +13,15 @@ const COMPLETION_NOTIFICATION_ID_KEY_PREFIX = 'soulshield_timer_task_completion_
  * identifiers, and so lib/notifications.ts's shared handler can recognize
  * both. Carries enough to route a notification tap back to the right
  * dedicated page (see app/_layout.tsx's response listener). */
-export function timerTaskNotificationData(taskId: number, subTaskId: number | null, date: string) {
+export function timerTaskNotificationData(taskId: string, subTaskId: string | null, date: string) {
   return { type: 'timer-task' as const, taskId, subTaskId, date };
 }
 
-function runningNotificationId(taskId: number, subTaskId: number | null, date: string): string {
+function runningNotificationId(taskId: string, subTaskId: string | null, date: string): string {
   return `${RUNNING_NOTIFICATION_ID_PREFIX}${taskId}_${subTaskId ?? 'main'}_${date}`;
 }
 
-function completionNotificationIdKey(taskId: number, subTaskId: number | null, date: string): string {
+function completionNotificationIdKey(taskId: string, subTaskId: string | null, date: string): string {
   return `${COMPLETION_NOTIFICATION_ID_KEY_PREFIX}${taskId}_${subTaskId ?? 'main'}_${date}`;
 }
 
@@ -46,8 +46,8 @@ export async function ensureTimerTaskNotificationChannel(): Promise<void> {
  * hooks/use-task-timer.ts), so its text can lag behind the real countdown
  * while the app is backgrounded for a long stretch. */
 export async function showTimerTaskRunningNotification(
-  taskId: number,
-  subTaskId: number | null,
+  taskId: string,
+  subTaskId: string | null,
   date: string,
   taskTitle: string,
   remainingMs: number
@@ -66,8 +66,8 @@ export async function showTimerTaskRunningNotification(
 }
 
 export async function clearTimerTaskRunningNotification(
-  taskId: number,
-  subTaskId: number | null,
+  taskId: string,
+  subTaskId: string | null,
   date: string
 ): Promise<void> {
   const id = runningNotificationId(taskId, subTaskId, date);
@@ -85,8 +85,8 @@ export async function clearTimerTaskRunningNotification(
  * hooks/use-task-timer.ts's foreground/resume path, and
  * lib/background-sync/timer-task.ts's opportunistic background path). */
 export async function scheduleTimerTaskCompletionNotification(
-  taskId: number,
-  subTaskId: number | null,
+  taskId: string,
+  subTaskId: string | null,
   date: string,
   taskTitle: string,
   fireAt: Date
@@ -108,8 +108,8 @@ export async function scheduleTimerTaskCompletionNotification(
 }
 
 export async function cancelTimerTaskCompletionNotification(
-  taskId: number,
-  subTaskId: number | null,
+  taskId: string,
+  subTaskId: string | null,
   date: string
 ): Promise<void> {
   const key = completionNotificationIdKey(taskId, subTaskId, date);

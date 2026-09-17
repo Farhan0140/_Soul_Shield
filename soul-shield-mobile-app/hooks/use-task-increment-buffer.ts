@@ -11,7 +11,7 @@ import { patchTaskInCaches } from '@/lib/task-cache';
 
 const DEBOUNCE_MS = 4000;
 
-function pendingStorageKey(taskId: number, date: string) {
+function pendingStorageKey(taskId: string, date: string) {
   return `soulshield_pending_increment_${taskId}_${date}`;
 }
 
@@ -77,7 +77,7 @@ function getSharedBuffer(key: string): SharedIncrementBuffer {
 }
 
 interface UseTaskIncrementBufferOptions {
-  taskId: number;
+  taskId: string;
   date: string;
   serverProgressCount: number;
   targetCount: number;
@@ -168,7 +168,7 @@ export function useTaskIncrementBuffer({
     let settled = false;
 
     incrementMutation.mutate(
-      { taskId, amount, date },
+      { uuid: taskId, amount, date },
       {
         onSuccess: (data) => {
           // Only now — once the server has actually confirmed the amount —

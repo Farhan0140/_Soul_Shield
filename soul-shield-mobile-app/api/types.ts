@@ -6,7 +6,7 @@ export interface User {
 }
 
 export interface Category {
-  id: number;
+  id: string;
   name: string;
   color_hex: string;
   position: number;
@@ -21,7 +21,7 @@ export type TaskStatus = 'pending' | 'completed' | 'missed' | 'partially_complet
  * live on the parent. Returned embedded in `Task.sub_tasks` by GET /tasks and
  * GET /tasks/history, with `status` scoped to that list's date. */
 export interface SubTask {
-  sub_task_id: number;
+  sub_task_id: string;
   title: string;
   task_type: TaskType;
   target_count: number | null;
@@ -33,7 +33,7 @@ export interface SubTask {
 export interface SubTaskInput {
   /** Present when editing an existing sub-task (matches it for update);
    * omit when adding a new one. */
-  id?: number;
+  id?: string;
   title: string;
   task_type: TaskType;
   target_count?: number;
@@ -42,7 +42,7 @@ export interface SubTaskInput {
 
 /** Shape returned by GET /tasks and GET /tasks/history (TaskWithStatusResponse on the backend). */
 export interface Task {
-  task_id: number;
+  task_id: string;
   title: string;
   description?: string | null;
   is_global: boolean;
@@ -50,7 +50,7 @@ export interface Task {
   recurrence_days?: number[];
   date: string;
   status: TaskStatus;
-  category_id: number | null;
+  category_id: string | null;
   category_name: string | null;
   category_color: string | null;
   reward_text?: string | null;
@@ -81,7 +81,7 @@ export interface TaskInput {
   recurrence_type: RecurrenceType;
   recurrence_days: number[];
   is_global: boolean;
-  category_id?: number | null;
+  category_id?: string | null;
   reward_text?: string;
   task_type: TaskType;
   target_count?: number;
@@ -134,13 +134,16 @@ export interface CompletionResponse {
  * after this action; `parent_reward_text` is only set when it just became
  * 'completed' (i.e. every sub-task is now done) — that's the one moment the
  * reward modal should fire for a sub-tasked parent. */
-/** Shape returned by POST /tasks/:id/add-to-my-tasks. Deliberately minimal —
- * mirrors TaskMutationResponse's convention of not echoing the full task
- * shape; the client relies on the next GET /tasks refetch for that. */
+/** Shape returned by POST /tasks/by-uuid/{uuid}/add-to-my-tasks. Deliberately
+ * minimal - the client relies on the next sync pull to bring the new task
+ * fully into the local store; this just carries enough (task_uuid) to
+ * trigger that pull and know it succeeded. */
 export interface AddToMyTasksResponse {
   already_added: boolean;
   task_id: number;
+  task_uuid: string;
   category_id?: number | null;
+  category_uuid?: string;
   category_name?: string;
 }
 
@@ -148,7 +151,7 @@ export interface AddToMyTasksResponse {
  * (unlike SubTask), since the dedicated Reorder page cares only about
  * title/order, not completion. */
 export interface ManageableSubTask {
-  sub_task_id: number;
+  sub_task_id: string;
   title: string;
   task_type: TaskType;
   target_count: number | null;
@@ -159,9 +162,9 @@ export interface ManageableSubTask {
  * regardless of date/recurrence/is_active, for the dedicated Reorder page
  * (app/reorder/*). `category_id` is absent for an uncategorized task. */
 export interface ManageableTask {
-  id: number;
+  id: string;
   title: string;
-  category_id?: number;
+  category_id?: string;
   position: number;
   sub_tasks?: ManageableSubTask[];
 }

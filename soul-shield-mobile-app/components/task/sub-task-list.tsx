@@ -10,7 +10,7 @@ import { useCompleteSubTask, useIncrementSubTask } from '@/hooks/queries/use-tas
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 interface SubTaskListProps {
-  taskId: number;
+  taskId: string;
   subTasks: SubTask[];
   date: string;
   disabled?: boolean;

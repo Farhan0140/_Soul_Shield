@@ -29,8 +29,8 @@ export function computeTaskTimerRemainingMs(state: TaskTimerState, now: number):
 }
 
 function idleState(
-  taskId: number,
-  subTaskId: number | null,
+  taskId: string,
+  subTaskId: string | null,
   date: string,
   durationMs: number,
   taskTitle: string
@@ -68,8 +68,8 @@ function getSharedTimer(key: string): SharedTaskTimer {
 }
 
 interface UseTaskTimerOptions {
-  taskId: number;
-  subTaskId?: number | null;
+  taskId: string;
+  subTaskId?: string | null;
   date: string;
   /** The task's configured duration — only used to seed a fresh/idle run;
    * once a run has started, its durationMs is fixed from whatever was

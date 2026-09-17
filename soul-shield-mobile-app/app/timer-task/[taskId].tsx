@@ -33,7 +33,6 @@ export default function TimerTaskScreen() {
     date?: string;
   }>();
   const date = dateParam || todayISODate();
-  const numericTaskId = Number(taskId);
   const isSubTask = !!subTaskId;
 
   const [reward, setReward] = useState<{ text: string; taskTitle: string } | null>(null);
@@ -50,11 +49,11 @@ export default function TimerTaskScreen() {
   const tasksQuery = useTasksQuery(date);
 
   const task = useMemo(
-    () => tasksQuery.data?.find((t) => t.task_id === numericTaskId),
-    [tasksQuery.data, numericTaskId]
+    () => tasksQuery.data?.find((t) => t.task_id === taskId),
+    [tasksQuery.data, taskId]
   );
   const subTask = useMemo(
-    () => (isSubTask ? task?.sub_tasks?.find((s) => s.sub_task_id === Number(subTaskId)) : undefined),
+    () => (isSubTask ? task?.sub_tasks?.find((s) => s.sub_task_id === subTaskId) : undefined),
     [task, isSubTask, subTaskId]
   );
 
@@ -64,8 +63,8 @@ export default function TimerTaskScreen() {
   // Called unconditionally (rules of hooks) regardless of loading/validity
   // state below — only its *results* are used conditionally.
   const timer = useTaskTimer({
-    taskId: numericTaskId,
-    subTaskId: isSubTask ? Number(subTaskId) : null,
+    taskId,
+    subTaskId: isSubTask ? (subTaskId ?? null) : null,
     date,
     durationSeconds,
     taskTitle: title ?? '',

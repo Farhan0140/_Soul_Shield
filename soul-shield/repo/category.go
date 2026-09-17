@@ -61,11 +61,11 @@ func (r *categoryRepo) Create(cat Category) (*Category, error) {
 	query := `
 		INSERT INTO categories (name, color_hex, owner_id, position)
 		VALUES ($1, $2, $3, $4)
-		RETURNING id, created_at, updated_at
+		RETURNING id, uuid, created_at, updated_at
 	`
 
 	err := r.db.QueryRow(query, cat.Name, cat.ColorHex, cat.OwnerID, cat.Position).
-		Scan(&cat.ID, &cat.CreatedAt, &cat.UpdatedAt)
+		Scan(&cat.ID, &cat.UUID, &cat.CreatedAt, &cat.UpdatedAt)
 
 	if err != nil {
 		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {

@@ -27,7 +27,7 @@ export async function cancelTaskCacheFetches(queryClient: QueryClient, date: str
  * shows this task (dashboard, category detail, the dedicated counter page,
  * sub-task list) reads from, so this is what makes a completion/increment
  * show up immediately everywhere at once, online or offline. */
-export function patchTaskInCaches(queryClient: QueryClient, date: string, taskId: number, updater: TaskUpdater) {
+export function patchTaskInCaches(queryClient: QueryClient, date: string, taskId: string, updater: TaskUpdater) {
   queryClient.setQueryData<Task[]>(queryKeys.tasks(date), (old) =>
     old?.map((t) => (t.task_id === taskId ? updater(t) : t))
   );

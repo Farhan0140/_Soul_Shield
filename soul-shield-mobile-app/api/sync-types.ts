@@ -81,3 +81,26 @@ export interface SyncSnapshot {
   task_completions: SyncTaskCompletion[];
   sub_task_completions: SyncSubTaskCompletion[];
 }
+
+export type SyncResource = 'tasks' | 'categories' | 'sub_tasks' | 'task_completions' | 'sub_task_completions';
+export type SyncOp = 'upsert' | 'delete' | 'increment';
+
+/** One queued local edit being pushed - mirrors repo.SyncChange
+ * (soul-shield/repo/sync.go) field-for-field. `data`'s shape depends on
+ * `resource`/`op` - see repo/sync_push.go's syncTaskInput/syncCategoryInput/
+ * syncSubTaskInput/syncCompletionInput for what each expects. */
+export interface SyncChange {
+  resource: SyncResource;
+  op: SyncOp;
+  uuid: string;
+  client_updated_at: string;
+  data: Record<string, unknown>;
+}
+
+export interface SyncChangeResult {
+  resource: SyncResource;
+  uuid: string;
+  status: 'accepted' | 'superseded' | 'rejected';
+  server_row?: unknown;
+  error?: string;
+}

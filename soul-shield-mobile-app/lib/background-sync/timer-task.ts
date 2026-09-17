@@ -1,5 +1,6 @@
-import { completeSubTask, completeTask } from '@/api/tasks';
+import { completeSubTaskLocal, completeTaskLocal } from '@/lib/db/completions-repo';
 import { computeTaskTimerRemainingMs } from '@/hooks/use-task-timer';
+import { completeSubTaskMutationFn, completeTaskMutationFn } from '@/lib/mutation-defaults';
 import { cancelTimerTaskCompletionNotification, clearTimerTaskRunningNotification } from '@/lib/timer-task/notifications';
 import {
   clearTaskTimerState,
@@ -14,13 +15,15 @@ import { tokenStore } from '@/lib/secure-store';
  * background-sync wake-up (task.ts), not just within the once-nightly sync
  * window, since a running timer can finish at any time of day. Runs headlessly
  * with no component tree mounted, so unlike hooks/use-task-timer.ts's
- * dispatchCompletion it can't call a React Query mutation hook — it calls the
- * plain API functions directly (the same ones the mutation hooks ultimately
- * wrap), exactly the way lib/background-sync/sync.ts avoids depending on a
- * live QueryClient for its own headless path. The task-list cache catches up
- * afterward via the app's normal foreground/reconnect resync, or via
- * useTaskTimer's own mount-time reconciliation reading `completionDispatched`
- * once the app is reopened. */
+ * dispatchCompletion it can't call a React Query mutation hook — it writes
+ * to the local SQLite store directly (completeTaskLocal/completeSubTaskLocal,
+ * not the toggle variants — a retry here must never un-complete an
+ * already-completed row) and pushes via the same plain mutationFn functions
+ * the mutation hooks ultimately wrap, exactly the way
+ * lib/background-sync/sync.ts avoids depending on a live QueryClient for its
+ * own headless path. The task-list cache catches up afterward via the app's
+ * normal foreground/reconnect resync, or via useTaskTimer's own mount-time
+ * reconciliation reading `completionDispatched` once the app is reopened. */
 export async function checkAndCompleteFinishedTaskTimers(): Promise<void> {
   const keys = await getActiveTaskTimerKeys();
   if (keys.length === 0) return;
@@ -36,18 +39,21 @@ export async function checkAndCompleteFinishedTaskTimers(): Promise<void> {
       const remaining = computeTaskTimerRemainingMs(state, Date.now());
       if (remaining > 0) continue;
 
-      // Marked dispatched BEFORE the network call — same ordering rationale
-      // as hooks/use-task-timer.ts's in-hook dispatch, so a process kill
+      // Marked dispatched BEFORE the push — same ordering rationale as
+      // hooks/use-task-timer.ts's in-hook dispatch, so a process kill
       // mid-call can't cause a duplicate completion call on the next
-      // wake-up; a transient network failure below is safely retried next
-      // time since the server's Complete()/CompleteSubTask() upsert on
-      // (task_id, user_id, task_date) makes a repeat call idempotent.
+      // wake-up; a transient push failure below is safely retried next time
+      // since completeTaskLocal/completeSubTaskLocal are idempotent (not a
+      // toggle) and the push itself resolves by (task_uuid, task_date),
+      // making a repeat call safe either way.
       await setTaskTimerState(key, { ...state, status: 'completed', completionDispatched: true });
 
       if (state.subTaskId != null) {
-        await completeSubTask(state.taskId, state.subTaskId, state.date, token);
+        const { completionUuid } = completeSubTaskLocal(state.subTaskId, state.taskId, state.date);
+        await completeSubTaskMutationFn({ completionUuid });
       } else {
-        await completeTask(state.taskId, state.date, token);
+        const { completionUuid } = completeTaskLocal(state.taskId, state.date);
+        await completeTaskMutationFn({ completionUuid });
       }
 
       await cancelTimerTaskCompletionNotification(state.taskId, state.subTaskId, state.date);

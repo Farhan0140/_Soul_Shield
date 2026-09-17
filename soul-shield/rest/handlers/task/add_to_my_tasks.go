@@ -48,6 +48,48 @@ func (h *Handler) AddToMyTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.addToMyTasks(w, userID, source)
+}
+
+// AddToMyTasksByUUID godoc
+//
+// @Summary Add a fixed (admin) task to the current user's own tasks, by uuid
+// @Description AddToMyTasks এর মতোই, শুধু path এ bigint id এর বদলে uuid নেয় - মোবাইল
+// @Description অ্যাপের local-first sync store শুধু uuid দিয়েই fixed task চেনে (দেখো
+// @Description repo/sync.go), তাই এই আলাদা রুট।
+// @Tags Tasks
+// @Security BearerAuth
+// @Produce json
+// @Param uuid path string true "Fixed Task UUID"
+// @Success 200 {object} AddToMyTasksResponse "Already added"
+// @Success 201 {object} AddToMyTasksResponse "Newly added"
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /tasks/by-uuid/{uuid}/add-to-my-tasks [post]
+func (h *Handler) AddToMyTasksByUUID(w http.ResponseWriter, r *http.Request) {
+	userID, ok := getUserID(r)
+	if !ok {
+		unauthorized(w)
+		return
+	}
+
+	source, err := h.taskRepo.GetByUUID(r.PathValue("uuid"))
+	if err != nil {
+		switch err {
+		case util.ErrTaskNotFound:
+			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusNotFound)
+		default:
+			util.SendError(w, map[string]string{"error": "Failed to fetch task"}, http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.addToMyTasks(w, userID, source)
+}
+
+// addToMyTasks - AddToMyTasks/AddToMyTasksByUUID উভয়ের শেয়ার্ড লজিক, শুধু source task
+// resolve করার পদ্ধতি (bigint id বনাম uuid) আলাদা।
+func (h *Handler) addToMyTasks(w http.ResponseWriter, userID int64, source *repo.Task) {
 	if !source.IsGlobal || !source.IsActive {
 		util.SendError(w, map[string]string{"error": util.ErrTaskNotGlobal.Error()}, http.StatusBadRequest)
 		return
@@ -56,14 +98,20 @@ func (h *Handler) AddToMyTasks(w http.ResponseWriter, r *http.Request) {
 	// ---- Duplicate check: lineage (source_task_id) অথবা case-insensitive title ম্যাচ ----
 	if existing, err := h.taskRepo.FindOwnedMatch(userID, source.ID, source.Title); err == nil {
 		var catID *int64
+		var catUUID string
 		if existing.CategoryID.Valid {
 			id := existing.CategoryID.Int64
 			catID = &id
+			if cat, err := h.categoryRepo.GetByID(id); err == nil {
+				catUUID = cat.UUID
+			}
 		}
 		util.SendData(w, AddToMyTasksResponse{
 			AlreadyAdded: true,
 			TaskID:       existing.ID,
+			TaskUUID:     existing.UUID,
 			CategoryID:   catID,
+			CategoryUUID: catUUID,
 		}, http.StatusOK)
 		return
 	} else if err != util.ErrTaskNotFound {
@@ -73,6 +121,7 @@ func (h *Handler) AddToMyTasks(w http.ResponseWriter, r *http.Request) {
 
 	// ---- Category resolve: একই নামে (case-insensitive) user এর category থাকলে reuse, না থাকলে তৈরি ----
 	var categoryID sql.NullInt64
+	var categoryUUID string
 	var categoryName string
 	if source.CategoryID.Valid {
 		srcCat, err := h.categoryRepo.GetByID(source.CategoryID.Int64)
@@ -99,6 +148,7 @@ func (h *Handler) AddToMyTasks(w http.ResponseWriter, r *http.Request) {
 		}
 
 		categoryID = sql.NullInt64{Int64: userCat.ID, Valid: true}
+		categoryUUID = userCat.UUID
 		categoryName = userCat.Name
 	}
 
@@ -159,7 +209,9 @@ func (h *Handler) AddToMyTasks(w http.ResponseWriter, r *http.Request) {
 	util.SendData(w, AddToMyTasksResponse{
 		AlreadyAdded: false,
 		TaskID:       created.ID,
+		TaskUUID:     created.UUID,
 		CategoryID:   respCategoryID,
+		CategoryUUID: categoryUUID,
 		CategoryName: categoryName,
 	}, http.StatusCreated)
 }

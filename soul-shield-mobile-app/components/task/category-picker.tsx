@@ -5,8 +5,8 @@ import { FilterChip } from '@/components/filters/filter-chip';
 
 interface CategoryPickerProps {
   categories: Category[];
-  value: number | null;
-  onChange: (value: number | null) => void;
+  value: string | null;
+  onChange: (value: string | null) => void;
 }
 
 export function CategoryPicker({ categories, value, onChange }: CategoryPickerProps) {

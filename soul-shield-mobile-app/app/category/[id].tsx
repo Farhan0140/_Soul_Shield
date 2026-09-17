@@ -54,7 +54,7 @@ export default function CategoryDetailScreen() {
   const specialId = SPECIAL_CATEGORY_IDS.includes(id as SpecialCategoryId)
     ? (id as SpecialCategoryId)
     : null;
-  const categoryId = Number(id);
+  const categoryId = id;
   const date = dateParam || todayISODate();
 
   const { user } = useAuth();
@@ -62,7 +62,7 @@ export default function CategoryDetailScreen() {
 
   const [page, setPage] = useState(1);
   const [reward, setReward] = useState<{ text: string; taskTitle: string } | null>(null);
-  const [addingTaskId, setAddingTaskId] = useState<number | null>(null);
+  const [addingTaskId, setAddingTaskId] = useState<string | null>(null);
 
   const tasksQuery = useTasksQuery(date);
   const completeTask = useCompleteTask();
