@@ -4,6 +4,11 @@
 -- reliable than auditing each repo's UPDATE statements by hand (several
 -- already set it inline; this makes it uniform and also covers the new
 -- sync push handler without any extra code there).
+--
+-- StatementBegin/End tells sql-migrate to treat this whole CREATE FUNCTION
+-- as one statement instead of splitting it on the semicolons inside the
+-- $$...$$ body (which caused the "unterminated dollar-quoted string" error).
+-- +migrate StatementBegin
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -11,6 +16,7 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+-- +migrate StatementEnd
 
 CREATE TRIGGER trg_tasks_set_updated_at
     BEFORE UPDATE ON tasks
