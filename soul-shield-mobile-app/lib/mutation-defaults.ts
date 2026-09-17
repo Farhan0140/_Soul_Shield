@@ -95,6 +95,23 @@ async function pushChanges(changes: SyncChange[]): Promise<SyncChangeResult[]> {
   return results;
 }
 
+/** Every mutationFn below reads the row it needs to push from local SQLite -
+ * there's no fallback to the old per-action REST write endpoints (Phase 5
+ * deleted them). If the local DB genuinely isn't open yet (pre-native-rebuild
+ * device - see lib/db/client.ts's getLocalDb doc comment), the live hook's
+ * onMutate already silently no-op'd (every *Local() write function returns
+ * early when getLocalDb() is null), so there is nothing to read and nothing
+ * would ever get pushed - without this check, that mutation would resolve as
+ * a *success* with an empty change list, silently discarding the user's
+ * edit. Throwing here instead turns that into a visible mutation error (every
+ * call site already wires an onError - see e.g. app/task/new.tsx) rather than
+ * quiet data loss. */
+function assertLocalDbAvailable(): void {
+  if (!getLocalDb()) {
+    throw new Error('Offline database is not ready on this device yet - please update the app to sync changes.');
+  }
+}
+
 /** Every currently-unsynced sub-task under `parentUuid` (see
  * lib/db/sub-tasks-repo.ts's listUnsyncedSubTasksForParent for why this is
  * queried fresh rather than threaded through mutation variables) as push
@@ -117,18 +134,21 @@ function unsyncedSubTaskChanges(parentUuid: string): SyncChange[] {
 // just re-pushes whatever is *still* unsynced at replay time.
 
 export const createTaskMutationFn = async ({ uuid }: { uuid: string }) => {
+  assertLocalDbAvailable();
   const task = getTaskByUuid(uuid);
   if (!task) return [];
   return pushChanges([taskUpsertChange(task), ...unsyncedSubTaskChanges(uuid)]);
 };
 
 export const updateTaskMutationFn = async ({ uuid }: { uuid: string }) => {
+  assertLocalDbAvailable();
   const task = getTaskByUuid(uuid);
   if (!task) return [];
   return pushChanges([taskUpsertChange(task), ...unsyncedSubTaskChanges(uuid)]);
 };
 
 export const deleteTaskMutationFn = async ({ uuid }: { uuid: string }) => {
+  assertLocalDbAvailable();
   const task = getTaskByUuid(uuid);
   const updatedAt = task?.updatedAt ?? new Date().toISOString();
   const { deletedUuids } = listUnsyncedSubTasksForParent(uuid);
@@ -139,6 +159,7 @@ export const deleteTaskMutationFn = async ({ uuid }: { uuid: string }) => {
 };
 
 export const completeTaskMutationFn = async ({ completionUuid }: { completionUuid: string }) => {
+  assertLocalDbAvailable();
   const db = getLocalDb();
   if (!db) return [];
   const row = db.select().from(taskCompletions).where(eq(taskCompletions.uuid, completionUuid)).get();
@@ -168,6 +189,7 @@ export const incrementTaskMutationFn = async ({
   amount: number;
   date: string;
 }): Promise<{ status: TaskStatus; reward_text?: string }> => {
+  assertLocalDbAvailable();
   const task = getTaskByUuid(uuid);
   const target = task?.targetCount ?? 0;
   const local = incrementTaskCompletionLocal(uuid, date, amount, target);
@@ -178,6 +200,7 @@ export const incrementTaskMutationFn = async ({
 };
 
 export const completeSubTaskMutationFn = async ({ completionUuid }: { completionUuid: string }) => {
+  assertLocalDbAvailable();
   const db = getLocalDb();
   if (!db) return [];
   const row = db.select().from(subTaskCompletions).where(eq(subTaskCompletions.uuid, completionUuid)).get();
@@ -198,6 +221,7 @@ export const incrementSubTaskMutationFn = async ({
   amount: number;
   date: string;
 }): Promise<{ status: TaskStatus; progressCount: number }> => {
+  assertLocalDbAvailable();
   const subTask = getSubTaskByUuid(subTaskUuid);
   const target = subTask?.targetCount ?? 0;
   const local = incrementSubTaskCompletionLocal(subTaskUuid, parentTaskUuid, date, amount, target);
@@ -215,29 +239,34 @@ export const addTaskToMyTasksMutationFn = async (sourceTaskUuid: string) =>
   addTaskToMyTasks(sourceTaskUuid, await tokenStore.getToken());
 
 export const reorderTasksMutationFn = async ({ orderedUuids }: { categoryUuid: string | null; orderedUuids: string[] }) => {
+  assertLocalDbAvailable();
   const rows = listAllOwnedTasksFlat().filter((t) => orderedUuids.includes(t.uuid) && t.syncedAt === null);
   return pushChanges(rows.map(taskUpsertChange));
 };
 
 export const createCategoryMutationFn = async ({ uuid }: { uuid: string }) => {
+  assertLocalDbAvailable();
   const category = getCategoryByUuid(uuid);
   if (!category) return [];
   return pushChanges([categoryUpsertChange(category)]);
 };
 
 export const updateCategoryMutationFn = async ({ uuid }: { uuid: string }) => {
+  assertLocalDbAvailable();
   const category = getCategoryByUuid(uuid);
   if (!category) return [];
   return pushChanges([categoryUpsertChange(category)]);
 };
 
 export const deleteCategoryMutationFn = async ({ uuid }: { uuid: string }) => {
+  assertLocalDbAvailable();
   const category = getCategoryByUuid(uuid);
   const updatedAt = category?.updatedAt ?? new Date().toISOString();
   return pushChanges([categoryDeleteChange(uuid, updatedAt)]);
 };
 
 export const reorderCategoriesMutationFn = async (orderedUuids: string[]) => {
+  assertLocalDbAvailable();
   const rows = listActiveCategories().filter((c) => orderedUuids.includes(c.uuid) && c.syncedAt === null);
   return pushChanges(rows.map(categoryUpsertChange));
 };

@@ -226,6 +226,31 @@ export function listAllOwnedTasksFlat() {
     .sort((a, b) => a.position - b.position);
 }
 
+/** Every active task (global and personal alike) reshaped into the minimal
+ * shape lib/notifications.ts's syncAllTaskReminders needs - reminders only
+ * depend on a task's own config (reminder_time/recurrence_days), not any
+ * date-scoped status, so this reads the raw local rows directly instead of
+ * going through deriveTasksForRange. Used by lib/background-sync/sync.ts's
+ * headless path in place of the old REST history fetch it used to
+ * piggyback reminder-resyncing on. */
+export function listAllActiveTasksForReminders() {
+  const db = getLocalDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(tasks)
+    .where(isNull(tasks.deletedAt))
+    .all()
+    .filter((t) => t.isActive)
+    .map((t) => ({
+      task_id: t.uuid,
+      title: t.title,
+      reminder_time: t.reminderTime,
+      recurrence_days: decodeIntArray(t.recurrenceDays),
+      is_active: t.isActive,
+    }));
+}
+
 /** listAllOwnedTasksFlat reshaped into the ManageableTask[] wire shape (see
  * api/types.ts) the Reorder pages already consume - the on-device
  * equivalent of GET /tasks/mine, for hooks/queries/use-tasks.ts's

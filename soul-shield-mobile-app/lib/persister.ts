@@ -23,7 +23,22 @@ export const persister = createAsyncStoragePersister({
 // since that's a React component and the background task runs headlessly) —
 // a mismatched buster would make the live app discard the fresh sync on next
 // restore, thinking it came from a stale build.
-export const PERSIST_BUSTER = 'v1';
+//
+// v1 -> v2: the local-first cutover (see lib/mutation-defaults.ts) changed
+// every mutation's variables shape (e.g. tasks.create went from a raw
+// TaskInput to { uuid }) and dropped tasks/categories/taskHistory/myTasks
+// from what this persister even dehydrates (see shouldDehydrateQuery below -
+// they're SQLite-backed now, see lib/db/*-repo.ts). Any mutation still
+// genuinely paused from before this boundary would replay against the new
+// mutationFn with the old argument shape and silently no-op rather than
+// apply - bumping the buster discards that stale persisted state outright
+// instead of shipping that failure mode. There's no live old endpoint left
+// to drain a paused mutation against first (Phase 5 removed
+// api/tasks.ts's/api/categories.ts's write functions entirely), so a clean
+// discard is the only option; acceptable here since nothing has shipped
+// this local-first mutation path to a real device yet (it needs the
+// expo-sqlite/expo-crypto native rebuild first - see lib/db/client.ts).
+export const PERSIST_BUSTER = 'v2';
 
 export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
   persister,
@@ -33,9 +48,15 @@ export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
     // `me` is cached explicitly via SecureStore (see context/auth-context.tsx)
     // rather than through the generic persister, since auth bootstrap needs a
     // synchronously-available fallback that doesn't race the persister's async
-    // restore.
+    // restore. tasks/taskHistory/myTasks/categories no longer need
+    // AsyncStorage persistence either - they're derived fresh from the
+    // durable SQLite store on every read (see lib/db/*-repo.ts's
+    // deriveTasksForDate & friends), so persisting their query-cache copy
+    // too would just be dead weight. dailyVerse is the one query that still
+    // needs this: it's plain server content, not SQLite-backed.
     shouldDehydrateQuery: (query) =>
-      defaultShouldDehydrateQuery(query) && query.queryKey[0] !== 'me',
+      defaultShouldDehydrateQuery(query) &&
+      !['me', 'tasks', 'taskHistory', 'myTasks', 'categories'].includes(query.queryKey[0] as string),
     // Paused mutations (queued while offline) must survive persistence so
     // they can be replayed after an app kill+relaunch.
     shouldDehydrateMutation: (mutation) =>

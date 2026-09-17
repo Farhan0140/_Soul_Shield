@@ -16,13 +16,11 @@ const REQUEST_TIMEOUT_MS = 20_000;
  * window and re-applies it, which is idempotent (every write here is an
  * upsert keyed by uuid).
  *
- * Called from lib/background-sync/sync.ts's runFullBackgroundSyncInner
- * alongside the existing windowed REST fetch, not replacing it (see the
- * local-first plan's Phase 3) - the caller wraps this in its own
- * `.catch(() => null)`, matching how that function already isolates
- * fetchMe/prefetchDailyVerses, so a failure here can never touch the
- * critical categories/tasks/history write that today's offline guarantee
- * actually depends on. Resolves to nothing rather than throwing on its own
+ * Called from lib/background-sync/sync.ts's runFullBackgroundSyncInner as
+ * the critical operation the offline guarantee now depends on (every read
+ * hook derives from this local store - see hooks/queries/use-tasks.ts) -
+ * unlike fetchMe/prefetchDailyVerses, the caller does NOT swallow a failure
+ * here. Still resolves to nothing rather than throwing on its own
  * "not ready yet" cases (no local DB, signed out) - those are silently
  * skip-and-retry-next-time, same as the rest of the sync system already
  * treats a skipped run. */

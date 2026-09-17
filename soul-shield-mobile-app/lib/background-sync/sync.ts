@@ -2,33 +2,25 @@ import NetInfo from '@react-native-community/netinfo';
 import { QueryClient, dehydrate } from '@tanstack/react-query';
 
 import { fetchMe } from '@/api/auth';
-import { getCategories } from '@/api/categories';
 import { getSurahList, getVerse, type Verse } from '@/api/quran-content';
-import { getTaskHistory, getTasks } from '@/api/tasks';
 import { recordSyncOutcome } from '@/lib/background-sync/state';
-import { currentDhakaDateString } from '@/lib/background-sync/time';
-import { assertCategoryArray, assertTaskArray, assertUser } from '@/lib/background-sync/validate';
+import { assertUser } from '@/lib/background-sync/validate';
 import { pickDailyVerseRef } from '@/lib/daily-verse';
 import { addDays, dateRange, todayISODate } from '@/lib/date';
+import { listAllActiveTasksForReminders } from '@/lib/db/tasks-repo';
 import { pullLocalDatabase } from '@/lib/background-sync/pull';
 import { syncAllTaskReminders } from '@/lib/notifications';
 import { PERSIST_BUSTER, persister } from '@/lib/persister';
 import { queryKeys } from '@/lib/query-keys';
 import { cachedUserStore, tokenStore } from '@/lib/secure-store';
-import { pruneExpiredTaskCache } from '@/lib/background-sync/prune';
 import { setSyncStatus } from '@/lib/background-sync/sync-status';
 
-/** Same 7-day span history.tsx defaults to — large enough to cover every
- * active recurring task at least once (recurrence_days is a subset of the
- * week) without pulling the user's entire history nightly. */
-const HISTORY_WINDOW_DAYS = 6;
-
-/** How many days beyond today to keep pre-fetched so the app stays fully
- * usable (view/add/edit/delete) for that long without connectivity — the
- * offline guarantee lives entirely in this number: whatever's cached here is
- * what's available offline, nothing more. 3 gives a rolling today+3-day
- * window (today, +1, +2, +3). */
-const FORWARD_WINDOW_DAYS = 3;
+/** How many days beyond today to keep the "verse of the day" pre-fetched
+ * (see components/dashboard/daily-verse-card.tsx) - unrelated to task/
+ * category data now that those are local-first (see pullLocalDatabase
+ * below); this is the one piece of plain server content this sync still
+ * needs to fetch a date range for. */
+const VERSE_PREFETCH_DAYS = 3;
 
 /** Hard ceiling per request so a stalled/slow connection fails fast instead
  * of leaving the background task (and the OS's wake-lock budget for it)
@@ -40,8 +32,8 @@ const REQUEST_TIMEOUT_MS = 20_000;
  * fetch shared across every date, then one verse fetch per date. Callers
  * treat a failure here as non-fatal (see runFullBackgroundSyncInner): the
  * third-party quranapi.pages.dev API being slow or unreachable must never
- * block or abort the task/category sync that the offline guarantee actually
- * depends on. */
+ * block or abort the sync pull that the offline guarantee actually depends
+ * on. */
 async function prefetchDailyVerses(
   dates: string[],
   timeoutMs: number
@@ -56,31 +48,34 @@ async function prefetchDailyVerses(
   );
 }
 
-/** Full refresh: pulls categories, today + the next FORWARD_WINDOW_DAYS days
- * of tasks, and a rolling backward history window fresh from the API, then
- * re-derives reminders from that same fresh data so notifications self-heal
- * too. Called from four places: the scheduled background task (task.ts) runs
- * headlessly with no live app open, so it merges the fresh data straight into
- * the on-disk persisted cache (wholesale-replacing the read-through query
- * cache there, since nothing is watching it live); the reconnect-triggered
- * catch-up (network.ts), the app-open/foreground trigger
- * (runForegroundSyncIfDue below, wired from app/_layout.tsx), and the
- * dev-only manual trigger (profile.tsx) all run with the app in the
+/** Full refresh: delta-pulls every task/category/sub-task/completion change
+ * into the on-device SQLite store (see lib/background-sync/pull.ts) — the
+ * source every read hook now derives from (see hooks/queries/use-tasks.ts) —
+ * then re-derives reminders from that same fresh local state so
+ * notifications self-heal too. Called from four places: the scheduled
+ * background task (task.ts) runs headlessly with no live app open;
+ * the reconnect-triggered catch-up (network.ts), the app-open/foreground
+ * trigger (runForegroundSyncIfDue below, wired from app/_layout.tsx), and
+ * the dev-only manual trigger (profile.tsx) all run with the app in the
  * foreground, so they pass the app's actual mounted QueryClient so every
- * already-rendered screen picks up the refresh immediately via its normal
- * subscription — merged additively there instead of wholesale-replaced, since
- * wiping some *other* query the user is currently looking at (an admin list,
- * a different date) out from under a live screen would be a regression, not
- * a refresh.
+ * already-rendered screen picks up the refresh immediately (invalidated
+ * below, re-reading instantly from SQLite).
  *
  * Deliberately does NOT touch the mutation queue: any mutation still paused
  * (an offline edit not yet sent to the server) is real, not-yet-synced user
  * data, not a stale read-cache entry — wiping it here would be data loss, not
  * a "refresh".
  *
- * Throws on any failure (network, timeout, HTTP, malformed payload) after
- * recording the outcome — callers decide how to surface/log that, but none of
- * them should let a failure here crash their own flow (see call sites).
+ * Throws on any failure in the local-first pull (network, timeout, HTTP,
+ * malformed payload) after recording the outcome — callers decide how to
+ * surface/log that, but none of them should let a failure here crash their
+ * own flow (see call sites). `me` and the daily-verse prefetch stay
+ * independent/best-effort (see their own .catch(() => null) below) — a slow
+ * or unreachable third-party verse API must never abort the sync pull the
+ * offline guarantee actually depends on. pullLocalDatabase itself resolves
+ * (doesn't throw) when the local DB genuinely isn't open yet on this device
+ * (pre-native-rebuild) or the user is signed out — those are "not our turn
+ * yet", not failures.
  */
 async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<void> {
   const netState = await NetInfo.fetch();
@@ -104,90 +99,44 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
   }
 
   try {
-    const dhakaToday = currentDhakaDateString();
-    const from = addDays(dhakaToday, -HISTORY_WINDOW_DAYS);
-
     // Forward window is keyed on the device-local calendar date
-    // (todayISODate), not the Dhaka-anchored date above — that's what the
-    // dashboard's date nav and useTasksQuery actually key their cache reads
-    // on (app/(tabs)/index.tsx, lib/query-keys.ts), so this must match it
-    // exactly or the prefetch would land under a key nothing ever reads.
-    const forwardDates = dateRange(todayISODate(), addDays(todayISODate(), FORWARD_WINDOW_DAYS));
+    // (todayISODate), matching what the daily-verse card actually reads
+    // (hooks/queries/use-daily-verse.ts, lib/query-keys.ts).
+    const verseDates = dateRange(todayISODate(), addDays(todayISODate(), VERSE_PREFETCH_DAYS));
 
-    // Categories + the forward task window + history must succeed together
-    // or not at all — a partial batch (e.g. categories refreshed but tasks
-    // failed) would leave the local cache internally inconsistent, which is
-    // worse than just leaving last night's snapshot in place until the next
-    // attempt. This is the actual offline guarantee (today + FORWARD_WINDOW_DAYS
-    // of tasks), so it's kept strictly atomic.
-    //
-    // `me` and the daily-verse prefetch are logically unrelated to that
-    // guarantee and to each other, so each gets its own independent
-    // catch(() => null) instead of joining the Promise.all above — a slow
-    // (e.g. cold-starting) /users/me response or an unreachable third-party
-    // verse API must never abort tomorrow's task prefetch. All three start
-    // in parallel regardless; only the critical group is awaited before the
-    // others so a failure there still aborts the whole sync as before.
-    const criticalPromise = Promise.all([
-      getCategories(token, REQUEST_TIMEOUT_MS),
-      Promise.all(forwardDates.map((date) => getTasks(date, token, REQUEST_TIMEOUT_MS))),
-      getTaskHistory(from, dhakaToday, token, REQUEST_TIMEOUT_MS),
-    ]);
+    const localDbPullPromise = pullLocalDatabase();
     const mePromise = fetchMe(token, REQUEST_TIMEOUT_MS).catch(() => null);
-    const versesPromise = prefetchDailyVerses(forwardDates, REQUEST_TIMEOUT_MS).catch(() => null);
-    // Local-first SQLite fill (see lib/background-sync/pull.ts) - entirely
-    // additive/invisible today (see the local-first plan's Phase 3): nothing
-    // reads from it yet, so its only job right now is to keep the on-device
-    // store warm. Isolated the same way as the two lines above - it must
-    // never be able to abort the critical group, whether it fails outright
-    // or the local database simply isn't available yet on this build.
-    const localDbPullPromise = pullLocalDatabase().catch(() => null);
+    const versesPromise = prefetchDailyVerses(verseDates, REQUEST_TIMEOUT_MS).catch(() => null);
 
-    const [categoriesRaw, forwardTasksRaw, historyRaw] = await criticalPromise;
-
-    const categories = assertCategoryArray(categoriesRaw);
-    const forwardTasksByDate = forwardDates.map((date, i) => ({
-      date,
-      tasks: assertTaskArray(forwardTasksRaw[i], `tasks ${date}`),
-    }));
-    const history = assertTaskArray(historyRaw, 'task history');
-
+    await localDbPullPromise;
     const meRaw = await mePromise;
     const me = meRaw ? assertUser(meRaw) : null;
     const verses = await versesPromise;
-    await localDbPullPromise;
 
     if (liveClient) {
-      // App is mounted and online right now — write straight into it so
-      // every subscribed screen re-renders with fresh data immediately.
-      // PersistQueryClientProvider's own throttled save (see app/_layout.tsx)
-      // persists this to disk the same way any other query update already
-      // does; no separate write needed here.
-      liveClient.setQueryData(queryKeys.categories, categories);
-      for (const { date, tasks } of forwardTasksByDate) {
-        liveClient.setQueryData(queryKeys.tasks(date), tasks);
-      }
-      liveClient.setQueryData(queryKeys.taskHistory(from, dhakaToday), history);
+      // App is mounted and online right now — invalidate so every
+      // already-mounted screen re-reads (instantly, from SQLite) with the
+      // just-pulled state. Categories/tasks/history/myTasks are SQLite-backed
+      // now (see lib/persister.ts), so there's nothing to setQueryData here.
+      liveClient.invalidateQueries({ queryKey: ['tasks'] });
+      liveClient.invalidateQueries({ queryKey: ['taskHistory'] });
+      liveClient.invalidateQueries({ queryKey: ['myTasks'] });
+      liveClient.invalidateQueries({ queryKey: queryKeys.categories });
       if (verses) {
         for (const { date, verse } of verses) {
           liveClient.setQueryData(queryKeys.dailyVerse(date), verse);
         }
       }
-    } else {
-      // No live client — dehydrating a throwaway one guarantees the fresh
-      // snapshot contains exactly these queries and nothing left over from a
-      // previous run, then it replaces the on-disk read-through cache
-      // wholesale (preserving only the paused-mutation queue, see above).
+    } else if (verses) {
+      // No live client — dailyVerse is the one query this sync still persists
+      // directly (categories/tasks/history/myTasks are SQLite-backed, not
+      // AsyncStorage-persisted - see lib/persister.ts's shouldDehydrateQuery),
+      // so merge just that into the on-disk cache rather than replacing it
+      // wholesale, preserving whatever else (paused mutations, `me`) is
+      // already there.
       const freshClient = new QueryClient();
-      freshClient.setQueryData(queryKeys.categories, categories);
-      for (const { date, tasks } of forwardTasksByDate) {
-        freshClient.setQueryData(queryKeys.tasks(date), tasks);
-      }
-      freshClient.setQueryData(queryKeys.taskHistory(from, dhakaToday), history);
-      if (verses) {
-        for (const { date, verse } of verses) {
-          freshClient.setQueryData(queryKeys.dailyVerse(date), verse);
-        }
+      for (const { date, verse } of verses) {
+        freshClient.setQueryData(queryKeys.dailyVerse(date), verse);
       }
       const fresh = dehydrate(freshClient);
 
@@ -196,7 +145,10 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
         timestamp: Date.now(),
         buster: PERSIST_BUSTER,
         clientState: {
-          queries: fresh.queries,
+          queries: [
+            ...(previous?.clientState.queries.filter((q) => q.queryKey[0] !== 'dailyVerse') ?? []),
+            ...fresh.queries,
+          ],
           mutations: previous?.clientState.mutations ?? [],
         },
       });
@@ -212,7 +164,10 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
     // Self-heals notification scheduling the same way the foreground
     // hook (use-task-reminders-sync.ts) does, so a task edited on another
     // device gets its reminder corrected here too, not just on next app open.
-    await syncAllTaskReminders(history);
+    // Reads straight from the local store just pulled above rather than a
+    // REST history array — reminders only depend on task config, not
+    // date-scoped status (see tasks-repo.ts's listAllActiveTasksForReminders).
+    await syncAllTaskReminders(listAllActiveTasksForReminders());
 
     await recordSyncOutcome('success');
   } catch (error) {
@@ -223,11 +178,10 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
 
 // Coalesces concurrent callers onto a single in-flight run — e.g. several
 // task edits that were queued offline can all resolve within the same tick
-// once connectivity returns, each independently wanting a full refresh (see
-// lib/task-cache-refresh.ts); without this they'd fire N redundant parallel
-// fetch batches instead of one. Protects every call site (foreground open,
-// reconnect catch-up, the headless daily task, the dev manual trigger, and
-// the structural-change refresh), not just the newest one.
+// once connectivity returns, each independently wanting a full refresh; without
+// this they'd fire N redundant parallel sync pulls instead of one. Protects
+// every call site (foreground open, reconnect catch-up, the headless daily
+// task, the dev manual trigger).
 let syncInFlight: Promise<void> | null = null;
 
 export function runFullBackgroundSync(liveClient?: QueryClient): Promise<void> {
@@ -264,10 +218,6 @@ export function runForegroundSyncIfDue(liveClient: QueryClient): void {
   const now = Date.now();
   if (now - lastForegroundSyncAttemptAt < FOREGROUND_SYNC_COOLDOWN_MS) return;
   lastForegroundSyncAttemptAt = now;
-  // Sweep anything that's rolled outside the current window before pulling in
-  // fresh data — see lib/background-sync/prune.ts for why this is safe (it
-  // never touches a date a pending offline mutation might still need).
-  pruneExpiredTaskCache(liveClient);
   runFullBackgroundSync(liveClient).catch(() => {
     // Failure is already recorded by runFullBackgroundSync itself.
   });
