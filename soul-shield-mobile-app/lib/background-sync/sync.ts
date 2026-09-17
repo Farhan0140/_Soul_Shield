@@ -10,6 +10,7 @@ import { currentDhakaDateString } from '@/lib/background-sync/time';
 import { assertCategoryArray, assertTaskArray, assertUser } from '@/lib/background-sync/validate';
 import { pickDailyVerseRef } from '@/lib/daily-verse';
 import { addDays, dateRange, todayISODate } from '@/lib/date';
+import { pullLocalDatabase } from '@/lib/background-sync/pull';
 import { syncAllTaskReminders } from '@/lib/notifications';
 import { PERSIST_BUSTER, persister } from '@/lib/persister';
 import { queryKeys } from '@/lib/query-keys';
@@ -134,6 +135,13 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
     ]);
     const mePromise = fetchMe(token, REQUEST_TIMEOUT_MS).catch(() => null);
     const versesPromise = prefetchDailyVerses(forwardDates, REQUEST_TIMEOUT_MS).catch(() => null);
+    // Local-first SQLite fill (see lib/background-sync/pull.ts) - entirely
+    // additive/invisible today (see the local-first plan's Phase 3): nothing
+    // reads from it yet, so its only job right now is to keep the on-device
+    // store warm. Isolated the same way as the two lines above - it must
+    // never be able to abort the critical group, whether it fails outright
+    // or the local database simply isn't available yet on this build.
+    const localDbPullPromise = pullLocalDatabase().catch(() => null);
 
     const [categoriesRaw, forwardTasksRaw, historyRaw] = await criticalPromise;
 
@@ -147,6 +155,7 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
     const meRaw = await mePromise;
     const me = meRaw ? assertUser(meRaw) : null;
     const verses = await versesPromise;
+    await localDbPullPromise;
 
     if (liveClient) {
       // App is mounted and online right now — write straight into it so

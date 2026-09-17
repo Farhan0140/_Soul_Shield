@@ -1,9 +1,8 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { Task } from '@/api/types';
-import { ThemedText } from '@/components/themed-text';
 import { DailyVerseCard } from '@/components/dashboard/daily-verse-card';
 import { DateNavHeader } from '@/components/dashboard/date-nav-header';
 import { ProgressSummaryBar } from '@/components/dashboard/progress-summary-bar';

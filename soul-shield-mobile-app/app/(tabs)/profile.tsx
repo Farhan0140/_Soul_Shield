@@ -12,6 +12,9 @@ import { useAuth } from '@/context/auth-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { getBackgroundSyncState, type BackgroundSyncState } from '@/lib/background-sync/state';
 import { runFullBackgroundSync } from '@/lib/background-sync/sync';
+import { checkDerivedTasksAgainstServer } from '@/lib/db/contract-check';
+import { addDays, dateRange, todayISODate } from '@/lib/date';
+import { getErrorMessage } from '@/lib/errors';
 import { clearOfflineCache, countPendingMutations } from '@/lib/persister';
 
 function formatSyncStatus(state: BackgroundSyncState | null): string {
@@ -40,6 +43,7 @@ export default function ProfileScreen() {
   const [clearing, setClearing] = useState(false);
   const [syncState, setSyncState] = useState<BackgroundSyncState | null>(null);
   const [syncingNow, setSyncingNow] = useState(false);
+  const [checkingLocalDb, setCheckingLocalDb] = useState(false);
 
   const refreshSyncState = useCallback(() => {
     getBackgroundSyncState().then(setSyncState);
@@ -58,6 +62,19 @@ export default function ProfileScreen() {
     } finally {
       setSyncingNow(false);
       refreshSyncState();
+    }
+  };
+
+  const handleCheckLocalDb = async () => {
+    setCheckingLocalDb(true);
+    try {
+      const dates = dateRange(todayISODate(), addDays(todayISODate(), 3));
+      const result = await checkDerivedTasksAgainstServer(dates);
+      Alert.alert('Local DB Contract Check', result);
+    } catch (err) {
+      Alert.alert('Local DB Contract Check Failed', getErrorMessage(err));
+    } finally {
+      setCheckingLocalDb(false);
     }
   };
 
@@ -173,6 +190,14 @@ export default function ProfileScreen() {
             variant="secondary"
             loading={syncingNow}
             onPress={handleRunSyncNow}
+          />
+        ) : null}
+        {__DEV__ ? (
+          <PrimaryButton
+            label="Check Local DB vs Server (dev)"
+            variant="secondary"
+            loading={checkingLocalDb}
+            onPress={handleCheckLocalDb}
           />
         ) : null}
       </View>
