@@ -35,10 +35,18 @@ export const persister = createAsyncStoragePersister({
 // instead of shipping that failure mode. There's no live old endpoint left
 // to drain a paused mutation against first (Phase 5 removed
 // api/tasks.ts's/api/categories.ts's write functions entirely), so a clean
-// discard is the only option; acceptable here since nothing has shipped
-// this local-first mutation path to a real device yet (it needs the
-// expo-sqlite/expo-crypto native rebuild first - see lib/db/client.ts).
-export const PERSIST_BUSTER = 'v2';
+// discard is the only option.
+//
+// v2 -> v3: fixed a counter/sub-counter increment display bug by moving the
+// local SQLite write out of incrementTaskMutationFn/incrementSubTaskMutationFn
+// and into the caller (hooks/use-task-increment-buffer.ts's addAmount,
+// hooks/queries/use-task-mutations.ts's useIncrementSubTask) - both
+// mutationFns' variables shape changed from {uuid/subTaskUuid, ..., date} to
+// {completionUuid, ...} to match. A paused increment from before this
+// boundary would replay against the new mutationFn with the old shape and
+// silently no-op (same failure mode as v1 -> v2), so the same clean-discard
+// tradeoff applies.
+export const PERSIST_BUSTER = 'v3';
 
 export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
   persister,

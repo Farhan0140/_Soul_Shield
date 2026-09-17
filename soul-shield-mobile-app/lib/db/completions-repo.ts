@@ -99,6 +99,21 @@ export function listTaskCompletionsInRange(fromDate: string, toDate: string) {
     .all();
 }
 
+/** The single task_completions row for (taskUuid, date), if one exists yet -
+ * used by the increment buffer's flush() (hooks/use-task-increment-buffer.ts)
+ * to look up the uuid/date to push against without threading that state
+ * through the buffer itself, since incrementTaskCompletionLocal (below)
+ * always creates this row on the very first tap for a given date. */
+export function getTaskCompletionForDate(taskUuid: string, date: string) {
+  const db = getLocalDb();
+  if (!db) return undefined;
+  return db
+    .select()
+    .from(taskCompletions)
+    .where(and(eq(taskCompletions.taskUuid, taskUuid), eq(taskCompletions.taskDate, date)))
+    .get();
+}
+
 export function listSubTaskCompletionsInRange(fromDate: string, toDate: string) {
   const db = getLocalDb();
   if (!db) return [];

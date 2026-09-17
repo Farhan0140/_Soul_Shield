@@ -3,11 +3,13 @@ import { useCallback } from 'react';
 
 import type { AddToMyTasksResponse, Category, ManageableSubTask, ManageableTask, Task, TaskInput, TaskUpdateInput } from '@/api/types';
 import {
+  incrementSubTaskCompletionLocal,
   toggleSubTaskCompletionLocal,
   toggleTaskCompletionLocal,
 } from '@/lib/db/completions-repo';
-import { replaceSubTasksForParentLocal } from '@/lib/db/sub-tasks-repo';
+import { getSubTaskByUuid, replaceSubTasksForParentLocal } from '@/lib/db/sub-tasks-repo';
 import { createTaskLocal, deriveTasksForDate, reorderTasksLocal, softDeleteTaskLocal, updateTaskLocal } from '@/lib/db/tasks-repo';
+import { getLocalDb } from '@/lib/db/client';
 import { newUuid } from '@/lib/db/uuid';
 import { pullLocalDatabase } from '@/lib/background-sync/pull';
 import { todayISODate } from '@/lib/date';
@@ -257,12 +259,13 @@ export function useReorderMySubTasks() {
   return { ...mutation, mutate };
 }
 
-/** Bare, unbuffered increment mutation - see hooks/use-task-increment-buffer.ts,
+/** Bare, unbuffered push mutation - see hooks/use-task-increment-buffer.ts,
  * which calls this from its debounced flush() with the *accumulated* amount
- * (not per-tap), after already applying the tap to the display via
- * patchTaskInCaches itself. Writing to SQLite and pushing both happen inside
- * incrementTaskMutationFn (lib/mutation-defaults.ts) - there's no separate
- * onMutate here for the same reason the original didn't have one. */
+ * (not per-tap) and a completionUuid whose row already reflects every tap
+ * since the last flush (addAmount applies each one to local SQLite the
+ * moment it happens). incrementTaskMutationFn (lib/mutation-defaults.ts)
+ * only reads that row and pushes - there's no separate onMutate here since
+ * the buffer's own addAmount already is one. */
 export function useIncrementTask() {
   return useMutation({
     mutationKey: mutationKeys.tasks.increment,
@@ -304,7 +307,16 @@ export function useCompleteSubTask() {
   return { ...mutation, mutate };
 }
 
-/** Same shape as useCompleteSubTask, but bumps progress_count. */
+/** Same shape as useCompleteSubTask, but bumps progress_count. Applies the
+ * increment to local SQLite synchronously here (like every other mutation's
+ * onMutate-equivalent - see useCompleteSubTask above), THEN invalidates -
+ * previously this invalidated before any local write existed and left the
+ * actual write to the mutationFn, so a refetch triggered by anything else
+ * (opening the dedicated counter page, a background sync, another mutation
+ * elsewhere in the app) in the window before that mutationFn ran would read
+ * pre-increment data and appear to have dropped the tap, only for the number
+ * to jump once the push eventually settled. Now the row is already correct
+ * by the time this returns, so any refetch at any point reflects it. */
 export function useIncrementSubTask() {
   const queryClient = useQueryClient();
   const mutation = useMutation({
@@ -319,9 +331,26 @@ export function useIncrementSubTask() {
       options?: { onSuccess?: (data: { parent_status: Task['status']; parent_reward_text?: string }) => void }
     ) => {
       const effectiveDate = date ?? todayISODate();
+      // incrementSubTaskCompletionLocal silently returns a zeroed
+      // {progressCount: 0, status: 'pending'} when the local database isn't
+      // open yet (pre-native-rebuild device - see lib/db/client.ts's
+      // getLocalDb) - applying that below would reset the display instead
+      // of incrementing it. Fail loudly instead, same as every other
+      // mutation (see lib/mutation-defaults.ts's assertLocalDbAvailable).
+      if (!getLocalDb()) {
+        throw new Error('Offline database is not ready on this device yet - please update the app to sync changes.');
+      }
+      const subTask = getSubTaskByUuid(subTaskId);
+      const { completionUuid } = incrementSubTaskCompletionLocal(
+        subTaskId,
+        taskId,
+        effectiveDate,
+        amount,
+        subTask?.targetCount ?? 0
+      );
       invalidateTaskLists(queryClient);
       mutation.mutate(
-        { subTaskUuid: subTaskId, parentTaskUuid: taskId, amount, date: effectiveDate },
+        { completionUuid, amount },
         {
           onSuccess: () => {
             const task = findDerivedTask(effectiveDate, taskId);

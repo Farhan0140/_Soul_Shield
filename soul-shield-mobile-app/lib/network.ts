@@ -1,8 +1,6 @@
 import { onlineManager } from '@tanstack/react-query';
 import NetInfo from '@react-native-community/netinfo';
 
-import { getBackgroundSyncState } from '@/lib/background-sync/state';
-import { currentDhakaDateString } from '@/lib/background-sync/time';
 import { runFullBackgroundSync } from '@/lib/background-sync/sync';
 import { queryClient } from '@/lib/query-client';
 
@@ -34,24 +32,15 @@ onlineManager.subscribe((isOnline) => {
   queryClient.resumePausedMutations().then(() => {
     queryClient.invalidateQueries({ refetchType: 'all' });
   });
-  runCatchUpSyncIfDue();
+  // Every reconnect - not just once a day - triggers an immediate sync pull,
+  // so "the app is online again" and "the offline window/status indicator is
+  // up to date" happen together instead of waiting for the next scheduled
+  // background-task window. runFullBackgroundSync coalesces concurrent
+  // callers on its own (see sync.ts's syncInFlight), so a quick succession
+  // of connectivity blips (wifi handoff, airplane mode toggled twice) is
+  // still just one in-flight sync, not a pile-up. Failure is already
+  // recorded by runFullBackgroundSync itself (lib/background-sync/state.ts)
+  // — nothing else to do here; the next reconnect or the next scheduled
+  // background-task window will try again.
+  runFullBackgroundSync(queryClient).catch(() => {});
 });
-
-// If the scheduled 1AM Dhaka background sync (lib/background-sync/task.ts)
-// never got to run — device was offline all night, Doze deferred it, app was
-// force-stopped, whatever — this is what makes "as soon as internet becomes
-// available, automatically continue synchronization" actually true rather
-// than waiting for the next 15-minute WorkManager wake-up: the moment the app
-// itself sees connectivity return, it catches up right away. Gated on
-// today's Dhaka date so a normal reconnect (wifi to cellular, airplane mode
-// toggle) doesn't re-run the full fetch-everything sync every time — only
-// when today's sync genuinely hasn't succeeded yet.
-async function runCatchUpSyncIfDue() {
-  const state = await getBackgroundSyncState();
-  if (state?.lastSuccessDhakaDate === currentDhakaDateString()) return;
-  runFullBackgroundSync(queryClient).catch(() => {
-    // Failure is already recorded by runFullBackgroundSync itself
-    // (lib/background-sync/state.ts) — nothing else to do here; the next
-    // reconnect or the next background-task window will try again.
-  });
-}

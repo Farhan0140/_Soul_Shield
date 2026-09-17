@@ -6,6 +6,8 @@ import { AppState } from 'react-native';
 
 import type { TaskStatus } from '@/api/types';
 import { useIncrementTask } from '@/hooks/queries/use-task-mutations';
+import { getLocalDb } from '@/lib/db/client';
+import { getTaskCompletionForDate, incrementTaskCompletionLocal } from '@/lib/db/completions-repo';
 import { persistOptions } from '@/lib/persister';
 import { patchTaskInCaches } from '@/lib/task-cache';
 
@@ -31,6 +33,10 @@ function pendingStorageKey(taskId: string, date: string) {
 // contribute to one buffer with one flush, matching how the display cache
 // (patchTaskInCaches) is already shared across instances.
 interface SharedIncrementBuffer {
+  // Amount tapped but not yet confirmed *pushed* to the server - every tap's
+  // amount is already durably applied to local SQLite the moment it happens
+  // (see addAmount below), so this only tracks what flush() still owes the
+  // network, not what still needs applying locally.
   pending: number;
   // Portion of `pending` that's currently dispatched (mutate() has been
   // called) AND confirmed durably persisted to disk, but hasn't settled
@@ -38,13 +44,6 @@ interface SharedIncrementBuffer {
   // own persisted-mutation replay now owns delivering it. Reconciled back to
   // 0 for that amount as soon as the dispatch settles either way.
   excluded: number;
-  // Portion of `pending` recovered from a *previous* app session's
-  // AsyncStorage backstop (see the recovery effect below) rather than
-  // applied to the cache in *this* session by addAmount() — the cache may or
-  // may not already reflect it (depends on whether the throttled persister
-  // saved before the kill), so it's only (re-)applied once the resumed
-  // flush actually confirms it with the server, never assumed.
-  recoveredUnapplied: number;
   timer: ReturnType<typeof setTimeout> | undefined;
   isFlushing: boolean;
   // Whether the AsyncStorage backstop for this key has already been checked
@@ -64,7 +63,6 @@ function getSharedBuffer(key: string): SharedIncrementBuffer {
     buffer = {
       pending: 0,
       excluded: 0,
-      recoveredUnapplied: 0,
       timer: undefined,
       isFlushing: false,
       recovered: false,
@@ -98,38 +96,19 @@ export function useTaskIncrementBuffer({
   const isRestoring = useIsRestoring();
 
   // Cache-first display: progress lives entirely in the shared
-  // queryKeys.tasks(date) cache (patched synchronously below by
-  // applyOptimisticProgress), not in hook-local state — so every mounted
-  // consumer of that cache (the inline task list AND the dedicated counter
-  // page, however many are mounted at once) reflects a tap immediately, with
-  // no network round trip and no per-instance buffer to fall out of sync.
+  // queryKeys.tasks(date) cache (patched synchronously below, straight from
+  // local SQLite via incrementTaskCompletionLocal - see addAmount), not in
+  // hook-local state — so every mounted consumer of that cache (the inline
+  // task list AND the dedicated counter page, however many are mounted at
+  // once) reflects a tap immediately, with no network round trip. And since
+  // the same tap already landed in SQLite by the time this patch happens,
+  // any *other* refetch of this query (opening a separate page, a
+  // background sync, another mutation elsewhere invalidating ['tasks']) sees
+  // the same up-to-date number instead of momentarily reverting it.
   const displayProgress = serverProgressCount;
   const displayStatus: TaskStatus =
     targetCount > 0 && displayProgress >= targetCount ? 'completed' : 'pending';
 
-  const applyOptimisticProgress = useCallback(
-    (amount: number) => {
-      patchTaskInCaches(queryClient, date, taskId, (t) => {
-        const nextProgress = (t.progress_count ?? 0) + amount;
-        const reachedTarget = targetCount > 0 && nextProgress >= targetCount;
-        return { ...t, progress_count: nextProgress, status: reachedTarget ? ('completed' as const) : t.status };
-      });
-    },
-    [queryClient, date, taskId, targetCount]
-  );
-
-  // Backstops the pre-dispatch window: taps sit in shared.pending (JS-only)
-  // for up to DEBOUNCE_MS before flush() ever calls mutate(). Once mutate()
-  // runs, the amount becomes a real react-query mutation, which the
-  // AsyncStorage persister dehydrates (including paused-offline mutations,
-  // see lib/persister.ts) and replays via resumePausedMutations() — but that
-  // write is async/throttled, not immediate. flush() is also what runs right
-  // as the app backgrounds (see the AppState effect below), so mutate() and
-  // the app being killed can happen back-to-back with barely any lead time
-  // for that throttled write to land. We therefore keep this backstop set
-  // until we've explicitly awaited a persistQueryClientSave() after mutate()
-  // confirms the mutation is actually on disk — clearing it any earlier left
-  // a window where a kill lost the amount from both places at once.
   const persistPending = useCallback(() => {
     const amount = Math.max(shared.pending - shared.excluded, 0);
     if (amount > 0) {
@@ -156,10 +135,12 @@ export function useTaskIncrementBuffer({
     if (shared.isFlushing) return;
     const amount = shared.pending;
     if (amount <= 0) return;
+    // The row always exists by now - addAmount (or a previous session's
+    // addAmount, recovered below) already created it via
+    // incrementTaskCompletionLocal before shared.pending could ever be > 0.
+    const completion = getTaskCompletionForDate(taskId, date);
+    if (!completion) return;
     shared.isFlushing = true;
-    // Captured now, before this dispatch can mutate it further — see
-    // recoveredUnapplied's own comment for what this covers.
-    const unappliedAtDispatch = shared.recoveredUnapplied;
     // Settlement (success or error) is the ground truth for whether `amount`
     // is still outstanding; it always fires eventually once online and takes
     // priority over — and must not be clobbered by — the persistence
@@ -168,28 +149,16 @@ export function useTaskIncrementBuffer({
     let settled = false;
 
     incrementMutation.mutate(
-      { uuid: taskId, amount, date },
+      { completionUuid: completion.uuid, taskUuid: taskId, amount },
       {
         onSuccess: (data) => {
           // Only now — once the server has actually confirmed the amount —
-          // do we remove it from the unconfirmed buffer. Clearing it earlier
-          // (e.g. immediately on dispatch) would desync it from the amount
-          // react-query still considers in flight.
+          // do we remove it from the unconfirmed buffer.
           shared.pending -= amount;
-          if (unappliedAtDispatch > 0) {
-            // This portion was recovered from a previous session and was
-            // never confirmed applied to the cache (see the recovery effect
-            // below) — apply it now that the server has confirmed it.
-            // Everything else in `amount` was already applied to the cache
-            // the moment it was tapped (see addAmount), so it must not be
-            // added again here.
-            applyOptimisticProgress(unappliedAtDispatch);
-            shared.recoveredUnapplied = Math.max(shared.recoveredUnapplied - unappliedAtDispatch, 0);
-          }
           // The backend's increment response (CompletionResponse) doesn't include the
           // updated progress_count, only status — progress_count itself was already
-          // applied optimistically (see applyOptimisticProgress), so only status/
-          // reward_text need the server's authoritative confirmation here.
+          // applied locally the moment each tap happened (see addAmount), so only
+          // status/reward_text need the server's authoritative confirmation here.
           patchTaskInCaches(queryClient, date, taskId, (t) => ({
             ...t,
             status: data.status,
@@ -227,17 +196,7 @@ export function useTaskIncrementBuffer({
         shared.excluded += amount;
         persistPending();
       });
-  }, [
-    shared,
-    taskId,
-    date,
-    incrementMutation,
-    queryClient,
-    scheduleFlush,
-    onRewardEarned,
-    persistPending,
-    applyOptimisticProgress,
-  ]);
+  }, [shared, taskId, date, incrementMutation, queryClient, scheduleFlush, onRewardEarned, persistPending]);
 
   // Reassigned on every render of every mounted instance for this key — the
   // shared timer (scheduleFlush) and AppState listener always call whichever
@@ -249,31 +208,47 @@ export function useTaskIncrementBuffer({
 
   const addAmount = useCallback(
     (amount: number) => {
-      // Applied to the shared cache immediately — this is what makes the
-      // increment visible right away, offline or online, in every mounted
-      // consumer of queryKeys.tasks(date) (the task list, the dedicated
-      // counter page, any other view of this same task), not just this
-      // component instance.
-      applyOptimisticProgress(amount);
+      // incrementTaskCompletionLocal silently returns a zeroed {progressCount:
+      // 0, status: 'pending'} when the local database isn't open yet
+      // (pre-native-rebuild device - see lib/db/client.ts's getLocalDb) -
+      // applying that here would reset the display instead of incrementing
+      // it, which is worse than doing nothing. Fail loudly instead, same as
+      // every other mutation once local SQLite is a hard requirement (see
+      // lib/mutation-defaults.ts's assertLocalDbAvailable).
+      if (!getLocalDb()) {
+        throw new Error('Offline database is not ready on this device yet - please update the app to sync changes.');
+      }
+      // Applied to local SQLite immediately — not just the display cache —
+      // so this task's row is always the up-to-date source of truth for any
+      // read that happens next, from any screen, regardless of whether
+      // flush() has actually pushed it to the server yet (see the module
+      // comment on `pending` above for why that distinction matters).
+      const local = incrementTaskCompletionLocal(taskId, date, amount, targetCount);
+      patchTaskInCaches(queryClient, date, taskId, (t) => ({
+        ...t,
+        progress_count: local.progressCount,
+        status: local.status,
+      }));
       shared.pending += amount;
       persistPending();
       scheduleFlush();
     },
-    [applyOptimisticProgress, scheduleFlush, persistPending, shared]
+    [queryClient, date, taskId, targetCount, scheduleFlush, persistPending, shared]
   );
 
   // Recover a buffer left behind by a previous *app* session that got killed
   // before its debounce timer fired (or before the AppState background flush
-  // ran) — without this, those taps would just be gone on relaunch. Guarded
-  // by shared.recovered so this only ever runs once per taskId+date per app
-  // session: since the AsyncStorage key is shared across every instance for
-  // this task, re-running it on a later mount (e.g. opening the dedicated
-  // counter page while the task-list card is still alive and holding an
-  // unflushed tap) would recover an amount another live instance already
-  // owns and is about to flush itself, double-counting it. Only restores the
-  // send-to-server bookkeeping (shared.pending) here, not the cache display —
-  // see recoveredUnapplied's comment for why that's deferred to flush()'s
-  // onSuccess instead of applied here.
+  // ran) — every tap in that session was already committed to local SQLite
+  // the moment it happened (see addAmount above), so there's nothing left to
+  // (re-)apply to the display here, only the *push* to resume: restore
+  // shared.pending from the backstop and let scheduleFlush send it once
+  // connectivity allows. Guarded by shared.recovered so this only ever runs
+  // once per taskId+date per app session: since the AsyncStorage key is
+  // shared across every instance for this task, re-running it on a later
+  // mount (e.g. opening the dedicated counter page while the task-list card
+  // is still alive and holding an unflushed tap) would recover an amount
+  // another live instance already owns and is about to flush itself,
+  // double-counting it.
   useEffect(() => {
     if (isRestoring || shared.recovered) return;
     shared.recovered = true;
@@ -284,7 +259,6 @@ export function useTaskIncrementBuffer({
         const amount = Number(stored);
         if (Number.isFinite(amount) && amount > 0) {
           shared.pending += amount;
-          shared.recoveredUnapplied += amount;
           scheduleFlush();
         }
       })

@@ -16,13 +16,8 @@ import type { TaskStatus } from '@/api/types';
 import { getCategoryByUuid, listActiveCategories, upsertCategoryFromSync } from '@/lib/db/categories-repo';
 import { getLocalDb } from '@/lib/db/client';
 import { subTaskCompletions, taskCompletions } from '@/lib/db/schema';
-import {
-  incrementSubTaskCompletionLocal,
-  incrementTaskCompletionLocal,
-  upsertSubTaskCompletionFromSync,
-  upsertTaskCompletionFromSync,
-} from '@/lib/db/completions-repo';
-import { getSubTaskByUuid, listUnsyncedSubTasksForParent, upsertSubTaskFromSync } from '@/lib/db/sub-tasks-repo';
+import { upsertSubTaskCompletionFromSync, upsertTaskCompletionFromSync } from '@/lib/db/completions-repo';
+import { listUnsyncedSubTasksForParent, upsertSubTaskFromSync } from '@/lib/db/sub-tasks-repo';
 import {
   categoryDeleteChange,
   categoryUpsertChange,
@@ -167,35 +162,36 @@ export const completeTaskMutationFn = async ({ completionUuid }: { completionUui
   return pushChanges([taskCompletionUpsertChange(row)]);
 };
 
-/** Unlike every other mutationFn, this one does its own local write (via
- * incrementTaskCompletionLocal) rather than reading a row onMutate already
- * wrote - useIncrementTask has no onMutate (see hooks/queries/
- * use-task-mutations.ts), since hooks/use-task-increment-buffer.ts already
- * applies its own cache-level optimistic display before ever calling
- * .mutate(). Reuses the completion row's real uuid (not a fresh one per
- * call) so the push updates the same row instead of creating a duplicate,
- * and returns {status, reward_text} - the shape the increment buffer's
- * onSuccess expects, mirroring what the old CompletionResponse used to
- * provide - derived from the push result's authoritative server_row when
- * available (the server may have summed in another device's concurrent
- * taps), falling back to the just-computed local result otherwise (e.g.
- * while the push is still paused offline). */
+/** Unlike every other mutationFn, this one is dispatched with the amount
+ * already applied to local SQLite (see hooks/use-task-increment-buffer.ts's
+ * addAmount, which calls incrementTaskCompletionLocal synchronously per tap,
+ * not here) - by the time flush() calls this, `completionUuid` names a row
+ * that already reflects every tap since the last successful push, so this
+ * only needs to push the delta accumulated since then. Pushing here as well
+ * would double-apply what addAmount already committed. Returns {status,
+ * reward_text} - the shape the increment buffer's onSuccess expects,
+ * mirroring what the old CompletionResponse used to provide - derived from
+ * the push result's authoritative server_row when available (the server may
+ * have summed in another device's concurrent taps), falling back to the
+ * already-local row otherwise (e.g. while the push is still paused offline). */
 export const incrementTaskMutationFn = async ({
-  uuid,
+  completionUuid,
+  taskUuid,
   amount,
-  date,
 }: {
-  uuid: string;
+  completionUuid: string;
+  taskUuid: string;
   amount: number;
-  date: string;
 }): Promise<{ status: TaskStatus; reward_text?: string }> => {
   assertLocalDbAvailable();
-  const task = getTaskByUuid(uuid);
-  const target = task?.targetCount ?? 0;
-  const local = incrementTaskCompletionLocal(uuid, date, amount, target);
-  const results = await pushChanges([taskCompletionIncrementChange(local.completionUuid, uuid, date, amount)]);
+  const db = getLocalDb();
+  if (!db) return { status: 'pending' };
+  const row = db.select().from(taskCompletions).where(eq(taskCompletions.uuid, completionUuid)).get();
+  if (!row) return { status: 'pending' };
+  const task = getTaskByUuid(taskUuid);
+  const results = await pushChanges([taskCompletionIncrementChange(completionUuid, taskUuid, row.taskDate, amount)]);
   const serverRow = results[0]?.server_row as SyncTaskCompletion | undefined;
-  const status = (serverRow?.status as TaskStatus | undefined) ?? local.status;
+  const status = (serverRow?.status as TaskStatus | undefined) ?? (row.status as TaskStatus);
   return { status, reward_text: status === 'completed' ? (task?.rewardText ?? undefined) : undefined };
 };
 
@@ -208,30 +204,31 @@ export const completeSubTaskMutationFn = async ({ completionUuid }: { completion
   return pushChanges([subTaskCompletionUpsertChange(row)]);
 };
 
-/** Same reasoning as incrementTaskMutationFn above (own local write, reused
- * completion uuid), for a sub-task's counter. */
+/** Same reasoning as incrementTaskMutationFn above - dispatched with the
+ * amount already applied to local SQLite (see hooks/queries/
+ * use-task-mutations.ts's useIncrementSubTask, which calls
+ * incrementSubTaskCompletionLocal synchronously before this ever runs), so
+ * this only reads the row by uuid and pushes - applying the increment again
+ * here would double-count it. */
 export const incrementSubTaskMutationFn = async ({
-  subTaskUuid,
-  parentTaskUuid,
+  completionUuid,
   amount,
-  date,
 }: {
-  subTaskUuid: string;
-  parentTaskUuid: string;
+  completionUuid: string;
   amount: number;
-  date: string;
 }): Promise<{ status: TaskStatus; progressCount: number }> => {
   assertLocalDbAvailable();
-  const subTask = getSubTaskByUuid(subTaskUuid);
-  const target = subTask?.targetCount ?? 0;
-  const local = incrementSubTaskCompletionLocal(subTaskUuid, parentTaskUuid, date, amount, target);
+  const db = getLocalDb();
+  if (!db) return { status: 'pending', progressCount: 0 };
+  const row = db.select().from(subTaskCompletions).where(eq(subTaskCompletions.uuid, completionUuid)).get();
+  if (!row) return { status: 'pending', progressCount: 0 };
   const results = await pushChanges([
-    subTaskCompletionIncrementChange(local.completionUuid, subTaskUuid, parentTaskUuid, date, amount),
+    subTaskCompletionIncrementChange(completionUuid, row.subTaskUuid ?? '', row.parentTaskUuid, row.taskDate, amount),
   ]);
   const serverRow = results[0]?.server_row as SyncSubTaskCompletion | undefined;
   return {
-    status: (serverRow?.status as TaskStatus | undefined) ?? local.status,
-    progressCount: serverRow?.progress_count ?? local.progressCount,
+    status: (serverRow?.status as TaskStatus | undefined) ?? (row.status as TaskStatus),
+    progressCount: serverRow?.progress_count ?? row.progressCount,
   };
 };
 
