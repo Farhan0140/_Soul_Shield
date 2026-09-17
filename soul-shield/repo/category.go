@@ -11,13 +11,15 @@ import (
 )
 
 type Category struct {
-	ID        int64     `db:"id" json:"id"`
-	Name      string    `db:"name" json:"name"`
-	ColorHex  string    `db:"color_hex" json:"color_hex"`
-	OwnerID   int64     `db:"owner_id" json:"owner_id"`
-	Position  int       `db:"position" json:"position"`
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
+	ID        int64        `db:"id" json:"id"`
+	Name      string       `db:"name" json:"name"`
+	ColorHex  string       `db:"color_hex" json:"color_hex"`
+	OwnerID   int64        `db:"owner_id" json:"owner_id"`
+	Position  int          `db:"position" json:"position"`
+	CreatedAt time.Time    `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time    `db:"updated_at" json:"updated_at"`
+	UUID      string       `db:"uuid" json:"uuid"`
+	DeletedAt sql.NullTime `db:"deleted_at" json:"-"`
 }
 
 type CategoryUpdate struct {
@@ -50,7 +52,7 @@ func (r *categoryRepo) Create(cat Category) (*Category, error) {
 	// পরে drag করে যেকোনো জায়গায় নিতে পারবে।
 	var nextPosition int
 	if err := r.db.Get(&nextPosition, `
-		SELECT COALESCE(MAX(position) + 1, 0) FROM categories WHERE owner_id = $1
+		SELECT COALESCE(MAX(position) + 1, 0) FROM categories WHERE owner_id = $1 AND deleted_at IS NULL
 	`, cat.OwnerID); err != nil {
 		return nil, err
 	}
@@ -78,7 +80,7 @@ func (r *categoryRepo) Create(cat Category) (*Category, error) {
 func (r *categoryRepo) ListByOwner(ownerID int64) ([]Category, error) {
 	var categories []Category
 	err := r.db.Select(&categories, `
-		SELECT * FROM categories WHERE owner_id = $1 ORDER BY position, id
+		SELECT * FROM categories WHERE owner_id = $1 AND deleted_at IS NULL ORDER BY position, id
 	`, ownerID)
 	return categories, err
 }
@@ -98,7 +100,9 @@ func (r *categoryRepo) Reorder(ownerID int64, orderedIDs []int64) ([]Category, e
 	defer tx.Rollback()
 
 	var existingIDs []int64
-	if err := tx.Select(&existingIDs, `SELECT id FROM categories WHERE owner_id = $1`, ownerID); err != nil {
+	if err := tx.Select(&existingIDs, `
+		SELECT id FROM categories WHERE owner_id = $1 AND deleted_at IS NULL
+	`, ownerID); err != nil {
 		return nil, err
 	}
 
@@ -143,7 +147,7 @@ func sameIDSet(a, b []int64) bool {
 
 func (r *categoryRepo) GetByID(id int64) (*Category, error) {
 	var cat Category
-	err := r.db.Get(&cat, `SELECT * FROM categories WHERE id = $1`, id)
+	err := r.db.Get(&cat, `SELECT * FROM categories WHERE id = $1 AND deleted_at IS NULL`, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, util.ErrCategoryNotFound
@@ -158,7 +162,7 @@ func (r *categoryRepo) GetByID(id int64) (*Category, error) {
 func (r *categoryRepo) FindByOwnerAndNameCI(ownerID int64, name string) (*Category, error) {
 	var cat Category
 	err := r.db.Get(&cat, `
-		SELECT * FROM categories WHERE owner_id = $1 AND LOWER(name) = LOWER($2) LIMIT 1
+		SELECT * FROM categories WHERE owner_id = $1 AND deleted_at IS NULL AND LOWER(name) = LOWER($2) LIMIT 1
 	`, ownerID, name)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -200,6 +204,10 @@ func (r *categoryRepo) Update(id int64, updates CategoryUpdate, ownerID int64) (
 	return existing, nil
 }
 
+// Delete soft-deletes (deleted_at, not a hard DELETE - see repo/sync.go for
+// why). A hard delete previously relied on category_id's ON DELETE SET NULL
+// to uncategorize linked tasks instead of removing them; a soft delete never
+// fires that, so it's done explicitly here to keep the same behavior.
 func (r *categoryRepo) Delete(id int64, ownerID int64) error {
 	existing, err := r.GetByID(id)
 	if err != nil {
@@ -210,7 +218,18 @@ func (r *categoryRepo) Delete(id int64, ownerID int64) error {
 		return util.ErrForbidden
 	}
 
-	// category_id ON DELETE SET NULL থাকায় linked task গুলো uncategorized হয়ে যাবে, মুছে যাবে না
-	_, err = r.db.Exec(`DELETE FROM categories WHERE id = $1`, id)
-	return err
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`UPDATE categories SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`UPDATE tasks SET category_id = NULL WHERE category_id = $1`, id); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }

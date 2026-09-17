@@ -66,7 +66,9 @@ func (r *subTaskRepo) ReplaceForParent(parentTaskID int64, inputs []SubTask) ([]
 	defer tx.Rollback()
 
 	var existingIDs []int64
-	if err := tx.Select(&existingIDs, `SELECT id FROM sub_tasks WHERE parent_task_id = $1`, parentTaskID); err != nil {
+	if err := tx.Select(&existingIDs, `
+		SELECT id FROM sub_tasks WHERE parent_task_id = $1 AND deleted_at IS NULL
+	`, parentTaskID); err != nil {
 		return nil, err
 	}
 	keep := make(map[int64]bool, len(inputs))
@@ -112,7 +114,10 @@ func (r *subTaskRepo) ReplaceForParent(parentTaskID int64, inputs []SubTask) ([]
 
 	for _, id := range existingIDs {
 		if !keep[id] {
-			if _, err := tx.Exec(`DELETE FROM sub_tasks WHERE id = $1`, id); err != nil {
+			// Soft delete, not a hard DELETE (see repo/sync.go) - history stays
+			// intact by construction since the row still exists, no ON DELETE
+			// SET NULL needed anymore.
+			if _, err := tx.Exec(`UPDATE sub_tasks SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1`, id); err != nil {
 				return nil, err
 			}
 		}
@@ -135,7 +140,7 @@ func (r *subTaskRepo) ListByParentIDs(parentIDs []int64) (map[int64][]SubTask, e
 	query := `
 		SELECT id, parent_task_id, title, task_type, target_count, duration_seconds, position, created_at, updated_at
 		FROM sub_tasks
-		WHERE parent_task_id = ANY($1)
+		WHERE parent_task_id = ANY($1) AND deleted_at IS NULL
 		ORDER BY parent_task_id, position, id
 	`
 	rows, err := r.db.Query(query, pq.Int64Array(parentIDs))
@@ -171,7 +176,7 @@ func (r *subTaskRepo) ListWithStatusForDate(userID int64, parentTaskIDs []int64,
 		FROM sub_tasks st
 		LEFT JOIN sub_task_completions stc
 			ON stc.sub_task_id = st.id AND stc.user_id = $1 AND stc.task_date = $2::date
-		WHERE st.parent_task_id = ANY($3)
+		WHERE st.parent_task_id = ANY($3) AND st.deleted_at IS NULL
 		ORDER BY st.parent_task_id, st.position, st.id
 	`
 	rows, err := r.db.Query(query, userID, dateStr, pq.Int64Array(parentTaskIDs))
@@ -206,7 +211,7 @@ func (r *subTaskRepo) ListWithStatusForRange(userID int64, parentTaskIDs []int64
 			d.day, st.id, st.parent_task_id, st.title, st.task_type, st.target_count, st.duration_seconds, st.position,
 			stc.status, stc.completed_at, stc.progress_count
 		FROM generate_series($1::date, $2::date, interval '1 day') AS d(day)
-		JOIN sub_tasks st ON st.parent_task_id = ANY($3)
+		JOIN sub_tasks st ON st.parent_task_id = ANY($3) AND st.deleted_at IS NULL
 		LEFT JOIN sub_task_completions stc
 			ON stc.sub_task_id = st.id AND stc.user_id = $4 AND stc.task_date = d.day
 		ORDER BY d.day, st.parent_task_id, st.position, st.id
@@ -352,7 +357,7 @@ func (r *subTaskRepo) Increment(parentTaskID, subTaskID, userID int64, date time
 // sub-task টা সত্যিই ঐ parent এর অধীনে আছে।
 func (r *subTaskRepo) getParentAndSubTask(parentTaskID, subTaskID, userID int64) (*Task, *SubTask, error) {
 	var parent Task
-	err := r.db.Get(&parent, `SELECT * FROM tasks WHERE id = $1`, parentTaskID)
+	err := r.db.Get(&parent, `SELECT * FROM tasks WHERE id = $1 AND deleted_at IS NULL`, parentTaskID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil, util.ErrTaskNotFound
@@ -367,7 +372,9 @@ func (r *subTaskRepo) getParentAndSubTask(parentTaskID, subTaskID, userID int64)
 	}
 
 	var sub SubTask
-	err = r.db.Get(&sub, `SELECT * FROM sub_tasks WHERE id = $1 AND parent_task_id = $2`, subTaskID, parentTaskID)
+	err = r.db.Get(&sub, `
+		SELECT * FROM sub_tasks WHERE id = $1 AND parent_task_id = $2 AND deleted_at IS NULL
+	`, subTaskID, parentTaskID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil, util.ErrSubTaskNotFound

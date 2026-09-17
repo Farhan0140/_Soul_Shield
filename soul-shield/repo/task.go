@@ -89,7 +89,7 @@ func (r *taskRepo) Create(task Task) (*Task, error) {
 	var nextPosition int
 	if err := r.db.Get(&nextPosition, `
 		SELECT COALESCE(MAX(position) + 1, 0) FROM tasks
-		WHERE owner_id IS NOT DISTINCT FROM $1 AND category_id IS NOT DISTINCT FROM $2
+		WHERE owner_id IS NOT DISTINCT FROM $1 AND category_id IS NOT DISTINCT FROM $2 AND deleted_at IS NULL
 	`, task.OwnerID, task.CategoryID); err != nil {
 		return nil, err
 	}
@@ -229,7 +229,10 @@ func (r *taskRepo) Update(id int64, updates TaskUpdate, requestingUserID int64, 
 	return existing, nil
 }
 
-// ---- Delete (hard delete, history অক্ষত থাকবে কারণ task_completions এ ON DELETE SET NULL) ----
+// ---- Delete (soft delete: sets deleted_at instead of removing the row, so
+// the sync protocol's delta pull (repo/sync.go) can still see the tombstone
+// and history/completions referencing this task stay intact by construction
+// - no ON DELETE SET NULL needed anymore, the row simply keeps existing). ----
 func (r *taskRepo) Delete(id int64, requestingUserID int64, role string) error {
 	existing, err := r.GetByID(id)
 	if err != nil {
@@ -240,15 +243,32 @@ func (r *taskRepo) Delete(id int64, requestingUserID int64, role string) error {
 		return err
 	}
 
-	_, err = r.db.Exec(`DELETE FROM tasks WHERE id = $1`, id)
-	return err
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`UPDATE tasks SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1`, id); err != nil {
+		return err
+	}
+	// sub_tasks previously cascaded via ON DELETE CASCADE on a hard delete -
+	// a soft delete never fires that, so cascade explicitly here.
+	if _, err := tx.Exec(`
+		UPDATE sub_tasks SET deleted_at = CURRENT_TIMESTAMP
+		WHERE parent_task_id = $1 AND deleted_at IS NULL
+	`, id); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // ---- GetByID ----
 func (r *taskRepo) GetByID(id int64) (*Task, error) {
 	var task Task
 
-	err := r.db.Get(&task, `SELECT * FROM tasks WHERE id = $1`, id)
+	err := r.db.Get(&task, `SELECT * FROM tasks WHERE id = $1 AND deleted_at IS NULL`, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, util.ErrTaskNotFound
@@ -271,10 +291,11 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 			t.reward_text, t.recurrence_days, t.reminder_time, t.position,
 			tc.status, tc.completed_at, tc.progress_count
 		FROM tasks t
-		LEFT JOIN categories c ON c.id = t.category_id
+		LEFT JOIN categories c ON c.id = t.category_id AND c.deleted_at IS NULL
 		LEFT JOIN task_completions tc
 			ON tc.task_id = t.id AND tc.user_id = $1 AND tc.task_date = $2::date
 		WHERE t.is_active = true
+			AND t.deleted_at IS NULL
 			AND EXTRACT(DOW FROM $2::date)::int = ANY(t.recurrence_days)
 			AND (t.is_global = true OR t.owner_id = $1)
 		ORDER BY t.is_global, t.position, t.created_at
@@ -378,10 +399,11 @@ func (r *taskRepo) ListForDateByCategory(userID int64, date time.Time, categoryI
 			t.reward_text, t.recurrence_days, t.reminder_time, t.position,
 			tc.status, tc.completed_at, tc.progress_count
 		FROM tasks t
-		LEFT JOIN categories c ON c.id = t.category_id
+		LEFT JOIN categories c ON c.id = t.category_id AND c.deleted_at IS NULL
 		LEFT JOIN task_completions tc
 			ON tc.task_id = t.id AND tc.user_id = $1 AND tc.task_date = $2::date
 		WHERE t.is_active = true
+			AND t.deleted_at IS NULL
 			AND EXTRACT(DOW FROM $2::date)::int = ANY(t.recurrence_days)
 			AND (t.is_global = true OR t.owner_id = $1)
 			AND t.category_id = $3
@@ -485,9 +507,10 @@ func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithSta
 		FROM generate_series($1::date, $2::date, interval '1 day') AS d(day)
 		JOIN tasks t
 			ON t.is_active = true
+			AND t.deleted_at IS NULL
 			AND EXTRACT(DOW FROM d.day)::int = ANY(t.recurrence_days)
 			AND (t.is_global = true OR t.owner_id = $3)
-		LEFT JOIN categories c ON c.id = t.category_id
+		LEFT JOIN categories c ON c.id = t.category_id AND c.deleted_at IS NULL
 		LEFT JOIN task_completions tc
 			ON tc.task_id = t.id AND tc.user_id = $3 AND tc.task_date = d.day
 		ORDER BY d.day, t.is_global, t.position, t.created_at
@@ -727,7 +750,7 @@ func (r *taskRepo) FindOwnedMatch(userID int64, sourceTaskID int64, title string
 	var task Task
 	err := r.db.Get(&task, `
 		SELECT * FROM tasks
-		WHERE owner_id = $1 AND is_global = false
+		WHERE owner_id = $1 AND is_global = false AND deleted_at IS NULL
 			AND (source_task_id = $2 OR LOWER(TRIM(title)) = LOWER(TRIM($3)))
 		ORDER BY id
 		LIMIT 1
@@ -746,7 +769,8 @@ func (r *taskRepo) FindOwnedMatch(userID int64, sourceTaskID int64, title string
 func (r *taskRepo) ListOwnedRefs(userID int64) ([]TaskRef, error) {
 	var refs []TaskRef
 	err := r.db.Select(&refs, `
-		SELECT id, title, source_task_id FROM tasks WHERE owner_id = $1 AND is_global = false
+		SELECT id, title, source_task_id FROM tasks
+		WHERE owner_id = $1 AND is_global = false AND deleted_at IS NULL
 	`, userID)
 	return refs, err
 }
@@ -759,7 +783,8 @@ func (r *taskRepo) ListOwnedRefs(userID int64) ([]TaskRef, error) {
 func (r *taskRepo) ListAllOwnedFlat(userID int64) ([]Task, error) {
 	var tasks []Task
 	err := r.db.Select(&tasks, `
-		SELECT * FROM tasks WHERE owner_id = $1 AND is_global = false ORDER BY category_id NULLS FIRST, position, id
+		SELECT * FROM tasks WHERE owner_id = $1 AND is_global = false AND deleted_at IS NULL
+		ORDER BY category_id NULLS FIRST, position, id
 	`, userID)
 	return tasks, err
 }
@@ -783,6 +808,7 @@ func (r *taskRepo) Reorder(userID int64, categoryID *int64, orderedIDs []int64) 
 	if err := tx.Select(&existingIDs, `
 		SELECT id FROM tasks
 		WHERE is_global = false AND owner_id = $1 AND category_id IS NOT DISTINCT FROM $2
+			AND deleted_at IS NULL
 	`, userID, categoryID); err != nil {
 		return nil, err
 	}
@@ -836,7 +862,7 @@ func checkOwnership(task *Task, requestingUserID int64, role string) error {
 // ছোট হেল্পার - শুধু category exist করে কিনা আর owner_id বের করার জন্য
 func (r *taskRepo) getCategoryForValidation(id int64) (*Category, error) {
 	var cat Category
-	err := r.db.Get(&cat, `SELECT * FROM categories WHERE id = $1`, id)
+	err := r.db.Get(&cat, `SELECT * FROM categories WHERE id = $1 AND deleted_at IS NULL`, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, util.ErrCategoryNotFound

@@ -41,6 +41,11 @@ type Task struct {
 	Position        int            `db:"position" json:"position"`
 	CreatedAt       time.Time      `db:"created_at" json:"created_at"`
 	UpdatedAt       time.Time      `db:"updated_at" json:"updated_at"`
+	// UUID/DeletedAt back the mobile app's local-first sync protocol (see
+	// repo/sync.go) — DeletedAt is a soft delete, replacing the previous hard
+	// DELETE, so a sync pull can still see a "deleted" row's uuid/updated_at.
+	UUID      string       `db:"uuid" json:"uuid"`
+	DeletedAt sql.NullTime `db:"deleted_at" json:"-"`
 }
 
 // TaskRef - একটা personal task এর ন্যূনতম তথ্য (id/title/source_task_id), যা দিয়ে
@@ -94,6 +99,9 @@ type TaskCompletion struct {
 	ProgressCount     int32         `db:"progress_count" json:"progress_count"`
 	CompletedAt       sql.NullTime  `db:"completed_at" json:"completed_at,omitempty"`
 	CreatedAt         time.Time     `db:"created_at" json:"created_at"`
+	UUID              string        `db:"uuid" json:"uuid"`
+	DeletedAt         sql.NullTime  `db:"deleted_at" json:"-"`
+	UpdatedAt         time.Time     `db:"updated_at" json:"updated_at"`
 
 	// RewardText শুধু status completed হলেই সেট করা হয় (Complete/Increment এ, tasks.reward_text থেকে)
 	RewardText *string `db:"-" json:"reward_text,omitempty"`
@@ -152,6 +160,8 @@ type SubTask struct {
 	Position        int           `db:"position" json:"position"`
 	CreatedAt       time.Time     `db:"created_at" json:"created_at"`
 	UpdatedAt       time.Time     `db:"updated_at" json:"updated_at"`
+	UUID            string        `db:"uuid" json:"uuid"`
+	DeletedAt       sql.NullTime  `db:"deleted_at" json:"-"`
 }
 
 type SubTaskCompletion struct {
@@ -165,6 +175,9 @@ type SubTaskCompletion struct {
 	ProgressCount        int32         `db:"progress_count" json:"progress_count"`
 	CompletedAt          sql.NullTime  `db:"completed_at" json:"completed_at,omitempty"`
 	CreatedAt            time.Time     `db:"created_at" json:"created_at"`
+	UUID                 string        `db:"uuid" json:"uuid"`
+	DeletedAt            sql.NullTime  `db:"deleted_at" json:"-"`
+	UpdatedAt            time.Time     `db:"updated_at" json:"updated_at"`
 }
 
 // SubTaskWithStatus - একটা নির্দিষ্ট দিনের জন্য sub-task + তার status (list/history endpoint এ ব্যবহার হয়)
