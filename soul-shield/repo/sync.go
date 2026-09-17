@@ -201,7 +201,7 @@ func (r *syncRepo) pullTasks(userID int64, since time.Time) ([]SyncTask, error) 
 	}
 	defer rows.Close()
 
-	var results []SyncTask
+	results := []SyncTask{}
 	for rows.Next() {
 		var item SyncTask
 		var description, rewardText, reminderTime sql.NullString
@@ -245,7 +245,7 @@ func (r *syncRepo) pullCategories(userID int64, since time.Time) ([]SyncCategory
 	}
 	defer rows.Close()
 
-	var results []SyncCategory
+	results := []SyncCategory{}
 	for rows.Next() {
 		var item SyncCategory
 		var deletedAt sql.NullTime
@@ -273,7 +273,7 @@ func (r *syncRepo) pullSubTasks(userID int64, since time.Time) ([]SyncSubTask, e
 	}
 	defer rows.Close()
 
-	var results []SyncSubTask
+	results := []SyncSubTask{}
 	for rows.Next() {
 		var item SyncSubTask
 		var targetCount, durationSeconds sql.NullInt32
@@ -306,7 +306,7 @@ func (r *syncRepo) pullTaskCompletions(userID int64, since time.Time) ([]SyncTas
 	}
 	defer rows.Close()
 
-	var results []SyncTaskCompletion
+	results := []SyncTaskCompletion{}
 	for rows.Next() {
 		var item SyncTaskCompletion
 		var taskUUID sql.NullString
@@ -342,7 +342,7 @@ func (r *syncRepo) pullSubTaskCompletions(userID int64, since time.Time) ([]Sync
 	}
 	defer rows.Close()
 
-	var results []SyncSubTaskCompletion
+	results := []SyncSubTaskCompletion{}
 	for rows.Next() {
 		var item SyncSubTaskCompletion
 		var subTaskUUID sql.NullString
