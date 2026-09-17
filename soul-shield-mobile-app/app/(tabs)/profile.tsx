@@ -12,6 +12,7 @@ import { useAuth } from '@/context/auth-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { getBackgroundSyncState, type BackgroundSyncState } from '@/lib/background-sync/state';
 import { runFullBackgroundSync } from '@/lib/background-sync/sync';
+import { checkConflictDetection } from '@/lib/db/conflict-check';
 import { checkDerivedTasksAgainstServer } from '@/lib/db/contract-check';
 import { addDays, dateRange, todayISODate } from '@/lib/date';
 import { getErrorMessage } from '@/lib/errors';
@@ -44,6 +45,7 @@ export default function ProfileScreen() {
   const [syncState, setSyncState] = useState<BackgroundSyncState | null>(null);
   const [syncingNow, setSyncingNow] = useState(false);
   const [checkingLocalDb, setCheckingLocalDb] = useState(false);
+  const [checkingConflict, setCheckingConflict] = useState(false);
 
   const refreshSyncState = useCallback(() => {
     getBackgroundSyncState().then(setSyncState);
@@ -75,6 +77,18 @@ export default function ProfileScreen() {
       Alert.alert('Local DB Contract Check Failed', getErrorMessage(err));
     } finally {
       setCheckingLocalDb(false);
+    }
+  };
+
+  const handleCheckConflictDetection = () => {
+    setCheckingConflict(true);
+    try {
+      const result = checkConflictDetection();
+      Alert.alert('Conflict Detection Check', result);
+    } catch (err) {
+      Alert.alert('Conflict Detection Check Failed', getErrorMessage(err));
+    } finally {
+      setCheckingConflict(false);
     }
   };
 
@@ -198,6 +212,14 @@ export default function ProfileScreen() {
             variant="secondary"
             loading={checkingLocalDb}
             onPress={handleCheckLocalDb}
+          />
+        ) : null}
+        {__DEV__ ? (
+          <PrimaryButton
+            label="Check Conflict Detection (dev)"
+            variant="secondary"
+            loading={checkingConflict}
+            onPress={handleCheckConflictDetection}
           />
         ) : null}
       </View>

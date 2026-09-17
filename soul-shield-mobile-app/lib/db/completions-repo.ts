@@ -1,15 +1,20 @@
-import { and, gte, isNull, lte } from 'drizzle-orm';
+import { and, eq, gte, isNull, lte } from 'drizzle-orm';
 
 import type { SyncSubTaskCompletion, SyncTaskCompletion } from '@/api/sync-types';
 import { getLocalDb } from '@/lib/db/client';
+import { checkForConflict } from '@/lib/db/conflicts-repo';
 import { subTaskCompletions, taskCompletions } from '@/lib/db/schema';
 
-/** See categories-repo.ts's upsertCategoryFromSync - identical shape.
- * task_uuid is nullable (mirrors the backend's historical nullable
- * task_id - see lib/db/schema.ts's comment on taskCompletions). */
+/** See categories-repo.ts's upsertCategoryFromSync - identical shape,
+ * including the conflict check. task_uuid is nullable (mirrors the
+ * backend's historical nullable task_id - see lib/db/schema.ts's comment on
+ * taskCompletions). */
 export function upsertTaskCompletionFromSync(row: SyncTaskCompletion): void {
   const db = getLocalDb();
   if (!db) return;
+
+  const existing = db.select().from(taskCompletions).where(eq(taskCompletions.uuid, row.uuid)).get();
+  checkForConflict('task_completions', existing, row.updated_at, row);
 
   const now = new Date().toISOString();
   db.insert(taskCompletions)
@@ -42,6 +47,9 @@ export function upsertTaskCompletionFromSync(row: SyncTaskCompletion): void {
 export function upsertSubTaskCompletionFromSync(row: SyncSubTaskCompletion): void {
   const db = getLocalDb();
   if (!db) return;
+
+  const existing = db.select().from(subTaskCompletions).where(eq(subTaskCompletions.uuid, row.uuid)).get();
+  checkForConflict('sub_task_completions', existing, row.updated_at, row);
 
   const now = new Date().toISOString();
   db.insert(subTaskCompletions)

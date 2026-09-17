@@ -1,13 +1,18 @@
-import { and, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 
 import type { SyncSubTask } from '@/api/sync-types';
 import { getLocalDb } from '@/lib/db/client';
+import { checkForConflict } from '@/lib/db/conflicts-repo';
 import { subTasks } from '@/lib/db/schema';
 
-/** See categories-repo.ts's upsertCategoryFromSync - identical shape. */
+/** See categories-repo.ts's upsertCategoryFromSync - identical shape,
+ * including the conflict check. */
 export function upsertSubTaskFromSync(row: SyncSubTask): void {
   const db = getLocalDb();
   if (!db) return;
+
+  const existing = db.select().from(subTasks).where(eq(subTasks.uuid, row.uuid)).get();
+  checkForConflict('sub_tasks', existing, row.updated_at, row);
 
   const now = new Date().toISOString();
   db.insert(subTasks)

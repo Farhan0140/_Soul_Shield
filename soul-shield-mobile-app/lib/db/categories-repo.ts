@@ -1,6 +1,7 @@
-import { isNull } from 'drizzle-orm';
+import { eq, isNull } from 'drizzle-orm';
 
 import type { SyncCategory } from '@/api/sync-types';
+import { checkForConflict } from '@/lib/db/conflicts-repo';
 import { getLocalDb } from '@/lib/db/client';
 import { categories } from '@/lib/db/schema';
 
@@ -8,10 +9,17 @@ import { categories } from '@/lib/db/schema';
  * uuid) - called from lib/background-sync/pull.ts for every row a sync pull
  * returns, soft-deleted ones included (their deletedAt just gets set, same
  * as any other field). syncedAt is stamped "now" since this row, by
- * definition, just came from a successful server round-trip. */
+ * definition, just came from a successful server round-trip.
+ *
+ * Checks for a genuine concurrent edit first (see conflicts-repo.ts) -
+ * the server's version still wins either way, this only decides whether it
+ * gets logged before being applied. */
 export function upsertCategoryFromSync(row: SyncCategory): void {
   const db = getLocalDb();
   if (!db) return;
+
+  const existing = db.select().from(categories).where(eq(categories.uuid, row.uuid)).get();
+  checkForConflict('categories', existing, row.updated_at, row);
 
   const now = new Date().toISOString();
   db.insert(categories)

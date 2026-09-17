@@ -1,21 +1,26 @@
-import { isNull } from 'drizzle-orm';
+import { eq, isNull } from 'drizzle-orm';
 
 import type { SyncTask } from '@/api/sync-types';
 import type { TaskStatus } from '@/api/types';
 import { listActiveCategories } from '@/lib/db/categories-repo';
 import { getLocalDb } from '@/lib/db/client';
 import { listSubTaskCompletionsInRange, listTaskCompletionsInRange } from '@/lib/db/completions-repo';
+import { checkForConflict } from '@/lib/db/conflicts-repo';
 import { decodeIntArray, encodeIntArray } from '@/lib/db/json-array';
 import { tasks } from '@/lib/db/schema';
 import { listActiveSubTasksByParents } from '@/lib/db/sub-tasks-repo';
 import { dateRange, todayISODate, weekdayIndex } from '@/lib/date';
 
 /** Writes one pulled task row into the local store - see
- * categories-repo.ts's upsertCategoryFromSync for the shape/reasoning.
- * recurrence_days round-trips through JSON (see lib/db/json-array.ts). */
+ * categories-repo.ts's upsertCategoryFromSync for the shape/reasoning
+ * (including the conflict check) and recurrence_days round-trips through
+ * JSON (see lib/db/json-array.ts). */
 export function upsertTaskFromSync(row: SyncTask): void {
   const db = getLocalDb();
   if (!db) return;
+
+  const existing = db.select().from(tasks).where(eq(tasks.uuid, row.uuid)).get();
+  checkForConflict('tasks', existing, row.updated_at, row);
 
   const now = new Date().toISOString();
   db.insert(tasks)
