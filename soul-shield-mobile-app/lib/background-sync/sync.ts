@@ -13,7 +13,7 @@ import { syncAllTaskReminders } from '@/lib/notifications';
 import { PERSIST_BUSTER, persister } from '@/lib/persister';
 import { queryKeys } from '@/lib/query-keys';
 import { cachedUserStore, tokenStore } from '@/lib/secure-store';
-import { setSyncPhase } from '@/lib/background-sync/sync-status';
+import { beginSyncActivity, endSyncActivity } from '@/lib/background-sync/sync-status';
 
 /** How many days beyond today to keep the "verse of the day" pre-fetched
  * (see components/dashboard/daily-verse-card.tsx) - unrelated to task/
@@ -85,9 +85,8 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
     // (the periodic background task, or the app coming back online) will
     // naturally get another chance: the background task re-checks on its own
     // next OS-scheduled wake-up within today's sync window, and the reconnect
-    // listener only fires once connectivity actually returns. Back to
-    // 'idle' rather than 'synced'/'failed' - nothing was actually attempted.
-    setSyncPhase('idle');
+    // listener only fires once connectivity actually returns. No activity to
+    // report either way — nothing was actually attempted.
     await recordSyncOutcome('skipped-offline');
     return;
   }
@@ -96,11 +95,15 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
   if (!token) {
     // Signed out — nothing to sync, and nothing to retry until a login
     // happens (which fetches everything fresh on its own anyway).
-    setSyncPhase('idle');
     await recordSyncOutcome('skipped-signed-out');
     return;
   }
 
+  // Only now — past both "not our turn yet" checks above — is this a real
+  // network attempt, so only now does it count toward the shared
+  // "Syncing…" activity every mutation push also contributes to (see
+  // sync-status.ts).
+  beginSyncActivity();
   try {
     // Forward window is keyed on the device-local calendar date
     // (todayISODate), matching what the daily-verse card actually reads
@@ -173,9 +176,9 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
     await syncAllTaskReminders(listAllActiveTasksForReminders());
 
     await recordSyncOutcome('success');
-    setSyncPhase('synced');
+    endSyncActivity(true);
   } catch (error) {
-    setSyncPhase('failed');
+    endSyncActivity(false);
     await recordSyncOutcome('failed', error instanceof Error ? error.message : String(error));
     throw error;
   }
@@ -191,12 +194,6 @@ let syncInFlight: Promise<void> | null = null;
 
 export function runFullBackgroundSync(liveClient?: QueryClient): Promise<void> {
   if (syncInFlight) return syncInFlight;
-  // Set here (not inside runFullBackgroundSyncInner) so every caller sharing
-  // this in-flight promise sees one idle→syncing transition, not one per
-  // caller — runFullBackgroundSyncInner itself owns every other transition
-  // (synced/failed/back to idle on a skip), see sync-status.ts, read by
-  // DateNavHeader's "Syncing…"/"Synced" label and thin progress indicator.
-  setSyncPhase('syncing');
   syncInFlight = runFullBackgroundSyncInner(liveClient).finally(() => {
     syncInFlight = null;
   });

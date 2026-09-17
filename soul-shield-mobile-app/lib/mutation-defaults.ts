@@ -13,6 +13,7 @@ import type {
 } from '@/api/sync-types';
 import { addTaskToMyTasks } from '@/api/tasks';
 import type { TaskStatus } from '@/api/types';
+import { beginSyncActivity, endSyncActivity } from '@/lib/background-sync/sync-status';
 import { getCategoryByUuid, listActiveCategories, upsertCategoryFromSync } from '@/lib/db/categories-repo';
 import { getLocalDb } from '@/lib/db/client';
 import { subTaskCompletions, taskCompletions } from '@/lib/db/schema';
@@ -82,12 +83,28 @@ function reconcilePushResults(results: SyncChangeResult[]): void {
   }
 }
 
+/** The single choke point every mutation's push (create/update/delete/
+ * complete/increment/reorder, tasks and categories alike) runs through -
+ * wrapping the actual network call here means beginSyncActivity/
+ * endSyncActivity (sync-status.ts) fires for every one of them without
+ * threading it through each individual mutationFn. Mutations are paused
+ * (not even invoked) while offline by react-query's default networkMode
+ * ('online' - see lib/network.ts's resumePausedMutations on reconnect), so
+ * this - and the "Syncing…" it reports - only ever runs while actually
+ * online, same as the periodic /sync pull (lib/background-sync/sync.ts). */
 async function pushChanges(changes: SyncChange[]): Promise<SyncChangeResult[]> {
   if (changes.length === 0) return [];
-  const token = await tokenStore.getToken();
-  const results = await pushSyncChanges(changes, token);
-  reconcilePushResults(results);
-  return results;
+  beginSyncActivity();
+  try {
+    const token = await tokenStore.getToken();
+    const results = await pushSyncChanges(changes, token);
+    reconcilePushResults(results);
+    endSyncActivity(true);
+    return results;
+  } catch (error) {
+    endSyncActivity(false);
+    throw error;
+  }
 }
 
 /** Every mutationFn below reads the row it needs to push from local SQLite -
@@ -232,8 +249,21 @@ export const incrementSubTaskMutationFn = async ({
   };
 };
 
-export const addTaskToMyTasksMutationFn = async (sourceTaskUuid: string) =>
-  addTaskToMyTasks(sourceTaskUuid, await tokenStore.getToken());
+export const addTaskToMyTasksMutationFn = async (sourceTaskUuid: string) => {
+  // Not routed through pushChanges (see api/tasks.ts's addTaskToMyTasks doc
+  // comment - this is the one deliberately online-only, direct-REST
+  // mutation), so it tracks sync activity itself instead of getting it for
+  // free from that shared choke point.
+  beginSyncActivity();
+  try {
+    const result = await addTaskToMyTasks(sourceTaskUuid, await tokenStore.getToken());
+    endSyncActivity(true);
+    return result;
+  } catch (error) {
+    endSyncActivity(false);
+    throw error;
+  }
+};
 
 export const reorderTasksMutationFn = async ({ orderedUuids }: { categoryUuid: string | null; orderedUuids: string[] }) => {
   assertLocalDbAvailable();
