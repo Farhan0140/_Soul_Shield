@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from '@/api/client';
+import { apiGet, apiPost, type RetryOptions } from '@/api/client';
 import type { AddToMyTasksResponse, ManageableTask, Task } from '@/api/types';
 
 // Read-only network fallback, used only while the on-device SQLite store
@@ -29,6 +29,6 @@ export function getMyTasks(token: string | null) {
  * uuid (see soul-shield's rest/handlers/task/add_to_my_tasks.go's
  * AddToMyTasksByUUID) since the mobile app only ever knows a global task
  * by its uuid, never its server-internal id. */
-export function addTaskToMyTasks(sourceTaskUuid: string, token: string | null) {
-  return apiPost<AddToMyTasksResponse>(`/tasks/by-uuid/${sourceTaskUuid}/add-to-my-tasks`, {}, token);
+export function addTaskToMyTasks(sourceTaskUuid: string, token: string | null, retry?: RetryOptions) {
+  return apiPost<AddToMyTasksResponse>(`/tasks/by-uuid/${sourceTaskUuid}/add-to-my-tasks`, {}, token, retry);
 }

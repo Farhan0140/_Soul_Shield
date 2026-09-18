@@ -13,6 +13,7 @@ import type {
 } from '@/api/sync-types';
 import { addTaskToMyTasks } from '@/api/tasks';
 import type { TaskStatus } from '@/api/types';
+import { SYNC_RETRY } from '@/lib/background-sync/retry';
 import { beginSyncActivity, endSyncActivity } from '@/lib/background-sync/sync-status';
 import { getCategoryByUuid, listActiveCategories, upsertCategoryFromSync } from '@/lib/db/categories-repo';
 import { getLocalDb } from '@/lib/db/client';
@@ -97,7 +98,15 @@ async function pushChanges(changes: SyncChange[]): Promise<SyncChangeResult[]> {
   beginSyncActivity();
   try {
     const token = await tokenStore.getToken();
-    const results = await pushSyncChanges(changes, token);
+    // Retries through SYNC_RETRY (lib/background-sync/retry.ts) rather than
+    // failing this mutation on the first timeout - see pull.ts's identical
+    // reasoning: the backend runs on Render's free tier, where a sleeping
+    // instance's first request routinely times out rather than getting
+    // refused outright while it cold-starts (commonly 30-50s, sometimes
+    // more). Without this, tapping something right after the backend has
+    // gone to sleep would show a spurious sync failure instead of just
+    // taking longer than usual.
+    const results = await pushSyncChanges(changes, token, SYNC_RETRY);
     reconcilePushResults(results);
     endSyncActivity(true);
     return results;
@@ -256,7 +265,7 @@ export const addTaskToMyTasksMutationFn = async (sourceTaskUuid: string) => {
   // free from that shared choke point.
   beginSyncActivity();
   try {
-    const result = await addTaskToMyTasks(sourceTaskUuid, await tokenStore.getToken());
+    const result = await addTaskToMyTasks(sourceTaskUuid, await tokenStore.getToken(), SYNC_RETRY);
     endSyncActivity(true);
     return result;
   } catch (error) {

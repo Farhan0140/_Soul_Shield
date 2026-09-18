@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from '@/api/client';
+import { apiGet, apiPost, type RetryOptions } from '@/api/client';
 import type { User } from '@/api/types';
 
 interface RegisterInput {
@@ -45,8 +45,8 @@ export function register(input: RegisterInput) {
   });
 }
 
-export function fetchMe(token: string, timeoutMs?: number) {
-  return apiGet<User>('/users/me', token, timeoutMs);
+export function fetchMe(token: string, timeoutMs?: number, retry?: RetryOptions) {
+  return apiGet<User>('/users/me', token, timeoutMs, retry);
 }
 
 /**

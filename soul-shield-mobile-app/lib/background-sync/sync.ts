@@ -4,6 +4,7 @@ import { QueryClient, dehydrate } from '@tanstack/react-query';
 import { fetchMe } from '@/api/auth';
 import { getSurahList, getVerse, type Verse } from '@/api/quran-content';
 import { recordSyncOutcome } from '@/lib/background-sync/state';
+import { SYNC_RETRY } from '@/lib/background-sync/retry';
 import { assertUser } from '@/lib/background-sync/validate';
 import { pickDailyVerseRef } from '@/lib/daily-verse';
 import { addDays, dateRange, todayISODate } from '@/lib/date';
@@ -111,7 +112,7 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
     const verseDates = dateRange(todayISODate(), addDays(todayISODate(), VERSE_PREFETCH_DAYS));
 
     const localDbPullPromise = pullLocalDatabase();
-    const mePromise = fetchMe(token, REQUEST_TIMEOUT_MS).catch(() => null);
+    const mePromise = fetchMe(token, REQUEST_TIMEOUT_MS, SYNC_RETRY).catch(() => null);
     const versesPromise = prefetchDailyVerses(verseDates, REQUEST_TIMEOUT_MS).catch(() => null);
 
     await localDbPullPromise;
