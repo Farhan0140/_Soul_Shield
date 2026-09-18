@@ -21,7 +21,7 @@ A full-stack habit & task tracker for building consistent daily worship and self
 | | Link |
 |---|---|
 | 📑 API / Swagger Docs | [https://soul-shield-api.onrender.com/swagger/index.html](https://soul-shield-api.onrender.com/swagger/index.html) |
-| 🌐 Website | *Not deployed yet* |
+| 🌐 Website | [https://soul-shield.vercel.app/](https://soul-shield.vercel.app/) |
 | 🤖 Android App (APK) | *Not published yet* |
 
 ## 📖 Overview
@@ -56,8 +56,10 @@ Soul Shield helps you build and keep daily routines — dhikr, prayers, reading,
 - 👤 Role-based access (`user` / `admin`)
 
 **Client experience**
-- 📱 Offline-first mobile app — optimistic updates, queued mutations, auto-replay when back online
-- ⚡ Local-first startup — the app opens instantly from the on-device cache (persisted TanStack Query cache + cached profile) instead of blocking on the API, so a slow/cold backend never delays getting into the app; fresh data syncs in the background once a connection is available
+- 📱 **Local-first mobile app** — an on-device SQLite store (Drizzle ORM) is the source of truth for every read and write, not just a rolling prefetch window: any date, including ones never opened before, works fully offline. Creating, editing, completing, and incrementing tasks/sub-tasks writes to SQLite instantly (optimistic by construction, not by patching a cache) and queues a background push
+- 🔄 **Delta sync protocol** (`GET`/`POST /sync`) — the client pulls only what changed since its last cursor and pushes queued edits keyed by client-generated UUID; concurrent counter/sub-counter taps from two devices are summed server-side (`op: "increment"`) instead of one clobbering the other, and a genuine conflicting edit is logged (both versions kept) rather than silently dropped
+- ⏳ **Resilient sync** — background sync/mutation pushes automatically retry with backoff through a cold-starting backend (e.g. a sleeping Render free-tier instance) instead of failing on the first timeout, and a real-time **"Syncing…" / "Synced" / "Sync failed"** status indicator on the dashboard reflects every pull and push as it happens
+- ⚡ Local-first startup — the app opens instantly from the on-device cache (persisted TanStack Query cache + cached profile) instead of blocking on the API, so a slow/cold backend never delays getting into the app
 - 🔔 In-app sync-failure notifications so a failed background request is never silent
 - 🌓 Light/dark theme support
 - 🎨 Smooth, animated UI on both web (Framer Motion) and mobile (Reanimated)
@@ -69,6 +71,7 @@ flowchart LR
     subgraph Clients
         Web["Web App<br/>React + Vite + Tailwind"]
         Mobile["Mobile App<br/>Expo + React Native"]
+        SQLite[("On-device SQLite<br/>(Drizzle) · source of truth<br/>for every read/write")]
     end
 
     API["Soul Shield API<br/>Go · net/http"]
@@ -76,7 +79,8 @@ flowchart LR
     Notif["expo-notifications<br/>local reminders"]
 
     Web -- REST / JWT --> API
-    Mobile -- REST / JWT --> API
+    Mobile <-- reads/writes --> SQLite
+    SQLite -- "GET/POST /sync (delta pull/push)" --> API
     API -- sqlx --> DB
     Mobile -. schedules .-> Notif
 ```
@@ -87,7 +91,7 @@ flowchart LR
 |---|---|---|---|
 | Language | Go 1.25 | JavaScript (React 19) | TypeScript (React Native 0.81) |
 | Framework | `net/http` + `ServeMux` | Vite 8 | Expo SDK 54 + Expo Router |
-| Data | PostgreSQL (Neon) via `sqlx` + `pgx` | — | TanStack Query (persisted cache) |
+| Data | PostgreSQL (Neon) via `sqlx` + `pgx` | — | On-device SQLite (`expo-sqlite` + Drizzle ORM), local-first; TanStack Query for UI cache/mutation queue |
 | Auth | `golang-jwt` | JWT stored client-side | `expo-secure-store` |
 | Styling | — | Tailwind CSS 4 | `StyleSheet` + themed components |
 | Motion | — | Framer Motion | React Native Reanimated |
@@ -125,7 +129,10 @@ Soul_Shield/
     │   └── task/ category/       # create/edit modals
     ├── components/                # TaskCard, RewardModal, CounterControls, ...
     ├── hooks/queries/              # TanStack Query hooks per resource
-    └── lib/                        # notifications, date, network, storage helpers
+    └── lib/
+        ├── db/                    # Drizzle schema + repos - the on-device SQLite store
+        ├── background-sync/       # delta pull/push, retry policy, sync-status, reminders resync
+        └── ...                    # notifications, date, network, storage helpers
 ```
 
 ## 🔌 API Reference
@@ -152,6 +159,8 @@ Full interactive docs are served at **`/swagger/index.html`** once the backend i
 | `GET` | `/categories` | List categories |
 | `PATCH` | `/categories/{id}` | Update a category |
 | `DELETE` | `/categories/{id}` | Delete a category |
+| `GET` | `/sync?since=` | Delta pull — every task/category/sub-task/completion changed (including soft-deleted) since the given cursor, for the mobile app's local-first SQLite store |
+| `POST` | `/sync` | Delta push — a batch of client-side changes (`upsert`/`delete`/`increment`), each resolved by uuid and returned as `accepted`/`superseded`/`rejected`; concurrent counter increments sum instead of overwriting |
 
 All routes except registration/login/password-reset require `Authorization: JWT <token>`.
 
@@ -226,6 +235,8 @@ erDiagram
 
 The parent task's own status (surfaced in API responses, never stored) is a fourth value — `partially_completed` — derived at read time from its sub-tasks' completion state once it has any.
 
+Every table above also carries a `uuid` (the identifier the mobile app's local-first store and the `/sync` protocol key everything on), a soft-delete `deleted_at`, and an `updated_at` — omitted from the diagram for readability, kept in the actual schema so a sync pull can detect both changes and deletions.
+
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -276,6 +287,8 @@ npx expo start
 ```
 
 Scan the QR code with **Expo Go** to run it instantly. Local reminder notifications schedule correctly in Expo Go — a custom dev build (`npx expo run:android` / `eas build`) is only needed to see the app's own icon on the notification instead of Expo Go's.
+
+> **Note:** the local-first SQLite store (`expo-sqlite`, `expo-crypto`) needs a custom dev build — it's not available in Expo Go. Without it, reads transparently fall back to the API (see `lib/db/client.ts`), but writes (create/edit/complete/increment) show a clear error instead, since there's no local row for them to queue against — a custom dev build is required for the app to be fully usable.
 
 ## 🗺️ Roadmap
 
