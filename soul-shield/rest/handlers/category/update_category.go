@@ -68,7 +68,8 @@ func (h *Handler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	util.SendData(w, CategoryResponse{
-		ID:       updated.UUID,
+		ID:       updated.ID,
+		UUID:     updated.UUID,
 		Name:     updated.Name,
 		ColorHex: updated.ColorHex,
 		Position: updated.Position,

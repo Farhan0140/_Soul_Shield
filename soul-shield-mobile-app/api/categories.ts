@@ -1,8 +1,20 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from '@/api/client';
 import type { Category } from '@/api/types';
 
-export function getCategories(token: string | null, timeoutMs?: number) {
-  return apiGet<Category[]>('/categories', token, timeoutMs);
+/** Wire shape of GET /categories - the numeric `id` is what the web client
+ * (soul-shield-client) reads, so the backend keeps it and adds `uuid`
+ * alongside; the mobile app's Category.id is the uuid (see api/types.ts). */
+interface CategoryWire {
+  id: number;
+  uuid: string;
+  name: string;
+  color_hex: string;
+  position: number;
+}
+
+export async function getCategories(token: string | null, timeoutMs?: number): Promise<Category[]> {
+  const wire = await apiGet<CategoryWire[]>('/categories', token, timeoutMs);
+  return wire.map((c) => ({ id: c.uuid, name: c.name, color_hex: c.color_hex, position: c.position }));
 }
 
 export function createCategory(

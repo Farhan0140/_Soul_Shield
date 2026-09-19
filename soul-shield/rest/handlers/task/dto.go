@@ -53,11 +53,13 @@ type SubTaskInput struct {
 // task এর ন্যূনতম তথ্য (id/title/category/position) + sub_tasks (থাকলে) - dedicated
 // "Reorder" পেজে ব্যবহার হয়, যেখানে ইউজার date-independent ভাবে category/task/sub-task সাজায়।
 type ManageableTaskResponse struct {
-	ID         string                  `json:"id"`
-	Title      string                  `json:"title"`
-	CategoryID *string                 `json:"category_id,omitempty"`
-	Position   int                     `json:"position"`
-	SubTasks   []SubTaskStatusResponse `json:"sub_tasks,omitempty"`
+	ID           int64                   `json:"id"`
+	UUID         string                  `json:"uuid"`
+	Title        string                  `json:"title"`
+	CategoryID   *int64                  `json:"category_id,omitempty"`
+	CategoryUUID *string                 `json:"category_uuid,omitempty"`
+	Position     int                     `json:"position"`
+	SubTasks     []SubTaskStatusResponse `json:"sub_tasks,omitempty"`
 }
 
 // ReorderTasksRequest - একটা category (CategoryID=nil হলে uncategorized) এর জন্য পুরো
@@ -116,7 +118,12 @@ type TaskResponse struct {
 
 // SubTaskStatusResponse - sub-task এর তথ্য + (list/history endpoint এ) একটা নির্দিষ্ট দিনের status
 type SubTaskStatusResponse struct {
-	SubTaskID       string     `json:"sub_task_id" example:"5"`
+	SubTaskID   int64  `json:"sub_task_id" example:"5"`
+	// SubTaskUUID backs the mobile app's local-first store (see repo/sync.go)
+	// - kept alongside the numeric SubTaskID above, not in place of it, since
+	// the web client (soul-shield-client) still reads this same field as a
+	// number.
+	SubTaskUUID     string     `json:"sub_task_uuid"`
 	Title           string     `json:"title" example:"Read 1 page"`
 	TaskType        string     `json:"task_type" example:"normal"`
 	TargetCount     *int32     `json:"target_count,omitempty" example:"10"`
@@ -127,7 +134,11 @@ type SubTaskStatusResponse struct {
 }
 
 type TaskWithStatusResponse struct {
-	TaskID         string     `json:"task_id"`
+	TaskID int64 `json:"task_id"`
+	// TaskUUID backs the mobile app's local-first store (see repo/sync.go) -
+	// kept alongside the numeric TaskID above, not in place of it, since the
+	// web client (soul-shield-client) still reads task_id as a number.
+	TaskUUID       string     `json:"task_uuid"`
 	Title          string     `json:"title"`
 	Description    string     `json:"description"`
 	IsGlobal       bool       `json:"is_global"`
@@ -136,7 +147,8 @@ type TaskWithStatusResponse struct {
 	Status         string     `json:"status"`
 	CompletedAt    *time.Time `json:"completed_at,omitempty"`
 
-	CategoryID    *string `json:"category_id,omitempty"`
+	CategoryID    *int64  `json:"category_id,omitempty"`
+	CategoryUUID  *string `json:"category_uuid,omitempty"`
 	CategoryName  *string `json:"category_name,omitempty"`
 	CategoryColor *string `json:"category_color,omitempty"`
 

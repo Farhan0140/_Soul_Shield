@@ -49,7 +49,7 @@ func (h *Handler) ReorderCategories(w http.ResponseWriter, r *http.Request) {
 
 	response := make([]CategoryResponse, len(reordered))
 	for i, c := range reordered {
-		response[i] = CategoryResponse{ID: c.UUID, Name: c.Name, ColorHex: c.ColorHex, Position: c.Position}
+		response[i] = CategoryResponse{ID: c.ID, UUID: c.UUID, Name: c.Name, ColorHex: c.ColorHex, Position: c.Position}
 	}
 
 	util.SendData(w, response, http.StatusOK)

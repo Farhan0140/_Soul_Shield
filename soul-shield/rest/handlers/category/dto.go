@@ -11,7 +11,11 @@ type UpdateCategoryRequest struct {
 }
 
 type CategoryResponse struct {
-	ID       string `json:"id"`
+	ID   int64  `json:"id"`
+	// UUID backs the mobile app's local-first store (see repo/sync.go) - kept
+	// alongside the numeric ID above, not in place of it, since the web
+	// client (soul-shield-client) still reads id as a number.
+	UUID     string `json:"uuid"`
 	Name     string `json:"name"`
 	ColorHex string `json:"color_hex"`
 	Position int    `json:"position"`
