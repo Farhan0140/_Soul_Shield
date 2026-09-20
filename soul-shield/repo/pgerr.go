@@ -2,6 +2,7 @@ package repo
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/lib/pq"
@@ -37,4 +38,22 @@ func isUniqueViolation(err error) bool {
 func isIntegrityViolation(err error) bool {
 	code := pgErrCode(err)
 	return len(code) == 5 && code[:2] == "23"
+}
+
+// pgConstraint returns the violated constraint's name, if err carries one.
+func pgConstraint(err error) string {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.ConstraintName
+	}
+	return ""
+}
+
+// isDuplicateUUID reports a unique violation on a row's uuid column
+// (tasks_uuid_key, categories_uuid_key, ...). For a /sync push that means
+// this exact change was already inserted - by an overlapping request, or by
+// a retry whose first attempt actually committed before the connection
+// dropped - so the caller treats it as success instead of an error.
+func isDuplicateUUID(err error) bool {
+	return isUniqueViolation(err) && strings.HasSuffix(pgConstraint(err), "_uuid_key")
 }

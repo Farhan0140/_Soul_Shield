@@ -3,6 +3,8 @@ package repo
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"log"
 	"soulsheld/util"
 	"time"
 
@@ -72,7 +74,12 @@ func (r *syncRepo) PushChanges(userID int64, changes []SyncChange) ([]SyncChange
 			// continuing with the next change is safe. Anything else is a
 			// genuine DB/infra failure and still aborts the request.
 			if isIntegrityViolation(err) {
-				results = append(results, *rejected(change, util.ErrSyncInvalidData))
+				// Log it server-side and name the constraint in the reply:
+				// a silently-dropped change is otherwise impossible to
+				// diagnose from either end.
+				log.Printf("sync push: rejected %s/%s (%s): %v", change.Resource, change.UUID, change.Op, err)
+				results = append(results, *rejected(change,
+					fmt.Errorf("%w [%s]", util.ErrSyncInvalidData, pgConstraint(err))))
 				continue
 			}
 			return nil, err
@@ -237,6 +244,13 @@ func (r *syncRepo) pushTask(userID int64, change SyncChange) (*SyncChangeResult,
 		if err := json.Unmarshal(change.Data, &input); err != nil {
 			return rejected(change, err), nil
 		}
+		// "" is the client's way of saying "no reminder" (the REST API's
+		// convention for clearing one) but the column only accepts NULL or
+		// HH:MM - passed through, it failed the CHECK and the edit that
+		// turned a reminder off never reached the server.
+		if input.ReminderTime != nil && *input.ReminderTime == "" {
+			input.ReminderTime = nil
+		}
 		categoryID, hasCategory, err := r.resolveCategoryID(userID, input.CategoryUUID)
 		if err != nil {
 			return nil, err
@@ -281,7 +295,10 @@ func (r *syncRepo) pushTask(userID int64, change SyncChange) (*SyncChangeResult,
 			`, change.UUID, input.Title, input.Description, userID, input.RecurrenceType, pq.Int64Array(input.RecurrenceDays),
 				nullInt64(categoryID, hasCategory), input.RewardText, input.TaskType, input.TargetCount,
 				input.DurationSeconds, input.ReminderTime, nullInt64(sourceTaskID, hasSource), derefInt(input.Position))
-			if err != nil {
+			// A duplicate uuid means this same change already landed (an
+			// overlapping push, or a retry whose first attempt committed) -
+			// idempotent success, not an error.
+			if err != nil && !isDuplicateUUID(err) {
 				return nil, err
 			}
 		}
@@ -432,10 +449,13 @@ func (r *syncRepo) pushCategory(userID int64, change SyncChange) (*SyncChangeRes
 				INSERT INTO categories (uuid, name, color_hex, owner_id, position)
 				VALUES ($1, $2, $3, $4, $5)
 			`, change.UUID, input.Name, input.ColorHex, userID, derefInt(input.Position)); err != nil {
-				if isUniqueViolation(err) {
+				if isDuplicateUUID(err) {
+					// Same change already landed - idempotent success.
+				} else if isUniqueViolation(err) {
 					return rejected(change, util.ErrCategoryExists), nil
+				} else {
+					return nil, err
 				}
-				return nil, err
 			}
 		}
 
@@ -555,7 +575,7 @@ func (r *syncRepo) pushSubTask(userID int64, change SyncChange) (*SyncChangeResu
 			if _, err := r.db.Exec(`
 				INSERT INTO sub_tasks (uuid, parent_task_id, title, task_type, target_count, duration_seconds, position)
 				VALUES ($1, $2, $3, $4, $5, $6, $7)
-			`, change.UUID, parentTaskID, input.Title, input.TaskType, input.TargetCount, input.DurationSeconds, derefInt(input.Position)); err != nil {
+			`, change.UUID, parentTaskID, input.Title, input.TaskType, input.TargetCount, input.DurationSeconds, derefInt(input.Position)); err != nil && !isDuplicateUUID(err) {
 				return nil, err
 			}
 		}
