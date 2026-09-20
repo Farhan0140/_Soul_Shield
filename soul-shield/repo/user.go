@@ -5,10 +5,10 @@ import (
 	// "errors"
 	"fmt"
 	"soulsheld/util"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -35,7 +35,18 @@ func NewUserRepo(db *sqlx.DB) UserRepo {
 	}
 }
 
+// normalizeEmail is the one canonical form an email is stored and looked up
+// in (trimmed, lowercase) - the users table enforces it with a CHECK
+// constraint (see migrations/000001_init_schema.sql). Without it,
+// "Farhan@x.com" typed on a phone keyboard that auto-capitalizes and
+// "farhan@x.com" typed on the website were two different accounts, and
+// password reset (which already lowercased) couldn't find either.
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
+
 func (r *userRepo) Create(user User) (*User, error) {
+	user.Email = normalizeEmail(user.Email)
 	tx, err := r.db.Beginx()
 	if err != nil {
 		return nil, err
@@ -97,10 +108,8 @@ func (r *userRepo) Create(user User) (*User, error) {
 	row := tx.QueryRow(query, user.Full_Name, user.Email, user.Password, string(hashedAnswer))
 	err = row.Scan(&user.ID)
 	if err != nil {
-		if pqErr, ok := err.(*pq.Error); ok {
-			if pqErr.Code == "23505" {
-				return nil, util.ErrUserExists
-			}
+		if isUniqueViolation(err) {
+			return nil, util.ErrUserExists
 		}
 		return nil, err
 	}
@@ -124,6 +133,7 @@ func (r *userRepo) Create(user User) (*User, error) {
 }
 
 func (r *userRepo) Find(email, password string) (*User, error) {
+	email = normalizeEmail(email)
 	var user User
 	query := `
 		SELECT id, full_name, email, password, role
@@ -172,6 +182,7 @@ func (r *userRepo) GetByID(id int64) (*User, error) {
 }
 
 func (r *userRepo) Update(email string, password string) error {
+	email = normalizeEmail(email)
 
 	tx, err := r.db.Beginx()
 	if err != nil {
@@ -233,6 +244,7 @@ func (r *userRepo) Update(email string, password string) error {
 // handler layer (same message for "no such user" / "no answer set" / "wrong answer") so this
 // endpoint can't be used to enumerate registered emails or confirm partial answers.
 func (r *userRepo) VerifySecurityAnswer(email, answer, ipAddress string) error {
+	email = normalizeEmail(email)
 	var u User
 	err := r.db.Get(&u, `
 		SELECT id, email, security_answer_hash, security_answer_attempts, security_answer_locked_until

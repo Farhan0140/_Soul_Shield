@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
 )
 
 type Category struct {
@@ -68,7 +67,7 @@ func (r *categoryRepo) Create(cat Category) (*Category, error) {
 		Scan(&cat.ID, &cat.UUID, &cat.CreatedAt, &cat.UpdatedAt)
 
 	if err != nil {
-		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
+		if isUniqueViolation(err) {
 			return nil, util.ErrCategoryExists
 		}
 		return nil, err

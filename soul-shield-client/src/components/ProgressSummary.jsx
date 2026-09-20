@@ -2,8 +2,12 @@ import { m } from 'framer-motion';
 import { Target, CheckCircle2 } from 'lucide-react';
 
 export default function ProgressSummary({ tasks }) {
-  const total = tasks.length;
-  const completed = tasks.filter(t => t.status === 'completed').length;
+  // Only the user's own tasks count - admin-managed fixed tasks (is_global)
+  // that haven't been added to "My Tasks" would otherwise inflate the total
+  // with things they never chose to track.
+  const myTasks = tasks.filter(t => !t.is_global);
+  const total = myTasks.length;
+  const completed = myTasks.filter(t => t.status === 'completed').length;
   const pct = total === 0 ? 0 : (completed / total) * 100;
 
   return (

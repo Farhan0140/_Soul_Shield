@@ -141,7 +141,7 @@ export default function Dashboard() {
       </div>
 
       {/* Progress */}
-      {!loading && !error && tasks.length > 0 && (
+      {!loading && !error && tasks.some(t => !t.is_global) && (
         <ProgressSummary tasks={tasks} />
       )}
 

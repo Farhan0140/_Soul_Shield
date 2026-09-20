@@ -18,7 +18,12 @@ import { beginSyncActivity, endSyncActivity } from '@/lib/background-sync/sync-s
 import { getCategoryByUuid, listActiveCategories, upsertCategoryFromSync } from '@/lib/db/categories-repo';
 import { getLocalDb } from '@/lib/db/client';
 import { subTaskCompletions, taskCompletions } from '@/lib/db/schema';
-import { upsertSubTaskCompletionFromSync, upsertTaskCompletionFromSync } from '@/lib/db/completions-repo';
+import {
+  deleteSubTaskCompletionLocal,
+  deleteTaskCompletionLocal,
+  upsertSubTaskCompletionFromSync,
+  upsertTaskCompletionFromSync,
+} from '@/lib/db/completions-repo';
 import { listUnsyncedSubTasksForParent, upsertSubTaskFromSync } from '@/lib/db/sub-tasks-repo';
 import {
   categoryDeleteChange,
@@ -93,6 +98,23 @@ function reconcilePushResults(results: SyncChangeResult[]): void {
  * ('online' - see lib/network.ts's resumePausedMutations on reconnect), so
  * this - and the "Syncing…" it reports - only ever runs while actually
  * online, same as the periodic /sync pull (lib/background-sync/sync.ts). */
+/** There is at most one completion per (task, user, date) on the server. If
+ * the website (or another device) already completed a task for a day before
+ * this device ever pulled it, the server merges this device's push into that
+ * existing row and answers with ITS uuid - leaving this device holding two
+ * local rows for the same task+day: the pushed one (old uuid, never marked
+ * synced) and the server's just-reconciled one. Drop the stale one so the
+ * day has exactly one row locally too. results[i] always corresponds to
+ * changes[i] (the server appends exactly one result per change). */
+function dropMergedLocalCompletions(changes: SyncChange[], results: SyncChangeResult[]): void {
+  results.forEach((result, i) => {
+    const change = changes[i];
+    if (!change || result.status === 'rejected' || result.uuid === change.uuid) return;
+    if (change.resource === 'task_completions') deleteTaskCompletionLocal(change.uuid);
+    else if (change.resource === 'sub_task_completions') deleteSubTaskCompletionLocal(change.uuid);
+  });
+}
+
 async function pushChanges(changes: SyncChange[]): Promise<SyncChangeResult[]> {
   if (changes.length === 0) return [];
   beginSyncActivity();
@@ -108,6 +130,7 @@ async function pushChanges(changes: SyncChange[]): Promise<SyncChangeResult[]> {
     // taking longer than usual.
     const results = await pushSyncChanges(changes, token, SYNC_RETRY);
     reconcilePushResults(results);
+    dropMergedLocalCompletions(changes, results);
     endSyncActivity(true);
     return results;
   } catch (error) {

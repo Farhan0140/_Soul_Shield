@@ -27,6 +27,7 @@ func NewOtpRepo(db *sqlx.DB) OTPRepo {
 }
 
 func (r *otpRepo) SaveOTP(email string, otp string) error {
+	email = normalizeEmail(email)
 
 	hashedOTP, err := bcrypt.GenerateFromPassword(
 		[]byte(otp),
@@ -59,6 +60,7 @@ func (r *otpRepo) SaveOTP(email string, otp string) error {
 
 
 func (r *otpRepo) VerifyOTP(email string, otp string) (bool, error) {
+	email = normalizeEmail(email)
 	tx, err := r.db.Beginx()
 	if err != nil {
 		return false, nil 
@@ -120,6 +122,7 @@ func (r *otpRepo) VerifyOTP(email string, otp string) (bool, error) {
 }
 
 func (r *otpRepo) IsVerified(email string) (bool, error) {
+	email = normalizeEmail(email)
 	var verified bool
 
 	err := r.db.QueryRow(`

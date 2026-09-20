@@ -99,6 +99,22 @@ export function listTaskCompletionsInRange(fromDate: string, toDate: string) {
     .all();
 }
 
+/** Removes a local completion row by uuid - used only to drop the duplicate a
+ * push leaves behind when the server merged it into an existing row for the
+ * same (task, date) under a different uuid (see lib/mutation-defaults.ts's
+ * dropMergedLocalCompletions). */
+export function deleteTaskCompletionLocal(uuid: string): void {
+  const db = getLocalDb();
+  if (!db) return;
+  db.delete(taskCompletions).where(eq(taskCompletions.uuid, uuid)).run();
+}
+
+export function deleteSubTaskCompletionLocal(uuid: string): void {
+  const db = getLocalDb();
+  if (!db) return;
+  db.delete(subTaskCompletions).where(eq(subTaskCompletions.uuid, uuid)).run();
+}
+
 /** The single task_completions row for (taskUuid, date), if one exists yet -
  * used by the increment buffer's flush() (hooks/use-task-increment-buffer.ts)
  * to look up the uuid/date to push against without threading that state

@@ -11,6 +11,7 @@ import {
 
 import { fetchMe, login as apiLogin } from '@/api/auth';
 import type { User } from '@/api/types';
+import { clearLocalDatabase } from '@/lib/db/client';
 import { ApiError } from '@/lib/errors';
 import { queryKeys } from '@/lib/query-keys';
 import { setUnauthorizedHandler } from '@/lib/query-client';
@@ -87,19 +88,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [tokenLoaded, token, cachedUser, meQuery.isSuccess, meQuery.isError, meQuery.data, meQuery.error]);
 
-  const logout = useCallback(async () => {
-    await tokenStore.removeToken();
-    await cachedUserStore.clear();
-    await cancelAllTaskReminders();
-    setToken(null);
-    setCachedUser(null);
-    queryClient.clear();
-    setStatus('signedOut');
-  }, [queryClient]);
+  // keepLocalData: an automatic sign-out because the token expired/was
+  // rejected (401) must NOT wipe the on-device store - it may hold offline
+  // edits that haven't been pushed yet, and signing back in as the same user
+  // pushes them. Only an explicit logout clears it (see clearLocalDatabase).
+  const logout = useCallback(
+    async (options?: { keepLocalData?: boolean }) => {
+      await tokenStore.removeToken();
+      await cachedUserStore.clear();
+      await cancelAllTaskReminders();
+      if (!options?.keepLocalData) clearLocalDatabase();
+      setToken(null);
+      setCachedUser(null);
+      queryClient.clear();
+      setStatus('signedOut');
+    },
+    [queryClient]
+  );
 
   useEffect(() => {
     setUnauthorizedHandler(() => {
-      logout();
+      logout({ keepLocalData: true });
     });
   }, [logout]);
 

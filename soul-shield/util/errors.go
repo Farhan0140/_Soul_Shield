@@ -44,4 +44,5 @@ var (
 	ErrInvalidSyncResource = errors.New("unknown sync resource")
 	ErrInvalidSyncOp       = errors.New("unknown sync op for this resource")
 	ErrSyncParentNotFound  = errors.New("referenced parent uuid not found")
+	ErrSyncInvalidData     = errors.New("change was rejected: it violates a data rule (e.g. empty title, invalid type/target/recurrence)")
 )

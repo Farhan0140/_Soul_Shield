@@ -56,7 +56,11 @@ export default function HomeScreen() {
 
   const tasks = useMemo(() => tasksQuery.data ?? [], [tasksQuery.data]);
 
-  const completedCount = tasks.filter((t) => t.status === 'completed').length;
+  // The "X/Y Completed" bar tracks only the user's own tasks - admin-managed
+  // fixed tasks (is_global) that haven't been added to "My Tasks" would
+  // otherwise inflate the total with things they never chose to track.
+  const ownTasks = useMemo(() => tasks.filter((t) => !t.is_global), [tasks]);
+  const completedCount = ownTasks.filter((t) => t.status === 'completed').length;
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
@@ -159,7 +163,7 @@ export default function HomeScreen() {
 
       <DailyVerseCard />
 
-      {tasks.length > 0 ? <ProgressSummaryBar completed={completedCount} total={tasks.length} /> : null}
+      {ownTasks.length > 0 ? <ProgressSummaryBar completed={completedCount} total={ownTasks.length} /> : null}
 
       <FiltersMenu
         status={status}

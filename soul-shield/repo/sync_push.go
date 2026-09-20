@@ -64,7 +64,17 @@ func (r *syncRepo) PushChanges(userID int64, changes []SyncChange) ([]SyncChange
 	for _, change := range changes {
 		result, err := r.pushOne(userID, change)
 		if err != nil {
-			// Only genuine DB/infra failures reach here - see pushOne.
+			// A data-rule violation (empty title, counter task with no
+			// target, ...) is that ONE change's problem - reject it
+			// individually so it can't take every other queued change in the
+			// batch down with it and leave the client retrying the same
+			// poisoned batch forever. Each pushOne statement autocommits, so
+			// continuing with the next change is safe. Anything else is a
+			// genuine DB/infra failure and still aborts the request.
+			if isIntegrityViolation(err) {
+				results = append(results, *rejected(change, util.ErrSyncInvalidData))
+				continue
+			}
 			return nil, err
 		}
 		results = append(results, *result)
@@ -412,7 +422,7 @@ func (r *syncRepo) pushCategory(userID int64, change SyncChange) (*SyncChangeRes
 			if _, err := r.db.Exec(`
 				UPDATE categories SET name = $1, color_hex = $2 WHERE id = $3
 			`, input.Name, input.ColorHex, existing.ID); err != nil {
-				if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
+				if isUniqueViolation(err) {
 					return rejected(change, util.ErrCategoryExists), nil
 				}
 				return nil, err
@@ -422,7 +432,7 @@ func (r *syncRepo) pushCategory(userID int64, change SyncChange) (*SyncChangeRes
 				INSERT INTO categories (uuid, name, color_hex, owner_id, position)
 				VALUES ($1, $2, $3, $4, $5)
 			`, change.UUID, input.Name, input.ColorHex, userID, derefInt(input.Position)); err != nil {
-				if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
+				if isUniqueViolation(err) {
 					return rejected(change, util.ErrCategoryExists), nil
 				}
 				return nil, err

@@ -17,6 +17,22 @@ let cached: ExpoSQLiteDatabase<typeof schema> | null | undefined;
  * treats null the same as "sync unavailable this run" rather than crashing
  * the app - Phase 3 is meant to be entirely invisible if it isn't ready
  * yet, not a new way for the app to break. */
+/** Empties every local-first table (and the sync cursor, so the next login
+ * does a full pull). The store isn't scoped per user - rows carry no owner -
+ * so without this, signing out and into a different account left the
+ * previous account's tasks on screen (and pushable under the new account). */
+export function clearLocalDatabase(): void {
+  const db = getLocalDb();
+  if (!db) return;
+  db.delete(schema.subTaskCompletions).run();
+  db.delete(schema.taskCompletions).run();
+  db.delete(schema.subTasks).run();
+  db.delete(schema.tasks).run();
+  db.delete(schema.categories).run();
+  db.delete(schema.syncConflicts).run();
+  db.delete(schema.syncState).run();
+}
+
 export function getLocalDb(): ExpoSQLiteDatabase<typeof schema> | null {
   if (cached !== undefined) return cached;
 

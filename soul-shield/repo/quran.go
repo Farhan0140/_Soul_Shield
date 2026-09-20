@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
 )
 
 type QuranLastRead struct {
@@ -96,7 +95,7 @@ func (r *quranRepo) CreateBookmark(bookmark QuranBookmark) (*QuranBookmark, erro
 		Scan(&bookmark.ID, &bookmark.CreatedAt)
 
 	if err != nil {
-		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
+		if isUniqueViolation(err) {
 			return nil, util.ErrBookmarkExists
 		}
 		return nil, err
