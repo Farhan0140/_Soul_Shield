@@ -10,6 +10,7 @@ import { pickDailyVerseRef } from '@/lib/daily-verse';
 import { addDays, dateRange, todayISODate } from '@/lib/date';
 import { listAllActiveTasksForReminders } from '@/lib/db/tasks-repo';
 import { pullLocalDatabase } from '@/lib/background-sync/pull';
+import { pushPendingLocalChanges } from '@/lib/background-sync/push-pending';
 import { syncAllTaskReminders } from '@/lib/notifications';
 import { PERSIST_BUSTER, persister } from '@/lib/persister';
 import { queryKeys } from '@/lib/query-keys';
@@ -111,6 +112,17 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
     // (hooks/queries/use-daily-verse.ts, lib/query-keys.ts).
     const verseDates = dateRange(todayISODate(), addDays(todayISODate(), VERSE_PREFETCH_DAYS));
 
+    // Push before pulling: a pulled (older) server row would otherwise
+    // overwrite a local edit that hasn't been pushed yet. A failed push must
+    // not stop the pull though - it's remembered and reported at the end.
+    let pushFailure: Error | null = null;
+    let pushed = { pushed: 0, rejected: 0 };
+    try {
+      pushed = await pushPendingLocalChanges();
+    } catch (error) {
+      pushFailure = error instanceof Error ? error : new Error(String(error));
+    }
+
     const localDbPullPromise = pullLocalDatabase();
     const mePromise = fetchMe(token, REQUEST_TIMEOUT_MS, SYNC_RETRY).catch(() => null);
     const versesPromise = prefetchDailyVerses(verseDates, REQUEST_TIMEOUT_MS).catch(() => null);
@@ -175,6 +187,14 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
     // REST history array — reminders only depend on task config, not
     // date-scoped status (see tasks-repo.ts's listAllActiveTasksForReminders).
     await syncAllTaskReminders(listAllActiveTasksForReminders());
+
+    // "Synced" has to mean everything is on the server. A change the server
+    // rejected stays local-only (and is retried on every sync) - say so
+    // instead of reporting success.
+    if (pushFailure) throw pushFailure;
+    if (pushed.rejected > 0) {
+      throw new Error(`${pushed.rejected} change${pushed.rejected === 1 ? '' : 's'} couldn't be saved to the server`);
+    }
 
     await recordSyncOutcome('success');
     endSyncActivity(true);

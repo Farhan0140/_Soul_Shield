@@ -70,6 +70,15 @@ export function upsertTaskFromSync(row: SyncTask): void {
     .run();
 }
 
+/** Every task with a local edit the server hasn't confirmed yet
+ * (syncedAt null), soft-deleted ones included - see
+ * lib/background-sync/push-pending.ts. */
+export function listUnsyncedTasks() {
+  const db = getLocalDb();
+  if (!db) return [];
+  return db.select().from(tasks).where(isNull(tasks.syncedAt)).all();
+}
+
 export function getTaskByUuid(uuid: string) {
   const db = getLocalDb();
   if (!db) return undefined;
@@ -362,7 +371,7 @@ export function updateTaskLocal(uuid: string, input: UpdateTaskLocalInput): void
       ...(input.rewardText !== undefined ? { rewardText: input.rewardText } : {}),
       ...(input.targetCount !== undefined ? { targetCount: input.targetCount } : {}),
       ...(input.durationSeconds !== undefined ? { durationSeconds: input.durationSeconds } : {}),
-      ...(input.reminderTime !== undefined ? { reminderTime: input.reminderTime } : {}),
+      ...(input.reminderTime !== undefined ? { reminderTime: input.reminderTime || null } : {}),
       updatedAt: now,
       syncedAt: null,
     })

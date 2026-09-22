@@ -17,7 +17,7 @@ import { SYNC_RETRY } from '@/lib/background-sync/retry';
 import { beginSyncActivity, endSyncActivity } from '@/lib/background-sync/sync-status';
 import { getCategoryByUuid, listActiveCategories, upsertCategoryFromSync } from '@/lib/db/categories-repo';
 import { getLocalDb } from '@/lib/db/client';
-import { subTaskCompletions, taskCompletions } from '@/lib/db/schema';
+import { categories, subTaskCompletions, subTasks, taskCompletions, tasks } from '@/lib/db/schema';
 import {
   deleteSubTaskCompletionLocal,
   deleteTaskCompletionLocal,
@@ -53,6 +53,15 @@ function invalidateCategoryDependents(queryClient: QueryClient) {
   invalidateTaskLists(queryClient);
 }
 
+function markRowSynced(resource: string, uuid: string): void {
+  const db = getLocalDb();
+  if (!db) return;
+  const syncedAt = new Date().toISOString();
+  if (resource === 'tasks') db.update(tasks).set({ syncedAt }).where(eq(tasks.uuid, uuid)).run();
+  else if (resource === 'categories') db.update(categories).set({ syncedAt }).where(eq(categories.uuid, uuid)).run();
+  else if (resource === 'sub_tasks') db.update(subTasks).set({ syncedAt }).where(eq(subTasks.uuid, uuid)).run();
+}
+
 /** Applies every push result's authoritative server_row back into the local
  * store (see each *-repo.ts's upsertXFromSync) - whether the push was
  * "accepted" (server_row is just an echo of what was already sent) or
@@ -68,7 +77,13 @@ function reconcilePushResults(results: SyncChangeResult[]): void {
       console.warn(`[sync push] rejected ${result.resource}/${result.uuid}: ${result.error}`);
       continue;
     }
-    if (!result.server_row) continue; // e.g. an accepted delete - nothing to reconcile
+    if (!result.server_row) {
+      // An accepted delete carries no row to reconcile - but the local
+      // tombstone still has to be marked synced, or it would look like a
+      // pending change forever (and be re-pushed on every sync).
+      if (result.status === 'accepted') markRowSynced(result.resource, result.uuid);
+      continue;
+    }
     switch (result.resource) {
       case 'tasks':
         upsertTaskFromSync(result.server_row as SyncTask);
@@ -89,15 +104,6 @@ function reconcilePushResults(results: SyncChangeResult[]): void {
   }
 }
 
-/** The single choke point every mutation's push (create/update/delete/
- * complete/increment/reorder, tasks and categories alike) runs through -
- * wrapping the actual network call here means beginSyncActivity/
- * endSyncActivity (sync-status.ts) fires for every one of them without
- * threading it through each individual mutationFn. Mutations are paused
- * (not even invoked) while offline by react-query's default networkMode
- * ('online' - see lib/network.ts's resumePausedMutations on reconnect), so
- * this - and the "Syncing…" it reports - only ever runs while actually
- * online, same as the periodic /sync pull (lib/background-sync/sync.ts). */
 /** There is at most one completion per (task, user, date) on the server. If
  * the website (or another device) already completed a task for a day before
  * this device ever pulled it, the server merges this device's push into that
@@ -115,7 +121,7 @@ function dropMergedLocalCompletions(changes: SyncChange[], results: SyncChangeRe
   });
 }
 
-async function pushChanges(changes: SyncChange[]): Promise<SyncChangeResult[]> {
+async function pushChangesNow(changes: SyncChange[]): Promise<SyncChangeResult[]> {
   if (changes.length === 0) return [];
   beginSyncActivity();
   try {
@@ -137,6 +143,28 @@ async function pushChanges(changes: SyncChange[]): Promise<SyncChangeResult[]> {
     endSyncActivity(false);
     throw error;
   }
+}
+
+// Every push runs strictly one at a time. On reconnect a queued mutation and
+// the sync's pending-changes sweep (lib/background-sync/push-pending.ts) can
+// both want to push the very same brand-new row; run concurrently they raced
+// on the server's INSERT and the loser failed. Serialized, the second one
+// simply finds the row already there and updates it.
+let pushQueue: Promise<unknown> = Promise.resolve();
+
+/** The single choke point every push runs through - every mutation's
+ * (create/update/delete/complete/increment/reorder, tasks and categories
+ * alike) and the sync's pending-changes sweep - so beginSyncActivity/
+ * endSyncActivity (sync-status.ts) fires for all of them without threading
+ * it through each individual mutationFn. Mutations are paused (not even
+ * invoked) while offline by react-query's default networkMode ('online' -
+ * see lib/network.ts's resumePausedMutations on reconnect), so this - and
+ * the "Syncing…" it reports - only ever runs while actually online, same as
+ * the periodic /sync pull (lib/background-sync/sync.ts). */
+export function pushChanges(changes: SyncChange[]): Promise<SyncChangeResult[]> {
+  const run = pushQueue.then(() => pushChangesNow(changes));
+  pushQueue = run.catch(() => undefined);
+  return run;
 }
 
 /** Every mutationFn below reads the row it needs to push from local SQLite -

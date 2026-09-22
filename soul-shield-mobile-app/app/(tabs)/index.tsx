@@ -1,6 +1,7 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { Task } from '@/api/types';
 import { DailyVerseCard } from '@/components/dashboard/daily-verse-card';
@@ -21,6 +22,7 @@ import { useTasksQuery } from '@/hooks/queries/use-tasks';
 import { useNetworkStatus } from '@/hooks/use-network-status';
 import { useTaskRemindersSync } from '@/hooks/use-task-reminders-sync';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { runFullBackgroundSync } from '@/lib/background-sync/sync';
 import { addDays, todayISODate } from '@/lib/date';
 import { getErrorMessage } from '@/lib/errors';
 
@@ -44,6 +46,28 @@ export default function HomeScreen() {
   const [reward, setReward] = useState<{ text: string; taskTitle: string } | null>(null);
 
   const tasksQuery = useTasksQuery(date);
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Pull-to-refresh: the same full sync as the Profile screen's manual
+  // trigger (push anything still unsynced, then pull the server's changes -
+  // see lib/background-sync/sync.ts), then re-read the list. A failure is
+  // already recorded by the sync itself and shown in the header's
+  // "Sync failed" label, so it isn't surfaced a second time here. Offline,
+  // the sync is skipped, so the local re-read still gives the pull a result.
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await runFullBackgroundSync(queryClient);
+    } catch {
+      // Recorded by runFullBackgroundSync; see comment above.
+    }
+    try {
+      await tasksQuery.refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [queryClient, tasksQuery]);
   const { isOnline } = useNetworkStatus();
   const { data: categories = [] } = useCategoriesQuery();
   const completeTask = useCompleteTask();
@@ -153,7 +177,12 @@ export default function HomeScreen() {
 
   return (
     <>
-    <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
+    <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={tintColor} colors={[tintColor]} />
+      }>
       <DateNavHeader
         date={date}
         onPrev={() => setDate((d) => addDays(d, -1))}

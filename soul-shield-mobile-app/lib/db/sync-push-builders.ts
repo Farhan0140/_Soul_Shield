@@ -31,7 +31,7 @@ export function taskUpsertChange(row: TaskRow): SyncChange {
       task_type: row.taskType,
       target_count: row.targetCount,
       duration_seconds: row.durationSeconds,
-      reminder_time: row.reminderTime,
+      reminder_time: row.reminderTime || null,
       source_task_uuid: row.sourceTaskUuid,
       position: row.position,
     },

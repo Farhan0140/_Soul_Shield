@@ -70,6 +70,15 @@ export function deriveCategories(): Category[] {
   }));
 }
 
+/** Every category with a local edit the server hasn't confirmed yet
+ * (syncedAt null), soft-deleted ones included - see
+ * lib/background-sync/push-pending.ts. */
+export function listUnsyncedCategories() {
+  const db = getLocalDb();
+  if (!db) return [];
+  return db.select().from(categories).where(isNull(categories.syncedAt)).all();
+}
+
 export function getCategoryByUuid(uuid: string) {
   const db = getLocalDb();
   if (!db) return undefined;

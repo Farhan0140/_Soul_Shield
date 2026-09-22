@@ -99,6 +99,32 @@ export function listTaskCompletionsInRange(fromDate: string, toDate: string) {
     .all();
 }
 
+/** Unsynced completions that carry no counter progress (a plain
+ * complete/un-complete toggle) - see lib/background-sync/push-pending.ts.
+ * Counter rows (progressCount > 0) are deliberately excluded: they sync as an
+ * additive "increment" delta (see hooks/use-task-increment-buffer.ts), and
+ * re-pushing one as a status-only upsert would let the server's row - which
+ * has no idea about that progress - overwrite it on the next pull. */
+export function listUnsyncedTaskCompletions() {
+  const db = getLocalDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(taskCompletions)
+    .where(and(isNull(taskCompletions.syncedAt), eq(taskCompletions.progressCount, 0)))
+    .all();
+}
+
+export function listUnsyncedSubTaskCompletions() {
+  const db = getLocalDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(subTaskCompletions)
+    .where(and(isNull(subTaskCompletions.syncedAt), eq(subTaskCompletions.progressCount, 0)))
+    .all();
+}
+
 /** Removes a local completion row by uuid - used only to drop the duplicate a
  * push leaves behind when the server merged it into an existing row for the
  * same (task, date) under a different uuid (see lib/mutation-defaults.ts's

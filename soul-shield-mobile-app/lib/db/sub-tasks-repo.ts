@@ -7,6 +7,15 @@ import { checkForConflict } from '@/lib/db/conflicts-repo';
 import { subTasks } from '@/lib/db/schema';
 import { newUuid } from '@/lib/db/uuid';
 
+/** Every sub-task with a local edit the server hasn't confirmed yet
+ * (syncedAt null), soft-deleted ones included - see
+ * lib/background-sync/push-pending.ts. */
+export function listUnsyncedSubTasks() {
+  const db = getLocalDb();
+  if (!db) return [];
+  return db.select().from(subTasks).where(isNull(subTasks.syncedAt)).all();
+}
+
 export function getSubTaskByUuid(uuid: string) {
   const db = getLocalDb();
   if (!db) return undefined;
