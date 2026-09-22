@@ -122,7 +122,20 @@ export function deriveTasksForRange(fromDate: string, toDate: string): Task[] {
   const db = getLocalDb();
   if (!db) return [];
 
-  const activeTasks = db.select().from(tasks).where(isNull(tasks.deletedAt)).all().filter((t) => t.isActive);
+  // Sorted by position, same as listActiveCategories/listAllOwnedTasksFlat -
+  // without it this read the day's tasks back in SQLite's own row order
+  // (insertion order), ignoring whatever order Reorder actually saved.
+  // Positions are only unique within one (owner, category) group, but a
+  // single sort by the raw number is still correct: whatever else it
+  // interleaves with, it preserves each group's own relative order, which is
+  // all that matters once the dashboard regroups by category_id downstream.
+  const activeTasks = db
+    .select()
+    .from(tasks)
+    .where(isNull(tasks.deletedAt))
+    .all()
+    .filter((t) => t.isActive)
+    .sort((a, b) => a.position - b.position);
   if (activeTasks.length === 0) return [];
 
   const categoryById = new Map(listActiveCategories().map((c) => [c.uuid, c]));
