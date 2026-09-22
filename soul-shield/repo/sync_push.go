@@ -276,12 +276,13 @@ func (r *syncRepo) pushTask(userID int64, change SyncChange) (*SyncChangeResult,
 				UPDATE tasks SET
 					title = $1, description = $2, recurrence_type = $3, recurrence_days = $4,
 					is_active = $5, category_id = $6, reward_text = $7, task_type = $8,
-					target_count = $9, duration_seconds = $10, reminder_time = $11, source_task_id = $12
-				WHERE id = $13
+					target_count = $9, duration_seconds = $10, reminder_time = $11, source_task_id = $12,
+					position = COALESCE($13, position)
+				WHERE id = $14
 			`, input.Title, input.Description, input.RecurrenceType, pq.Int64Array(input.RecurrenceDays),
 				isActive, nullInt64(categoryID, hasCategory), input.RewardText, input.TaskType,
 				input.TargetCount, input.DurationSeconds, input.ReminderTime, nullInt64(sourceTaskID, hasSource),
-				existing.ID)
+				input.Position, existing.ID)
 			if err != nil {
 				return nil, err
 			}
@@ -437,8 +438,8 @@ func (r *syncRepo) pushCategory(userID int64, change SyncChange) (*SyncChangeRes
 				return &SyncChangeResult{Resource: change.Resource, UUID: change.UUID, Status: "superseded", ServerRow: row}, nil
 			}
 			if _, err := r.db.Exec(`
-				UPDATE categories SET name = $1, color_hex = $2 WHERE id = $3
-			`, input.Name, input.ColorHex, existing.ID); err != nil {
+				UPDATE categories SET name = $1, color_hex = $2, position = COALESCE($3, position) WHERE id = $4
+			`, input.Name, input.ColorHex, input.Position, existing.ID); err != nil {
 				if isUniqueViolation(err) {
 					return rejected(change, util.ErrCategoryExists), nil
 				}
@@ -566,9 +567,10 @@ func (r *syncRepo) pushSubTask(userID int64, change SyncChange) (*SyncChangeResu
 				return &SyncChangeResult{Resource: change.Resource, UUID: change.UUID, Status: "superseded", ServerRow: row}, nil
 			}
 			if _, err := r.db.Exec(`
-				UPDATE sub_tasks SET title = $1, task_type = $2, target_count = $3, duration_seconds = $4
-				WHERE id = $5
-			`, input.Title, input.TaskType, input.TargetCount, input.DurationSeconds, existing.ID); err != nil {
+				UPDATE sub_tasks SET title = $1, task_type = $2, target_count = $3, duration_seconds = $4,
+					position = COALESCE($5, position)
+				WHERE id = $6
+			`, input.Title, input.TaskType, input.TargetCount, input.DurationSeconds, input.Position, existing.ID); err != nil {
 				return nil, err
 			}
 		} else {
