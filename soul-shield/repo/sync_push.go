@@ -655,6 +655,23 @@ func (r *syncRepo) pushTaskCompletion(userID int64, change SyncChange) (*SyncCha
 		if err != nil {
 			return nil, err
 		}
+		// Mirrors taskRepo.Increment (repo/task.go) - an increment alone never
+		// flipped status past 'pending' here, so reaching (or later exceeding)
+		// target_count exactly never marked the task completed; a device that
+		// happened to read a pulled server row after this saw its own correct
+		// local 'completed' overwritten straight back to 'pending' (see
+		// reconcilePushResults in the mobile app). One-way (pending -> completed
+		// only) since amount is always positive (checked above) - progress only
+		// grows within a day.
+		if _, err := r.db.Exec(`
+			UPDATE task_completions tc SET status = 'completed', completed_at = COALESCE(tc.completed_at, now())
+			FROM tasks t
+			WHERE tc.uuid = $1 AND t.id = tc.task_id
+				AND t.target_count IS NOT NULL AND tc.progress_count >= t.target_count
+				AND tc.status <> 'completed'
+		`, uuid); err != nil {
+			return nil, err
+		}
 		row, err := r.taskCompletionByUUID(uuid)
 		if err != nil {
 			return nil, err
@@ -767,6 +784,20 @@ func (r *syncRepo) pushSubTaskCompletion(userID int64, change SyncChange) (*Sync
 			RETURNING uuid
 		`, change.UUID, subTaskID, parentTaskID, userID, input.TaskDate, input.Amount).Scan(&uuid)
 		if err != nil {
+			return nil, err
+		}
+		// See pushTaskCompletion's identical fix above - an increment alone
+		// never flipped status past 'pending', so a counter sub-task never
+		// actually reached 'completed' (which in turn kept its parent from
+		// ever reaching 'completed' too, since that's derived from every
+		// sub-task's status).
+		if _, err := r.db.Exec(`
+			UPDATE sub_task_completions stc SET status = 'completed', completed_at = COALESCE(stc.completed_at, now())
+			FROM sub_tasks st
+			WHERE stc.uuid = $1 AND st.id = stc.sub_task_id
+				AND st.target_count IS NOT NULL AND stc.progress_count >= st.target_count
+				AND stc.status <> 'completed'
+		`, uuid); err != nil {
 			return nil, err
 		}
 		row, err := r.subTaskCompletionByUUID(uuid)
