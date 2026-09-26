@@ -5,18 +5,15 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { hexToRgba } from '@/lib/color';
 
-/** Shared with text-field.tsx's `shadowed` variant so every "floating,
- * dashed-border, shadowed" control in the app moves by the same amount. */
 export const TAP_SHADOW_OFFSET = 4;
 const TAP_SHADOW_BLUR = 10;
 const TAP_SHADOW_ALPHA = 0.3;
 
-/** The soft, translucent offset shadow shared by TapShadowButton and
- * text-field.tsx's `shadowed` variant — blurred and low-opacity rather than
- * a solid unblurred block, which read as a heavy-handed flat color patch
- * rather than a shadow. `hexColor` must be a theme token (plain `#RRGGBB`,
- * see lib/color.ts), never a hardcoded literal, so this follows light/dark
- * theme changes automatically. */
+/** The soft, translucent offset shadow TapShadowButton uses — blurred and
+ * low-opacity rather than a solid unblurred block, which read as a
+ * heavy-handed flat color patch rather than a shadow. `hexColor` must be a
+ * theme token (plain `#RRGGBB`, see lib/color.ts), never a hardcoded
+ * literal, so this follows light/dark theme changes automatically. */
 export function tapShadowValue(hexColor: string): string {
   return `${TAP_SHADOW_OFFSET}px ${TAP_SHADOW_OFFSET}px ${TAP_SHADOW_BLUR}px ${hexToRgba(hexColor, TAP_SHADOW_ALPHA)}`;
 }

@@ -266,7 +266,6 @@ export function TaskForm({
         value={title}
         onChangeText={setTitle}
         placeholder="e.g. Morning Dhikr"
-        shadowed
       />
       <TextField
         label="Description"
@@ -275,7 +274,6 @@ export function TaskForm({
         placeholder="Optional details"
         multiline
         style={styles.multiline}
-        shadowed
       />
 
       <View style={styles.field}>
@@ -333,7 +331,6 @@ export function TaskForm({
             onChangeText={setTargetCount}
             keyboardType="number-pad"
             placeholder="e.g. 100"
-            shadowed
           />
         ) : null}
         {taskType === 'timer' ? (
@@ -376,7 +373,6 @@ export function TaskForm({
                           value={draft.title}
                           onChangeText={(text) => updateSubTaskDraft(draft.key, { title: text })}
                           placeholder="e.g. Read 1 page"
-                          shadowed
                         />
                       </View>
                       {/* TODO these buttons move this sub-task draft up/down within the list */}
@@ -439,7 +435,6 @@ export function TaskForm({
                           onChangeText={(text) => updateSubTaskDraft(draft.key, { target_count: text })}
                           keyboardType="number-pad"
                           placeholder="e.g. 10"
-                          shadowed
                         />
                       ) : null}
                       {draft.task_type === 'timer' ? (
@@ -502,7 +497,6 @@ export function TaskForm({
         value={rewardText}
         onChangeText={setRewardText}
         placeholder="Optional completion message"
-        shadowed
       />
 
       {isAdmin ? (
