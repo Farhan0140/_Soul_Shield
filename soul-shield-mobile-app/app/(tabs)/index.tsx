@@ -85,6 +85,7 @@ export default function HomeScreen() {
   // otherwise inflate the total with things they never chose to track.
   const ownTasks = useMemo(() => tasks.filter((t) => !t.is_global), [tasks]);
   const completedCount = ownTasks.filter((t) => t.status === 'completed').length;
+  const partiallyCompletedCount = ownTasks.filter((t) => t.status === 'partially_completed').length;
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
@@ -192,7 +193,13 @@ export default function HomeScreen() {
 
       <DailyVerseCard />
 
-      {ownTasks.length > 0 ? <ProgressSummaryBar completed={completedCount} total={ownTasks.length} /> : null}
+      {ownTasks.length > 0 ? (
+        <ProgressSummaryBar
+          completed={completedCount}
+          partiallyCompleted={partiallyCompletedCount}
+          total={ownTasks.length}
+        />
+      ) : null}
 
       <FiltersMenu
         status={status}
