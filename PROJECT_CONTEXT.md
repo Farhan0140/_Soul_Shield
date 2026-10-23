@@ -81,7 +81,7 @@ F:\Soul_Shield\
 | `src/context/` | `ApiContext.jsx` (all endpoint wrappers), `AuthContext.jsx` (session), `ThemeContext.jsx` + `themes.js` (10 themes via `data-theme`) |
 | `src/hooks/` | `useTasks` (day list + date nav), `useCounter` (debounced counter batching), `useTimerTask` (web timer, localStorage), `useHistory`, `useAdminTasks`, `usePersonalStats` |
 | `src/pages/` | Dashboard, History, Categories, CategoryDetail, Profile, AdminTasks, TaskTimer, Login/Register/ForgotPassword/AuthLayout, NotFound |
-| `src/components/` | TaskCard, TaskFormModal (create/edit + sub-tasks), SubTaskList, CounterWidget, RewardModal, CategoryRow/Card/FormModal, ProgressSummary, Heatmap, ChangePasswordModal, ConfirmModal, Toast, Sidebar/MobileBottomNav/AppLayout, ui/Button+Input |
+| `src/components/` | TaskCard, TaskFormModal (create/edit + sub-tasks incl. descriptions), SubTaskList (paginated + collapsible completed section), ExpandableText, CounterWidget, RewardModal, CategoryRow/Card/FormModal, ProgressSummary, Heatmap, ChangePasswordModal, ConfirmModal, Toast, Sidebar/MobileBottomNav/AppLayout, ui/Button+Input |
 | `dist/` | Built output (committed in tree; not source) |
 
 ### Mobile — `soul-shield-mobile-app/`
@@ -208,14 +208,14 @@ JWT-protected:
   7 days on create/update. Empty days → `ErrInvalidRecurrence`. A date matches when its
   `EXTRACT(DOW)` is in the array. Sub-tasks inherit the parent's schedule (no own recurrence).
 - **Sub-tasks** (added 2026-10-23: descriptions): `ReplaceForParent` — matched `id`s update
-  (title, type, target/duration, position), new entries insert, missing entries soft-delete.
-  Each sub-task carries an **optional description** (`sub_tasks.description`, migration 000002).
-  REST `PATCH /tasks` sub-task UPDATES deliberately never assign the description column (the
-  web client sends no such field, so a value written from another client survives a title-only
-  web edit); the INSERT branch stores a supplied one. The `/sync` push path (`pushSubTask`)
-  assigns description directly — full-row semantics, pushes always carry the field (null =
-  cleared). Local reorder flows preserve descriptions by omitting the field
-  (`undefined` = keep, per `SubTaskInput`'s documented semantics).
+  (description, title, type, target/duration, position), new entries insert, missing entries
+  soft-delete. Each sub-task carries an **optional description** (`sub_tasks.description`,
+  migration 000002). ALL write paths now use full-row semantics — REST `PATCH /tasks` (web form
+  always includes `description` on every sub-task; null/absent clears it) and the `/sync` push
+  path (`pushSubTask`) assign the column directly. Local reorder flows on mobile preserve
+  descriptions by omitting the field (`undefined` = keep, per `SubTaskInput`'s documented
+  semantics). Trade-off note: only a pre-description web bundle would wipe a description on
+  edit, and that window closes on client reload.
 - **Task types** (DB CHECK `chk_task_type_fields`): `normal` (no target/duration), `counter`
   (target>0, no duration), `timer` (duration>0, no target). Server enforces via CHECK + repo
   validation + handler validation (three layers).
@@ -329,6 +329,23 @@ local state with `updateTask/removeTask/addTask` patch helpers.
   shows parent reward via `parent_status`/`parent_reward_text` response fields; RewardModal.
 - **Profile**: ChangePasswordModal (⚠ broken, §12), theme picker, stats (`usePersonalStats`:
   365-day history → completion rate, streak, favorite category, best weekday).
+- **Parity with mobile's sub-task features** (added 2026-10-23):
+  - `SubTaskList.jsx` mirrors the mobile presentation: incomplete sub-tasks only, paginated
+    **2 per page** with inline Previous/Page-N-of-M/Next controls (page clamped when the list
+    shrinks), and a collapsible **"Completed Sub-Tasks (N)"** section (collapsed by default;
+    completed normal sub-task rows remain tappable to un-complete via the same
+    `completeSubTask` toggle). Parent status still comes from the server's `parent_status`.
+  - Sub-task descriptions end-to-end: `TaskFormModal` has an optional multi-line Description
+    field per sub-task draft (always sent; emptied → null = clear — REST replaces the whole
+    list with full-row semantics, matching mobile), prefilled on edit.
+  - `components/ExpandableText.jsx` = the web twin of the mobile primitive: line-clamps to
+    `maxLines` (measured via scrollHeight vs clientHeight, re-measured on resize), click
+    toggles, and only claims the click when actually truncated/expanded — otherwise clicks
+    pass through (card details toggle, timer-row routing).
+  - Expand/collapse applied to: TaskCard title + card description, sub-task rows (title +
+    description), and the TaskTimer page header — which now follows the details hierarchy:
+    parent task title on top, current task title in the SAME text-lg bold style, description
+    below the current title (sub-task timers show `subTask.description`).
 - **History**: DateRangePicker + per-day groups + Heatmap + stats (`useHistory`).
 - **AdminTasks**: admin-only page (client-side guard `ProtectedRoute adminOnly`; server enforces
   again on each mutation). Lists today's `is_global` tasks; usage stats approximated from the
@@ -509,11 +526,13 @@ separate.
   and rely on these CHECKs + class-23 rejection mapping.
 - Sync push ordering assumptions: parents before children; mobile pushes before pulling;
   `task_completions` UNIQUE(task,user,date) merge assumption (`dropMergedLocalCompletions`).
-- **Sub-task description write semantics** (added 2026-10-23): REST update = never assign
-  (preserve), sync update = assign directly (full row), local reorder = `undefined` keeps.
-  Changing any one of these without the others will either wipe web-visible descriptions or
-  strand cleared ones — see §5.4's sub-task bullet before touching `ReplaceForParent`,
-  `pushSubTask`, `replaceSubTasksForParentLocal`, or the task form.
+- **Sub-task description write semantics** (added 2026-10-23, updated same day when web gained
+  the feature): all server write paths (REST ReplaceForParent update branch AND sync
+  `pushSubTask`) assign `description` directly — full-row semantics, null clears. Local reorder
+  flows on mobile omit the field (`undefined` keeps the stored value). Changing these without
+  each other will either wipe descriptions on reorder-style edits or strand cleared ones — see
+  §5.4's sub-task bullet before touching `ReplaceForParent`, `pushSubTask`,
+  `replaceSubTasksForParentLocal`, either task form, or the push builder.
 
 **High-traffic files most future features will touch**: `rest/handlers/task/*` + `repo/task.go`
 (backend), `lib/db/tasks-repo.ts` + `hooks/queries/use-task-mutations.ts` + `lib/

@@ -121,12 +121,11 @@ func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 				sub.ID = *st.ID
 			}
 			if st.Description != nil {
-				// Noting the repo contract: ReplaceForParent's UPDATE branch
-				// never assigns description, so this only reaches the INSERT
-				// branch (new sub-tasks) - an existing sub-task's description
-				// is never wiped by a client that didn't send one.
 				sub.Description = sql.NullString{String: *st.Description, Valid: true}
 			}
+			// description follows full-row replace semantics (ReplaceForParent
+			// assigns the column directly): the web form always includes it,
+			// absent/null both clear. Matches the /sync push path.
 			if st.TargetCount != nil {
 				sub.TargetCount = sql.NullInt32{Int32: *st.TargetCount, Valid: true}
 			}

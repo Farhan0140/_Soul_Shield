@@ -5,6 +5,7 @@ import { Check, ChevronDown, Edit2, Trash2, Shield, Sparkles, Loader2, Timer, Ar
 import { useApi } from '../context/ApiContext';
 import { useToast } from './Toast';
 import { useAuth } from '../context/AuthContext';
+import ExpandableText from './ExpandableText';
 import { fmtDate } from '../hooks/useTasks';
 import CounterWidget from './CounterWidget';
 import SubTaskList from './SubTaskList';
@@ -151,9 +152,15 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
             className="cursor-pointer"
           >
             <div className="flex items-start justify-between gap-2">
-              <h3 className={`font-semibold text-fg leading-snug ${isCompleted ? 'line-through text-muted' : ''}`}>
-                {task.title}
-              </h3>
+              {/* ExpandableText claims the click only when the title is long
+                  enough to truncate — otherwise the click falls through and
+                  still toggles the inline details section below. */}
+              <ExpandableText
+                as="h3"
+                text={task.title}
+                maxLines={2}
+                className={`flex-1 min-w-0 font-semibold text-fg leading-snug ${isCompleted ? 'line-through text-muted' : ''}`}
+              />
               <div className="flex items-center gap-1 flex-shrink-0">
                 {task.is_global && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning/10 text-warning text-[10px] font-semibold uppercase tracking-wide">
@@ -175,7 +182,11 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
             </div>
 
             {task.description && (
-              <p className="text-sm text-muted mt-0.5 line-clamp-2">{task.description}</p>
+              <ExpandableText
+                text={task.description}
+                maxLines={2}
+                className="text-sm text-muted mt-0.5"
+              />
             )}
 
             {!opensTimerPage && detailsExpanded && <TaskDetailsInline task={task} />}

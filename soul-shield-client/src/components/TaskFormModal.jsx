@@ -9,7 +9,7 @@ import Button from './ui/Button';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const emptySubTask = () => ({ title: '', task_type: 'normal', target_count: 10, duration_hours: 0, duration_minutes: 5 });
+const emptySubTask = () => ({ title: '', description: '', task_type: 'normal', target_count: 10, duration_hours: 0, duration_minutes: 5 });
 
 function durationSeconds(hours, minutes) {
   return (Number(hours) || 0) * 3600 + (Number(minutes) || 0) * 60;
@@ -62,6 +62,7 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
             ? existingSubTasks.map((s) => ({
                 id: s.sub_task_id,
                 title: s.title,
+                description: s.description || '',
                 task_type: s.task_type,
                 target_count: s.target_count || 10,
                 duration_hours: s.duration_seconds ? Math.floor(s.duration_seconds / 3600) : 0,
@@ -155,6 +156,10 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
       payload.sub_tasks = subTasks.map((s) => ({
         ...(s.id ? { id: s.id } : {}),
         title: s.title.trim(),
+        // ALWAYS sent (null included): the backend assigns description in full
+        // on sub-task update, so an emptied field clears the stored one —
+        // same semantics as the mobile form. Optional, no validation.
+        description: s.description.trim() || null,
         task_type: s.task_type,
         target_count: s.task_type === 'counter' ? Number(s.target_count) : undefined,
         duration_seconds: s.task_type === 'timer' ? durationSeconds(s.duration_hours, s.duration_minutes) : undefined,
@@ -407,6 +412,14 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
                             <X className="w-4 h-4" />
                           </button>
                         </div>
+                        <textarea
+                          aria-label={`Sub-task ${i + 1} description`}
+                          rows={2}
+                          value={s.description}
+                          onChange={(e) => updateSubTask(i, { description: e.target.value })}
+                          placeholder="Optional details"
+                          className="w-full px-3 py-2 rounded-xl border border-border focus:border-primary outline-none text-xs resize-none transition-colors"
+                        />
                         <div className="grid grid-cols-3 gap-2">
                           <button
                             type="button"

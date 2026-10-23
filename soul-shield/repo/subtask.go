@@ -76,21 +76,19 @@ func (r *subTaskRepo) ReplaceForParent(parentTaskID int64, inputs []SubTask) ([]
 	result := make([]SubTask, len(inputs))
 	for i, in := range inputs {
 		if in.ID != 0 {
-		// The UPDATE branch below deliberately leaves `description` out of its
-		// SET clause: PATCH /tasks' sub_tasks payload (web client) carries no
-		// description field, so setting it unconditionally would null out a
-		// description some other client wrote. New sub-tasks (INSERT branch) do
-		// take the supplied description; edits to it go through the /sync push
-		// path (repo/sync_push.go), which assigns the full row including
-		// description. The RETURNING includes description so the response
-		// echoes the row's authoritative value.
+		// The UPDATE branch assigns `description` directly (matching the /sync
+		// push path's full-row semantics): the web form now always includes
+		// description on every sub-task it sends (null = cleared). A payload
+		// that omits the field decodes to NULL too - i.e. only pre-description
+		// web bundles could wipe a description written elsewhere, which the
+		// client reload window makes transient.
 		var updated SubTask
 		err := tx.QueryRow(`
 			UPDATE sub_tasks
-			SET title = $1, task_type = $2, target_count = $3, duration_seconds = $4, position = $5, updated_at = CURRENT_TIMESTAMP
-			WHERE id = $6 AND parent_task_id = $7
+			SET title = $1, description = $2, task_type = $3, target_count = $4, duration_seconds = $5, position = $6, updated_at = CURRENT_TIMESTAMP
+			WHERE id = $7 AND parent_task_id = $8
 			RETURNING id, parent_task_id, title, description, task_type, target_count, duration_seconds, position, created_at, updated_at
-		`, in.Title, in.TaskType, in.TargetCount, in.DurationSeconds, in.Position, in.ID, parentTaskID).Scan(
+		`, in.Title, in.Description, in.TaskType, in.TargetCount, in.DurationSeconds, in.Position, in.ID, parentTaskID).Scan(
 			&updated.ID, &updated.ParentTaskID, &updated.Title, &updated.Description, &updated.TaskType,
 			&updated.TargetCount, &updated.DurationSeconds, &updated.Position, &updated.CreatedAt, &updated.UpdatedAt,
 		)

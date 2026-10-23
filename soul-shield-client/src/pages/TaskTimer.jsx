@@ -5,6 +5,7 @@ import { ArrowLeft, Check, Pause, Play } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { fmtDate } from '../hooks/useTasks';
 import { useTimerTask } from '../hooks/useTimerTask';
+import ExpandableText from '../components/ExpandableText';
 import TimerRing from '../components/TimerRing';
 import RewardModal from '../components/RewardModal';
 import SkeletonCard from '../components/SkeletonCard';
@@ -70,7 +71,8 @@ export default function TaskTimer() {
   );
 
   const title = isSubTask ? subTask?.title : task?.title;
-  const description = isSubTask ? null : task?.description;
+  const description = (isSubTask ? subTask?.description : task?.description) || null;
+  const parentTitle = isSubTask ? task?.title : null;
   const durationSeconds = (isSubTask ? subTask?.duration_seconds : task?.duration_seconds) || 0;
   const status = isSubTask ? subTask?.status : task?.status;
   const isCompleted = status === 'completed';
@@ -122,6 +124,7 @@ export default function TaskTimer() {
           durationSeconds={durationSeconds}
           title={title}
           description={description}
+          parentTitle={parentTitle}
           isCompleted={isCompleted}
           isMissed={isMissed}
           onRewardEarned={(text) => setReward({ text, taskTitle: title })}
@@ -141,6 +144,7 @@ function TaskTimerContent({
   durationSeconds,
   title,
   description,
+  parentTitle,
   isCompleted,
   isMissed,
   onRewardEarned,
@@ -161,9 +165,34 @@ function TaskTimerContent({
 
   return (
     <div className="flex flex-col items-center gap-6 py-4">
-      <div className="text-center">
-        <h2 className="text-lg font-bold text-fg">{title}</h2>
-        {description && <p className="text-sm text-muted mt-1">{description}</p>}
+      {/* Details-page hierarchy (mirrors the mobile dedicated pages): parent
+          task's title on top, current task's title in the SAME size/weight,
+          description in a smaller font directly below the current title.
+          Long entries collapse to a few lines and expand on tap (sub-task
+          descriptions come from the sub-task itself since the description
+          feature). */}
+      <div className="text-center px-4">
+        {parentTitle && (
+          <ExpandableText
+            as="h2"
+            text={parentTitle}
+            maxLines={2}
+            className="text-lg font-bold text-fg leading-snug"
+          />
+        )}
+        <ExpandableText
+          as="h2"
+          text={title}
+          maxLines={2}
+          className="text-lg font-bold text-fg leading-snug"
+        />
+        {description && (
+          <ExpandableText
+            text={description}
+            maxLines={3}
+            className="text-sm text-muted mt-1"
+          />
+        )}
       </div>
 
       <TimerRing progress={timer.progress} size={240} strokeWidth={16}>
