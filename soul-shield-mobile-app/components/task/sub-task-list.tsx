@@ -6,6 +6,7 @@ import type { SubTask } from '@/api/types';
 import { ThemedText } from '@/components/themed-text';
 import { CounterProgressBar } from '@/components/task/counter-progress-bar';
 import { QuickAddButtons } from '@/components/task/quick-add-buttons';
+import { ExpandableText } from '@/components/ui/expandable-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { PaginationBar } from '@/components/ui/pagination-bar';
 import { useCompleteSubTask, useIncrementSubTask } from '@/hooks/queries/use-task-mutations';
@@ -66,9 +67,12 @@ function SubTaskRow({ subTask, disabled, onComplete, onIncrement, onOpenCounter,
             />
           </Pressable>
         ) : null}
-        <ThemedText style={[styles.title, isCompleted && styles.strikethrough]} numberOfLines={2}>
-          {subTask.title}
-        </ThemedText>
+        <ExpandableText
+          text={subTask.title}
+          maxLines={2}
+          containerStyle={{ flex: 1 }}
+          style={[styles.title, isCompleted && styles.strikethrough]}
+        />
         {isCounter ? (
           // TODO this button is for opening the dedicated counter page for this sub-task
           <Pressable onPress={() => onOpenCounter(subTask)} hitSlop={8}>
@@ -82,6 +86,16 @@ function SubTaskRow({ subTask, disabled, onComplete, onIncrement, onOpenCounter,
           </Pressable>
         ) : null}
       </View>
+
+      {subTask.description ? (
+        // Optional details directly below the title — collapsed to two lines
+        // when long, tap to expand/collapse (see ExpandableText).
+        <ExpandableText
+          text={subTask.description}
+          maxLines={2}
+          style={[styles.subDescription, isCompleted && styles.strikethrough, { color: mutedColor }]}
+        />
+      ) : null}
 
       {isCounter ? (
         <View style={styles.counterControls}>
@@ -238,6 +252,7 @@ const styles = StyleSheet.create({
   rowHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   checkbox: { padding: 2 },
   title: { flex: 1, fontSize: 14 },
+  subDescription: { fontSize: 13, lineHeight: 18 },
   strikethrough: { textDecorationLine: 'line-through' },
   counterControls: { gap: 8, paddingLeft: 28 },
   completedSection: { gap: 10 },

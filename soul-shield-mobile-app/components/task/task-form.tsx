@@ -38,6 +38,9 @@ interface SubTaskDraft {
   key: string;
   id?: string;
   title: string;
+  /** Optional details — empty string means "no description"; on submit it is
+   * normalized to null so an edited-away description actually clears. */
+  description: string;
   task_type: TaskType;
   target_count: string;
   duration_selection: TimerSelection;
@@ -49,6 +52,7 @@ function emptySubTaskDraft(): SubTaskDraft {
   return {
     key: `draft-${nextDraftKey}`,
     title: '',
+    description: '',
     task_type: 'normal',
     target_count: '',
     duration_selection: DEFAULT_TIMER_SELECTION,
@@ -132,6 +136,7 @@ export function TaskForm({
           key: `existing-${s.sub_task_id}`,
           id: s.sub_task_id,
           title: s.title,
+          description: s.description ?? '',
           task_type: s.task_type,
           target_count: s.target_count != null ? String(s.target_count) : '',
           duration_selection:
@@ -214,6 +219,10 @@ export function TaskForm({
       ? subTaskDrafts.map((d) => ({
           ...(d.id != null ? { id: d.id } : {}),
           title: d.title.trim(),
+          // Always sent so both directions work: a filled draft sets the
+          // description, an emptied draft sends null which clears the stored
+          // one (undefined would mean "keep existing" and couldn't delete).
+          description: d.description.trim() || null,
           task_type: d.task_type,
           target_count: d.task_type === 'counter' ? Number(d.target_count) : undefined,
           duration_seconds: d.task_type === 'timer' ? selectionToSeconds(d.duration_selection) : undefined,
@@ -399,6 +408,15 @@ export function TaskForm({
                       </Pressable>
                     </View>
 
+                    <TextField
+                      label="Description"
+                      value={draft.description}
+                      onChangeText={(text) => updateSubTaskDraft(draft.key, { description: text })}
+                      placeholder="Optional details"
+                      multiline
+                      style={styles.subTaskMultiline}
+                    />
+
                       <View style={styles.typeRow}>
                         {/* TODO this button is for setting this sub-task's type to normal */}
                         <View style={{ flex: 1, borderWidth: 1, borderColor: '#c7c7c7', borderRadius: 16 }}>
@@ -528,6 +546,7 @@ const styles = StyleSheet.create({
   field: { gap: 10 },
   durationField: { gap: 8 },
   multiline: { minHeight: 80, textAlignVertical: 'top' },
+  subTaskMultiline: { minHeight: 56, textAlignVertical: 'top' },
   typeRow: { flexDirection: 'row', gap: 12 },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   switchLabel: { flex: 1, gap: 4 },

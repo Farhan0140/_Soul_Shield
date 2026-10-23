@@ -86,7 +86,7 @@ export default function TimerTaskScreen() {
   const isReadOnly = !isToday(date);
   const disabled = isReadOnly || isMissed || isCompleted;
 
-  const description = isSubTask ? null : task?.description;
+  const description = (isSubTask ? subTask?.description : task?.description) ?? null;
   const parentTitle = isSubTask ? task?.title : null;
 
   return (

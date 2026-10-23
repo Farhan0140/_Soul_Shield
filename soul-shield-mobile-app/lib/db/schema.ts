@@ -61,6 +61,9 @@ export const subTasks = sqliteTable('sub_tasks', {
     .notNull()
     .references(() => tasks.uuid),
   title: text('title').notNull(),
+  /** Optional free-form details (mirrors sub_tasks.description, backend
+   * migration 000002) - null means "no description". */
+  description: text('description'),
   taskType: text('task_type').notNull(),
   targetCount: integer('target_count'),
   durationSeconds: integer('duration_seconds'),

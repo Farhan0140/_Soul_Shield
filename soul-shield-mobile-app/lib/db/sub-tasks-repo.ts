@@ -37,6 +37,7 @@ export function upsertSubTaskFromSync(row: SyncSubTask): void {
       uuid: row.uuid,
       parentTaskUuid: row.parent_task_uuid,
       title: row.title,
+      description: row.description ?? null,
       taskType: row.task_type,
       targetCount: row.target_count ?? null,
       durationSeconds: row.duration_seconds ?? null,
@@ -51,6 +52,7 @@ export function upsertSubTaskFromSync(row: SyncSubTask): void {
       set: {
         parentTaskUuid: row.parent_task_uuid,
         title: row.title,
+        description: row.description ?? null,
         taskType: row.task_type,
         targetCount: row.target_count ?? null,
         durationSeconds: row.duration_seconds ?? null,
@@ -99,7 +101,12 @@ export interface ReplaceSubTasksResult {
  * ordered uuid list and whatever got deleted, so the caller
  * (hooks/queries/use-task-mutations.ts) can push an upsert for each kept
  * row and a delete for each removed one. syncedAt: null on every row
- * touched, same as every other local write in this file set. */
+ * touched, same as every other local write in this file set.
+ *
+ * Description semantics (see SubTaskInput's doc comment): `undefined` KEEPS
+ * the existing row's description — critical for the reorder flow, whose
+ * inputs carry no description and must not wipe one set elsewhere; `null`
+ * or "" clears it; a string sets it. */
 export function replaceSubTasksForParentLocal(parentUuid: string, inputs: SubTaskInput[]): ReplaceSubTasksResult {
   const db = getLocalDb();
   if (!db) return { orderedUuids: [], deletedUuids: [] };
@@ -122,6 +129,9 @@ export function replaceSubTasksForParentLocal(parentUuid: string, inputs: SubTas
       db.update(subTasks)
         .set({
           title: input.title,
+          ...(input.description !== undefined
+            ? { description: input.description || null }
+            : {}),
           taskType: input.task_type,
           targetCount: input.target_count ?? null,
           durationSeconds: input.duration_seconds ?? null,
@@ -140,6 +150,7 @@ export function replaceSubTasksForParentLocal(parentUuid: string, inputs: SubTas
           uuid,
           parentTaskUuid: parentUuid,
           title: input.title,
+          description: input.description || null,
           taskType: input.task_type,
           targetCount: input.target_count ?? null,
           durationSeconds: input.duration_seconds ?? null,

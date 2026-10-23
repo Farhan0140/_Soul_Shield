@@ -113,6 +113,16 @@ const MIGRATIONS: { version: number; sql: string }[] = [
       );
     `,
   },
+  {
+    // v2: sub-task descriptions (mirrors soul-shield/migrations/
+    // 000002_add_sub_task_description.sql). Nullable TEXT; every existing row
+    // simply has no description until the server pushes one or the user
+    // writes one.
+    version: 2,
+    sql: `
+      ALTER TABLE sub_tasks ADD COLUMN description TEXT;
+    `,
+  },
 ];
 
 export function runMigrations(db: SQLiteDatabase): void {

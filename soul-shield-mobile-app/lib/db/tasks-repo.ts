@@ -209,6 +209,7 @@ export function deriveTasksForRange(fromDate: string, toDate: string): Task[] {
           return {
             sub_task_id: s.uuid,
             title: s.title,
+            description: s.description,
             task_type: s.taskType as TaskType,
             target_count: s.targetCount,
             duration_seconds: s.durationSeconds,

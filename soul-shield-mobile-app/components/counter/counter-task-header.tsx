@@ -1,31 +1,39 @@
 import { StyleSheet, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
+import { ExpandableText } from '@/components/ui/expandable-text';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 interface CounterTaskHeaderProps {
   title: string;
   description?: string | null;
-  /** Set only for a counter sub-task's page — the owning main task's title,
-   * shown above the sub-task's own title so it's clear which task this
-   * counter belongs to. */
+  /** Set only for a counter/timer sub-task's page — the owning main task's
+   * title, shown above the sub-task's own title so it's clear which task
+   * this belongs to. */
   parentTitle?: string | null;
 }
 
+/** Details-page header hierarchy (Main Task and Sub-Task pages alike):
+ * the parent task's title on top, then the current task's title in the SAME
+ * size/weight as the parent's, then the current task's description in a
+ * smaller font directly below its title. Parent title, current title, and
+ * description each collapse to a few lines when long and expand on tap (see
+ * ExpandableText) — short ones render fully with no expand control. */
 export function CounterTaskHeader({ title, description, parentTitle }: CounterTaskHeaderProps) {
   const mutedColor = useThemeColor({}, 'muted');
 
   return (
     <View style={styles.container}>
-      {parentTitle ? <ThemedText style={styles.parentTitle}>{parentTitle}</ThemedText> : null}
-      {/* h3-sized when this is the only title (a main counter task); shrinks
-          to h4 once parentTitle is shown above it (a counter sub-task), so
-          the main task stays the visually dominant heading. No numberOfLines
-          on either — the full title should always be readable here, never
-          truncated with an ellipsis. */}
-      <ThemedText style={[parentTitle ? styles.subTitle : styles.title]}>{title}</ThemedText>
+      {parentTitle ? <ExpandableText text={parentTitle} maxLines={2} style={styles.taskTitle} /> : null}
+      {/* Same font size and visual weight as the parent title above (see the
+          doc comment — the hierarchy comes from ordering, not from a smaller
+          heading for the sub-task). */}
+      <ExpandableText text={title} maxLines={2} style={styles.taskTitle} />
       {description ? (
-        <ThemedText style={[styles.description, { color: mutedColor }]}>{description}</ThemedText>
+        <ExpandableText
+          text={description}
+          maxLines={3}
+          style={[styles.description, { color: mutedColor }]}
+        />
       ) : null}
     </View>
   );
@@ -33,8 +41,6 @@ export function CounterTaskHeader({ title, description, parentTitle }: CounterTa
 
 const styles = StyleSheet.create({
   container: { gap: 8, alignItems: 'center', paddingHorizontal: 24 },
-  parentTitle: { textAlign: 'center', fontSize: 22, fontWeight: '700', lineHeight: 28 },
-  title: { textAlign: 'center', fontSize: 22, fontWeight: '700', lineHeight: 28 },
-  subTitle: { textAlign: 'center', fontSize: 18, fontWeight: '600', lineHeight: 24 },
+  taskTitle: { textAlign: 'center', fontSize: 22, fontWeight: '700', lineHeight: 28 },
   description: { textAlign: 'center', fontSize: 14, lineHeight: 20 },
 });

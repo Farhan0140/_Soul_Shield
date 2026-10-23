@@ -39,6 +39,7 @@ export interface SyncSubTask {
   uuid: string;
   parent_task_uuid: string;
   title: string;
+  description?: string;
   task_type: string;
   target_count?: number;
   duration_seconds?: number;

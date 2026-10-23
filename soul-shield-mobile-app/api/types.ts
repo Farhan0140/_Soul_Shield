@@ -23,6 +23,8 @@ export type TaskStatus = 'pending' | 'completed' | 'missed' | 'partially_complet
 export interface SubTask {
   sub_task_id: string;
   title: string;
+  /** Optional free-form details shown under the title (see SubTaskInput). */
+  description?: string | null;
   task_type: TaskType;
   target_count: number | null;
   duration_seconds: number | null;
@@ -35,6 +37,10 @@ export interface SubTaskInput {
    * omit when adding a new one. */
   id?: string;
   title: string;
+  /** Optional free-form details. Semantics on update: `undefined` keeps the
+   * existing description (never wiped by a caller that doesn't manage it —
+   * e.g. the reorder flow), `null` or "" clears it, a string sets it. */
+  description?: string | null;
   task_type: TaskType;
   target_count?: number;
   duration_seconds?: number;

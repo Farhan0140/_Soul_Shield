@@ -2,6 +2,7 @@ import { StyleSheet, View } from 'react-native';
 
 import type { Task } from '@/api/types';
 import { ThemedText } from '@/components/themed-text';
+import { ExpandableText } from '@/components/ui/expandable-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { weekdayLabel } from '@/lib/date';
@@ -48,6 +49,16 @@ export function TaskDetailsInline({ task }: TaskDetailsInlineProps) {
 
   return (
     <View style={[styles.container, { borderColor }]}>
+      {/* The task's own description, first so it reads directly under the
+          title above — collapsed to three lines when long, tap to
+          expand/collapse (see ExpandableText). */}
+      {task.description ? (
+        <View style={styles.row}>
+          <IconSymbol name="list.bullet" size={14} color={mutedColor} />
+          <ExpandableText text={task.description} maxLines={3} style={[styles.text, { color: mutedColor }]} />
+        </View>
+      ) : null}
+
       <View style={styles.row}>
         <IconSymbol name="repeat" size={14} color={mutedColor} />
         <ThemedText style={[styles.text, { color: mutedColor }]}>{recurrenceLabel(task)}</ThemedText>

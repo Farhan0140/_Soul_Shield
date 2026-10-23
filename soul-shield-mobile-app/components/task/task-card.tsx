@@ -9,6 +9,7 @@ import { RewardBanner } from '@/components/task/reward-banner';
 import { StatusBadge } from '@/components/task/status-badge';
 import { SubTaskList } from '@/components/task/sub-task-list';
 import { TaskDetailsInline } from '@/components/task/task-details-inline';
+import { ExpandableText } from '@/components/ui/expandable-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { isToday } from '@/lib/date';
@@ -137,12 +138,17 @@ export function TaskCard({
             here is plain (non-Pressable) text and lets that tap through. */}
         {openPageHandler ? (
           <View style={styles.titleTouchable}>
-            <ThemedText
+            {/* ExpandableText claims the tap only when the title is long
+                enough to truncate — otherwise the tap falls through and the
+                whole card still routes to the counter/timer page (which also
+                keeps its dedicated "Start timer"/redirect link below). */}
+            <ExpandableText
+              text={task.title}
+              maxLines={2}
               type="defaultSemiBold"
+              containerStyle={{ flex: 1 }}
               style={[styles.title, isMissed && styles.strikethrough]}
-              numberOfLines={2}>
-              {task.title}
-            </ThemedText>
+            />
           </View>
         ) : (
           // TODO this button is for expanding/collapsing the task's inline details
@@ -150,12 +156,13 @@ export function TaskCard({
             onPress={() => setDetailsExpanded((v) => !v)}
             style={styles.titleTouchable}
             hitSlop={4}>
-            <ThemedText
+            <ExpandableText
+              text={task.title}
+              maxLines={2}
               type="defaultSemiBold"
+              containerStyle={{ flex: 1 }}
               style={[styles.title, isMissed && styles.strikethrough]}
-              numberOfLines={2}>
-              {task.title}
-            </ThemedText>
+            />
           </Pressable>
         )}
         {!openPageHandler ? (

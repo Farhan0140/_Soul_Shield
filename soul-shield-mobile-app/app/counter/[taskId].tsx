@@ -120,7 +120,7 @@ export default function CounterTaskScreen() {
   const ratio = targetCount > 0 ? Math.min(currentCount / targetCount, 1) : 0;
 
   const title = isSubTask ? subTask?.title : task?.title;
-  const description = isSubTask ? null : task?.description;
+  const description = (isSubTask ? subTask?.description : task?.description) ?? null;
   const parentTitle = isSubTask ? task?.title : null;
 
   return (

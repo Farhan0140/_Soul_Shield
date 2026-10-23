@@ -65,6 +65,10 @@ export function subTaskUpsertChange(row: SubTaskRow): SyncChange {
     data: {
       parent_task_uuid: row.parentTaskUuid,
       title: row.title,
+      // Always sent, null included - the server's sync update assigns
+      // description directly (unlike the REST path's preserve-on-omit), so a
+      // locally cleared description reaches the column as NULL too.
+      description: row.description,
       task_type: row.taskType,
       target_count: row.targetCount,
       duration_seconds: row.durationSeconds,
