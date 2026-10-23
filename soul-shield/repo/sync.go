@@ -54,6 +54,7 @@ type SyncSubTask struct {
 	UUID            string     `json:"uuid"`
 	ParentTaskUUID  string     `json:"parent_task_uuid"`
 	Title           string     `json:"title"`
+	Description     *string    `json:"description,omitempty"`
 	TaskType        string     `json:"task_type"`
 	TargetCount     *int32     `json:"target_count,omitempty"`
 	DurationSeconds *int32     `json:"duration_seconds,omitempty"`
@@ -261,7 +262,7 @@ func (r *syncRepo) pullCategories(userID int64, since time.Time) ([]SyncCategory
 func (r *syncRepo) pullSubTasks(userID int64, since time.Time) ([]SyncSubTask, error) {
 	rows, err := r.db.Query(`
 		SELECT
-			st.uuid, t.uuid, st.title, st.task_type, st.target_count, st.duration_seconds,
+			st.uuid, t.uuid, st.title, st.description, st.task_type, st.target_count, st.duration_seconds,
 			st.position, st.created_at, st.updated_at, st.deleted_at
 		FROM sub_tasks st
 		JOIN tasks t ON t.id = st.parent_task_id
@@ -276,14 +277,16 @@ func (r *syncRepo) pullSubTasks(userID int64, since time.Time) ([]SyncSubTask, e
 	results := []SyncSubTask{}
 	for rows.Next() {
 		var item SyncSubTask
+		var description sql.NullString
 		var targetCount, durationSeconds sql.NullInt32
 		var deletedAt sql.NullTime
 		if err := rows.Scan(
-			&item.UUID, &item.ParentTaskUUID, &item.Title, &item.TaskType, &targetCount, &durationSeconds,
+			&item.UUID, &item.ParentTaskUUID, &item.Title, &description, &item.TaskType, &targetCount, &durationSeconds,
 			&item.Position, &item.CreatedAt, &item.UpdatedAt, &deletedAt,
 		); err != nil {
 			return nil, err
 		}
+		item.Description = nullStringPtr(description)
 		item.TargetCount = nullInt32Ptr(targetCount)
 		item.DurationSeconds = nullInt32Ptr(durationSeconds)
 		item.DeletedAt = nullTimePtr(deletedAt)

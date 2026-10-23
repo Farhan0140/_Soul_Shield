@@ -159,17 +159,20 @@ type TaskWithStatus struct {
 // ---- Sub-Tasks ----
 
 type SubTask struct {
-	ID              int64         `db:"id" json:"id"`
-	ParentTaskID    int64         `db:"parent_task_id" json:"parent_task_id"`
-	Title           string        `db:"title" json:"title"`
-	TaskType        string        `db:"task_type" json:"task_type"`
-	TargetCount     sql.NullInt32 `db:"target_count" json:"target_count,omitempty"`
-	DurationSeconds sql.NullInt32 `db:"duration_seconds" json:"duration_seconds,omitempty"`
-	Position        int           `db:"position" json:"position"`
-	CreatedAt       time.Time     `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time     `db:"updated_at" json:"updated_at"`
-	UUID            string        `db:"uuid" json:"uuid"`
-	DeletedAt       sql.NullTime  `db:"deleted_at" json:"-"`
+	ID              int64          `db:"id" json:"id"`
+	ParentTaskID    int64          `db:"parent_task_id" json:"parent_task_id"`
+	Title           string         `db:"title" json:"title"`
+	// Optional free-form description (see migrations/000002). Handlers convert
+	// this to the DTO's *string; repo.SubTask is never serialized directly.
+	Description     sql.NullString `db:"description" json:"-"`
+	TaskType        string         `db:"task_type" json:"task_type"`
+	TargetCount     sql.NullInt32  `db:"target_count" json:"target_count,omitempty"`
+	DurationSeconds sql.NullInt32  `db:"duration_seconds" json:"duration_seconds,omitempty"`
+	Position        int            `db:"position" json:"position"`
+	CreatedAt       time.Time      `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time      `db:"updated_at" json:"updated_at"`
+	UUID            string         `db:"uuid" json:"uuid"`
+	DeletedAt       sql.NullTime   `db:"deleted_at" json:"-"`
 }
 
 type SubTaskCompletion struct {
@@ -197,6 +200,7 @@ type SubTaskWithStatus struct {
 	SubTaskID       int64      `json:"-"`
 	ParentTaskID    int64      `json:"-"`
 	Title           string     `json:"title"`
+	Description     *string    `json:"description,omitempty"`
 	TaskType        string     `json:"task_type"`
 	TargetCount     *int32     `json:"target_count,omitempty"`
 	DurationSeconds *int32     `json:"duration_seconds,omitempty"`

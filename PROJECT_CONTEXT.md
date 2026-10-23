@@ -55,6 +55,7 @@ F:\Soul_Shield\
 | `infra/db/connection.go` | sqlx DB over pgx driver; `NewConnection(connStr)` is the one actually used (Neon URL from `CONN_STRING_FOR_DB`); `NewConnectionOffline` (per-field DSN) exists unused |
 | `infra/db/migrate.go` | sql-migrate runner, `migrate.Up` on `./migrations`, runs on every startup |
 | `migrations/000001_init_schema.sql` | Single baseline schema (replaced 20 legacy migrations). **Never edit once applied — append `000002_...`** |
+| `migrations/000002_add_sub_task_description.sql` | Adds nullable `sub_tasks.description` TEXT (2026-10-23, sub-task descriptions feature) |
 | `repo/` | Data access layer, one file per aggregate (see §5) |
 | `rest/server.go` | Global middleware chain + `http.ServeMux` registration + Swagger route + ListenAndServe (port = env `PORT` → fallback `HTTPPORT`) |
 | `rest/middlewares/` | `Manager` (compose chain), `Preflight`, `Cors`, `Logger`, `AuthenticateJWT`, `RequireRole` (⚠ defined but never used), `middleware.go` (struct) |
@@ -206,6 +207,15 @@ JWT-protected:
 - **Recurrence**: `recurrence_days` smallint array, 0=Sunday..6=Saturday. `daily` force-sets all
   7 days on create/update. Empty days → `ErrInvalidRecurrence`. A date matches when its
   `EXTRACT(DOW)` is in the array. Sub-tasks inherit the parent's schedule (no own recurrence).
+- **Sub-tasks** (added 2026-10-23: descriptions): `ReplaceForParent` — matched `id`s update
+  (title, type, target/duration, position), new entries insert, missing entries soft-delete.
+  Each sub-task carries an **optional description** (`sub_tasks.description`, migration 000002).
+  REST `PATCH /tasks` sub-task UPDATES deliberately never assign the description column (the
+  web client sends no such field, so a value written from another client survives a title-only
+  web edit); the INSERT branch stores a supplied one. The `/sync` push path (`pushSubTask`)
+  assigns description directly — full-row semantics, pushes always carry the field (null =
+  cleared). Local reorder flows preserve descriptions by omitting the field
+  (`undefined` = keep, per `SubTaskInput`'s documented semantics).
 - **Task types** (DB CHECK `chk_task_type_fields`): `normal` (no target/duration), `counter`
   (target>0, no duration), `timer` (duration>0, no target). Server enforces via CHECK + repo
   validation + handler validation (three layers).
@@ -278,7 +288,8 @@ Tables & relationships:
   delete path), `source_task_id` self-FK for lineage, position, CHECKs `chk_task_owner` +
   `chk_task_type_fields`, recurrence CHECK `recurrence_days <@ ARRAY[0..6]`, reminder_time regex
   CHECK) + indexes for (owner, category, position), global, updated_at
-- `sub_tasks` (parent FK CASCADE, same type CHECKs, position)
+- `sub_tasks` (parent FK CASCADE, same type CHECKs, position, **nullable description TEXT** —
+  migration 000002, 2026-10-23)
 - `task_completions` — UNIQUE `(task_id, user_id, task_date)` is what merges web REST writes and
   mobile sync pushes onto one row per day; snapshot columns `task_title_snapshot`,
   `was_global_snapshot`; `progress_count >= 0` CHECK
@@ -414,6 +425,18 @@ separate.
   completed normal sub-task un-completes it, same toggle as before). This is presentation-only:
   parent status/reward aggregation still comes from ALL sub-tasks via
   `lib/db/tasks-repo.ts`'s `computeParentStatus`, and completion/increment handlers are unchanged.
+- **Sub-task descriptions + expandable text** (added 2026-10-23): sub-tasks gained an optional
+  `description` end-to-end — backend column/sync (see §5.4), mobile SQLite column + `migrations.ts`
+  **version 2**, `sub-tasks-repo.ts` replace semantics (`undefined` keeps, `null`/"" clears),
+  push builder always sends `description` (null included — server assigns directly), form input
+  in `task-form.tsx` (always sent; emptied → null = clear), display in sub-task rows, task
+  details inline, and the counter/timer pages' headers (`description = subTask?.description` for
+  sub-task pages). Shared UI primitive: `components/ui/expandable-text.tsx` — collapses to
+  `maxLines` when long, tap toggles; its wrapper Pressable is DISABLED while not truncated so
+  taps fall through to outer Pressables (card details toggle, counter/timer row routing) —
+  long titles on cards claim the tap for expand, with routing still available via the bottom
+  links. Counter/timer page headers follow the details-page hierarchy: parent title on top,
+  current title in the SAME size/weight, description below the current title.
 - 401 anywhere → global handler → logout(**keepLocalData** — offline edits survive; re-login as
   same user pushes them). Explicit logout (Profile) wipes SQLite + reminders.
 - `clearLocalDatabase` also runs at sign-out because the store is **not user-scoped**.
@@ -484,8 +507,13 @@ separate.
 - DB CHECK constraints (`chk_task_type_fields`, `chk_task_owner`, recurrence array, reminder
   regex) — repo + handler + sync-push all assume them; syncing writes bypass handler validation
   and rely on these CHECKs + class-23 rejection mapping.
-- Ordering assumptions: sync push sweeps parents before children; mobile pushes before pulling;
+- Sync push ordering assumptions: parents before children; mobile pushes before pulling;
   `task_completions` UNIQUE(task,user,date) merge assumption (`dropMergedLocalCompletions`).
+- **Sub-task description write semantics** (added 2026-10-23): REST update = never assign
+  (preserve), sync update = assign directly (full row), local reorder = `undefined` keeps.
+  Changing any one of these without the others will either wipe web-visible descriptions or
+  strand cleared ones — see §5.4's sub-task bullet before touching `ReplaceForParent`,
+  `pushSubTask`, `replaceSubTasksForParentLocal`, or the task form.
 
 **High-traffic files most future features will touch**: `rest/handlers/task/*` + `repo/task.go`
 (backend), `lib/db/tasks-repo.ts` + `hooks/queries/use-task-mutations.ts` + `lib/

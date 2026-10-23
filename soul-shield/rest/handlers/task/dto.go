@@ -44,6 +44,7 @@ type UpdateTaskRequest struct {
 type SubTaskInput struct {
 	ID              *int64 `json:"id,omitempty" example:"5"` // update এ existing sub-task ম্যাচ করাতে; create এ omit করবেন
 	Title           string `json:"title" example:"Read 1 page"`
+	Description     *string `json:"description,omitempty" example:"Read the page slowly, focusing on meaning"` // optional
 	TaskType        string `json:"task_type,omitempty" example:"normal" enums:"normal,counter,timer"`
 	TargetCount     *int32 `json:"target_count,omitempty" example:"10"`      // task_type=counter হলে required
 	DurationSeconds *int32 `json:"duration_seconds,omitempty" example:"600"` // task_type=timer হলে required
@@ -125,6 +126,7 @@ type SubTaskStatusResponse struct {
 	// number.
 	SubTaskUUID     string     `json:"sub_task_uuid"`
 	Title           string     `json:"title" example:"Read 1 page"`
+	Description     *string    `json:"description,omitempty" example:"Read the page slowly, focusing on meaning"`
 	TaskType        string     `json:"task_type" example:"normal"`
 	TargetCount     *int32     `json:"target_count,omitempty" example:"10"`
 	DurationSeconds *int32     `json:"duration_seconds,omitempty" example:"600"`

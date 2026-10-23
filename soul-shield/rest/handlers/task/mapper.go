@@ -72,10 +72,16 @@ func toSubTaskResponse(s repo.SubTask) SubTaskStatusResponse {
 		v := s.DurationSeconds.Int32
 		durationSeconds = &v
 	}
+	var description *string
+	if s.Description.Valid {
+		d := s.Description.String
+		description = &d
+	}
 	return SubTaskStatusResponse{
 		SubTaskID:       s.ID,
 		SubTaskUUID:     s.UUID,
 		Title:           s.Title,
+		Description:     description,
 		TaskType:        s.TaskType,
 		TargetCount:     targetCount,
 		DurationSeconds: durationSeconds,
@@ -88,6 +94,7 @@ func toSubTaskWithStatusResponse(s repo.SubTaskWithStatus) SubTaskStatusResponse
 		SubTaskID:       s.SubTaskID,
 		SubTaskUUID:     s.UUID,
 		Title:           s.Title,
+		Description:     s.Description,
 		TaskType:        s.TaskType,
 		TargetCount:     s.TargetCount,
 		DurationSeconds: s.DurationSeconds,

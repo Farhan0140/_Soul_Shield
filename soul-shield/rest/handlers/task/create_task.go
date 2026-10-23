@@ -188,6 +188,9 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 				stType = "normal"
 			}
 			sub := repo.SubTask{Title: st.Title, TaskType: stType}
+			if st.Description != nil {
+				sub.Description = sql.NullString{String: *st.Description, Valid: true}
+			}
 			if st.TargetCount != nil {
 				sub.TargetCount = sql.NullInt32{Int32: *st.TargetCount, Valid: true}
 			}

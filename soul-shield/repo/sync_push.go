@@ -40,12 +40,13 @@ type syncCategoryInput struct {
 }
 
 type syncSubTaskInput struct {
-	ParentTaskUUID  string `json:"parent_task_uuid"`
-	Title           string `json:"title"`
-	TaskType        string `json:"task_type"`
-	TargetCount     *int32 `json:"target_count"`
-	DurationSeconds *int32 `json:"duration_seconds"`
-	Position        *int   `json:"position"`
+	ParentTaskUUID  string  `json:"parent_task_uuid"`
+	Title           string  `json:"title"`
+	Description     *string `json:"description"`
+	TaskType        string  `json:"task_type"`
+	TargetCount     *int32  `json:"target_count"`
+	DurationSeconds *int32  `json:"duration_seconds"`
+	Position        *int    `json:"position"`
 }
 
 // syncCompletionInput covers both task_completions and sub_task_completions
@@ -566,18 +567,22 @@ func (r *syncRepo) pushSubTask(userID int64, change SyncChange) (*SyncChangeResu
 				}
 				return &SyncChangeResult{Resource: change.Resource, UUID: change.UUID, Status: "superseded", ServerRow: row}, nil
 			}
+			//	description is assigned directly (not COALESCE'd like the REST
+			//	ReplaceForParent update) because a sync push always carries the
+			//	client's full row - a null json description here means the
+			//	client cleared it, so it must reach the column as NULL.
 			if _, err := r.db.Exec(`
 				UPDATE sub_tasks SET title = $1, task_type = $2, target_count = $3, duration_seconds = $4,
-					position = COALESCE($5, position)
-				WHERE id = $6
-			`, input.Title, input.TaskType, input.TargetCount, input.DurationSeconds, input.Position, existing.ID); err != nil {
+					description = $5, position = COALESCE($6, position)
+				WHERE id = $7
+			`, input.Title, input.TaskType, input.TargetCount, input.DurationSeconds, input.Description, input.Position, existing.ID); err != nil {
 				return nil, err
 			}
 		} else {
 			if _, err := r.db.Exec(`
-				INSERT INTO sub_tasks (uuid, parent_task_id, title, task_type, target_count, duration_seconds, position)
-				VALUES ($1, $2, $3, $4, $5, $6, $7)
-			`, change.UUID, parentTaskID, input.Title, input.TaskType, input.TargetCount, input.DurationSeconds, derefInt(input.Position)); err != nil && !isDuplicateUUID(err) {
+				INSERT INTO sub_tasks (uuid, parent_task_id, title, description, task_type, target_count, duration_seconds, position)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			`, change.UUID, parentTaskID, input.Title, input.Description, input.TaskType, input.TargetCount, input.DurationSeconds, derefInt(input.Position)); err != nil && !isDuplicateUUID(err) {
 				return nil, err
 			}
 		}
@@ -595,20 +600,22 @@ func (r *syncRepo) pushSubTask(userID int64, change SyncChange) (*SyncChangeResu
 
 func (r *syncRepo) subTaskByUUID(uuid string) (*SyncSubTask, error) {
 	var item SyncSubTask
+	var description sql.NullString
 	var targetCount, durationSeconds sql.NullInt32
 	var deletedAt sql.NullTime
 	err := r.db.QueryRow(`
-		SELECT st.uuid, t.uuid, st.title, st.task_type, st.target_count, st.duration_seconds,
+		SELECT st.uuid, t.uuid, st.title, st.description, st.task_type, st.target_count, st.duration_seconds,
 			st.position, st.created_at, st.updated_at, st.deleted_at
 		FROM sub_tasks st JOIN tasks t ON t.id = st.parent_task_id
 		WHERE st.uuid = $1
 	`, uuid).Scan(
-		&item.UUID, &item.ParentTaskUUID, &item.Title, &item.TaskType, &targetCount, &durationSeconds,
+		&item.UUID, &item.ParentTaskUUID, &item.Title, &description, &item.TaskType, &targetCount, &durationSeconds,
 		&item.Position, &item.CreatedAt, &item.UpdatedAt, &deletedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
+	item.Description = nullStringPtr(description)
 	item.TargetCount = nullInt32Ptr(targetCount)
 	item.DurationSeconds = nullInt32Ptr(durationSeconds)
 	item.DeletedAt = nullTimePtr(deletedAt)

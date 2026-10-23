@@ -188,6 +188,7 @@ func (h *Handler) addToMyTasks(w http.ResponseWriter, userID int64, source *repo
 		for i, st := range subs {
 			inputs[i] = repo.SubTask{
 				Title:           st.Title,
+				Description:     st.Description,
 				TaskType:        st.TaskType,
 				TargetCount:     st.TargetCount,
 				DurationSeconds: st.DurationSeconds,
