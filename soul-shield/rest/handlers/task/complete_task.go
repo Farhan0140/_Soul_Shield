@@ -65,5 +65,7 @@ func (h *Handler) CompleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.pushRepo.NotifyDataChange(userID)
+
 	util.SendData(w, toCompletionResponse(completion), http.StatusOK)
 }

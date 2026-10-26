@@ -207,6 +207,8 @@ func (h *Handler) addToMyTasks(w http.ResponseWriter, userID int64, source *repo
 		respCategoryID = &id
 	}
 
+	h.pushRepo.NotifyDataChange(userID)
+
 	util.SendData(w, AddToMyTasksResponse{
 		AlreadyAdded: false,
 		TaskID:       created.ID,

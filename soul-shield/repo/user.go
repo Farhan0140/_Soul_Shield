@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	maxSecurityAnswerAttempts   = 5
-	securityAnswerLockDuration  = 24 * time.Hour
+	maxSecurityAnswerAttempts  = 5
+	securityAnswerLockDuration = 24 * time.Hour
 )
 
 type UserRepo interface {
@@ -155,8 +155,10 @@ func (r *userRepo) Find(email, password string) (*User, error) {
 		[]byte(password),
 	)
 	if err != nil {
-		fmt.Println(err)
-		return nil, nil
+		// Wrong password (or a corrupted hash). Returning a sentinel instead of
+		// (nil, nil) lets the handler answer 401 "Incorrect email or password"
+		// instead of the misleading 400 "Internal Server Error" it used to send.
+		return nil, util.ErrInvalidCredentials
 	}
 
 	return &user, nil

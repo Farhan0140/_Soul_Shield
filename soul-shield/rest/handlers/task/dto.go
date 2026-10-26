@@ -42,12 +42,12 @@ type UpdateTaskRequest struct {
 
 // SubTaskInput - create/update task request এর ভেতরে sub-task এর তথ্য
 type SubTaskInput struct {
-	ID              *int64 `json:"id,omitempty" example:"5"` // update এ existing sub-task ম্যাচ করাতে; create এ omit করবেন
-	Title           string `json:"title" example:"Read 1 page"`
+	ID              *int64  `json:"id,omitempty" example:"5"` // update এ existing sub-task ম্যাচ করাতে; create এ omit করবেন
+	Title           string  `json:"title" example:"Read 1 page"`
 	Description     *string `json:"description,omitempty" example:"Read the page slowly, focusing on meaning"` // optional
-	TaskType        string `json:"task_type,omitempty" example:"normal" enums:"normal,counter,timer"`
-	TargetCount     *int32 `json:"target_count,omitempty" example:"10"`      // task_type=counter হলে required
-	DurationSeconds *int32 `json:"duration_seconds,omitempty" example:"600"` // task_type=timer হলে required
+	TaskType        string  `json:"task_type,omitempty" example:"normal" enums:"normal,counter,timer"`
+	TargetCount     *int32  `json:"target_count,omitempty" example:"10"`      // task_type=counter হলে required
+	DurationSeconds *int32  `json:"duration_seconds,omitempty" example:"600"` // task_type=timer হলে required
 }
 
 // ManageableTaskResponse - GET /tasks/mine এর জন্য, date/recurrence/status ছাড়া একটা personal
@@ -119,7 +119,7 @@ type TaskResponse struct {
 
 // SubTaskStatusResponse - sub-task এর তথ্য + (list/history endpoint এ) একটা নির্দিষ্ট দিনের status
 type SubTaskStatusResponse struct {
-	SubTaskID   int64  `json:"sub_task_id" example:"5"`
+	SubTaskID int64 `json:"sub_task_id" example:"5"`
 	// SubTaskUUID backs the mobile app's local-first store (see repo/sync.go)
 	// - kept alongside the numeric SubTaskID above, not in place of it, since
 	// the web client (soul-shield-client) still reads this same field as a

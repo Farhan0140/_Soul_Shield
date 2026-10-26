@@ -71,5 +71,7 @@ func (h *Handler) IncrementTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.pushRepo.NotifyDataChange(userID)
+
 	util.SendData(w, toCompletionResponse(completion), http.StatusOK)
 }

@@ -45,5 +45,7 @@ func (h *Handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.pushRepo.NotifyDataChange(userID)
+
 	util.SendData(w, map[string]string{"message": "Task deleted successfully"}, http.StatusOK)
 }

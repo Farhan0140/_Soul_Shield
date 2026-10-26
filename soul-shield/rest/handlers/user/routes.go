@@ -39,8 +39,26 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, manager *middlewares.Manage
 	)
 
 	mux.Handle(
+		"POST /users/push-token",
+
+		manager.With(
+			http.HandlerFunc(h.RegisterPushToken),
+			h.middlewares.AuthenticateJWT,
+		),
+	)
+
+	mux.Handle(
+		"DELETE /users/push-token",
+
+		manager.With(
+			http.HandlerFunc(h.DeletePushToken),
+			h.middlewares.AuthenticateJWT,
+		),
+	)
+
+	mux.Handle(
 		"GET /users/me",
-		
+
 		manager.With(
 			http.HandlerFunc(h.GetUserByJWT),
 			h.middlewares.AuthenticateJWT,

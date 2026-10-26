@@ -16,7 +16,7 @@ func SendOTPEmail(email string, otp string) error {
 	m.SetHeader("Subject", "SoulShield Email Verification")
 
 	// HTML + CSS formatted body
-    htmlBody := `
+	htmlBody := `
 		<div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 500px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
 			
 			<div style="background-color: #4F46E5; padding: 25px 20px; text-align: center;">
@@ -41,7 +41,7 @@ func SendOTPEmail(email string, otp string) error {
 		</div>
     `
 
-    m.SetBody("text/html", htmlBody)
+	m.SetBody("text/html", htmlBody)
 
 	port_s := config.GetConfig().SMTP.Port
 	port_int, err := strconv.Atoi(port_s)

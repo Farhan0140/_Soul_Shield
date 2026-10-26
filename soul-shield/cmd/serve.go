@@ -45,10 +45,11 @@ func Serve() {
 	categoryRepo := repo.NewCategoryRepo(dbCon)
 	quranRepo := repo.NewQuranRepo(dbCon)
 	syncRepo := repo.NewSyncRepo(dbCon)
+	pushRepo := repo.NewPushRepo(dbCon)
 
-	userHandler := user.NewHandler(cnf, userRepo, otpRepo, middlewares)
+	userHandler := user.NewHandler(cnf, userRepo, otpRepo, pushRepo, middlewares)
 	otpHandler := otp.NewHandler(otpRepo)
-	taskHandler := task.NewHandler(taskRepo, subTaskRepo, categoryRepo)
+	taskHandler := task.NewHandler(taskRepo, subTaskRepo, categoryRepo, pushRepo)
 	categoryHandler := category.NewHandler(categoryRepo)
 	quranHandler := quran.NewHandler(quranRepo)
 	syncHandler := sync.NewHandler(syncRepo)

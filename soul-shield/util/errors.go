@@ -7,7 +7,12 @@ var (
 	ErrOTPNotFound      = errors.New("OTP not found")
 	ErrUserExists       = errors.New("User already exists")
 	ErrUserNotFound     = errors.New("User Not Found with this email")
-	ErrTaskNotFound     = errors.New("Task not found")
+	// Wrong password on login. Deliberately generic (same message for unknown
+	// email and bad password) so login can't be used to probe which emails
+	// are registered - the handler maps it to 401 with this exact text, and
+	// the mobile/web clients surface it as-is.
+	ErrInvalidCredentials = errors.New("Incorrect email or password")
+	ErrTaskNotFound       = errors.New("Task not found")
 
 	ErrForbidden         = errors.New("You do not have permission to perform this action")
 	ErrInvalidRecurrence = errors.New("recurrence_days cannot be empty for this recurrence_type")

@@ -213,5 +213,7 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	h.pushRepo.NotifyDataChange(userID)
+
 	util.SendData(w, toTaskResponse(created, createdSubTasks), http.StatusCreated)
 }

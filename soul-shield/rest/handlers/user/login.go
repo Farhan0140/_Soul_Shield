@@ -2,6 +2,7 @@ package user
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"soulsheld/util"
@@ -37,14 +38,20 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	usr, err := h.userRepo.Find(reqLogin.Email, reqLogin.Password)
-	if usr == nil {
+	if err != nil {
+		if errors.Is(err, util.ErrInvalidCredentials) {
+			util.SendError(w, map[string]string{
+				"error": err.Error(),
+			}, http.StatusUnauthorized)
+			return
+		}
+		fmt.Println(err)
 		util.SendError(w, map[string]string{
 			"error": "Internal Server Error",
-		}, http.StatusBadRequest)
+		}, http.StatusInternalServerError)
 		return
 	}
-	if err != nil {
-		fmt.Println(err)
+	if usr == nil {
 		util.SendError(w, map[string]string{
 			"error": "Internal Server Error",
 		}, http.StatusInternalServerError)
@@ -64,5 +71,5 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	util.SendData(w, access_token, http.StatusCreated)
+	util.SendData(w, access_token, http.StatusOK)
 }

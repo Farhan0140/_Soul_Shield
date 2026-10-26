@@ -154,5 +154,7 @@ func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 		subTasks = byParent[id]
 	}
 
+	h.pushRepo.NotifyDataChange(userID)
+
 	util.SendData(w, toTaskResponse(updated, subTasks), http.StatusOK)
 }
