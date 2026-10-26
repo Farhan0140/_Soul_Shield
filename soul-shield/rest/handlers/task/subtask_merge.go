@@ -55,12 +55,13 @@ func (h *Handler) attachSubTasksForDate(tasks []repo.TaskWithStatus, userID int6
 		}
 		tasks[i].SubTasks = subs
 		tasks[i].Status = computeParentStatus(subs, dateStr, today)
+		// Reward surfaced whenever configured (clients gate display on status
+		// themselves) so edit forms pre-fill the configured reward even while
+		// the parent is only partially completed or pending.
 		tasks[i].RewardText = nil
-		if tasks[i].Status == util.StatusCompleted {
-			if parent, err := h.taskRepo.GetByID(tasks[i].TaskID); err == nil && parent.RewardText.Valid {
-				rt := parent.RewardText.String
-				tasks[i].RewardText = &rt
-			}
+		if parent, err := h.taskRepo.GetByID(tasks[i].TaskID); err == nil && parent.RewardText.Valid {
+			rt := parent.RewardText.String
+			tasks[i].RewardText = &rt
 		}
 	}
 
@@ -97,18 +98,17 @@ func (h *Handler) attachSubTasksForRange(tasks []repo.TaskWithStatus, userID int
 		}
 		tasks[i].SubTasks = subs
 		tasks[i].Status = computeParentStatus(subs, tasks[i].Date, today)
+		// Reward surfaced whenever configured (see attachSubTasksForDate).
 		tasks[i].RewardText = nil
-		if tasks[i].Status == util.StatusCompleted {
-			rt, cached := rewardCache[tasks[i].TaskID]
-			if !cached {
-				if parent, err := h.taskRepo.GetByID(tasks[i].TaskID); err == nil && parent.RewardText.Valid {
-					v := parent.RewardText.String
-					rt = &v
-				}
-				rewardCache[tasks[i].TaskID] = rt
+		rt, cached := rewardCache[tasks[i].TaskID]
+		if !cached {
+			if parent, err := h.taskRepo.GetByID(tasks[i].TaskID); err == nil && parent.RewardText.Valid {
+				v := parent.RewardText.String
+				rt = &v
 			}
-			tasks[i].RewardText = rt
+			rewardCache[tasks[i].TaskID] = rt
 		}
+		tasks[i].RewardText = rt
 	}
 
 	return nil

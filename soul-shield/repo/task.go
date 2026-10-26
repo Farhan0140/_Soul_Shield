@@ -391,8 +391,9 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 			item.CategoryName = &name
 			item.CategoryColor = &color
 		}
-		// reward text শুধু completed হলেই দেখাবো - motivation এর জন্য
-		if item.Status == util.StatusCompleted && rewardText.Valid {
+		// reward text surfaced whenever configured (not gated on completed) so
+		// edit forms pre-fill it; clients gate display on status themselves.
+		if rewardText.Valid {
 			rt := rewardText.String
 			item.RewardText = &rt
 		}
@@ -502,7 +503,9 @@ func (r *taskRepo) ListForDateByCategory(userID int64, date time.Time, categoryI
 			item.CategoryName = &name
 			item.CategoryColor = &color
 		}
-		if item.Status == util.StatusCompleted && rewardText.Valid {
+		// reward text surfaced whenever configured (not gated on completed) so
+		// edit forms pre-fill it; clients gate display on status themselves.
+		if rewardText.Valid {
 			rt := rewardText.String
 			item.RewardText = &rt
 		}
@@ -614,7 +617,9 @@ func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithSta
 			item.CategoryColor = &color
 		}
 		// reward text শুধু completed অবস্থাতেই response এ দেখাবো
-		if item.Status == util.StatusCompleted && rewardText.Valid {
+		// reward text surfaced whenever configured (not gated on completed) so
+		// edit forms pre-fill it; clients gate display on status themselves.
+		if rewardText.Valid {
 			rt := rewardText.String
 			item.RewardText = &rt
 		}
