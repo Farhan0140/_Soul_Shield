@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -12,6 +13,7 @@ import { useTaskHistoryQuery } from '@/hooks/queries/use-tasks';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { addDays, dateRange, formatDisplayDate, fromISODate, toISODate, todayISODate } from '@/lib/date';
 import { getErrorMessage } from '@/lib/errors';
+import { setJumpToDate } from '@/lib/jump-to-date';
 
 type ActiveField = 'from' | 'to' | null;
 
@@ -101,7 +103,16 @@ export default function HistoryScreen() {
 
       <View style={styles.section}>
         <ThemedText type="defaultSemiBold">Completion Heatmap</ThemedText>
-        <Heatmap days={heatmapDays} />
+        {/* Tap a day to jump Home to it — the one-shot jump store is what
+            carries the date (Home's selected date is local state that tab
+            navigation would not update on its own). */}
+        <Heatmap
+          days={heatmapDays}
+          onDayPress={(iso) => {
+            setJumpToDate(iso);
+            router.push('/(tabs)');
+          }}
+        />
       </View>
 
       {historyQuery.isLoading ? (

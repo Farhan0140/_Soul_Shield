@@ -85,6 +85,43 @@ export function getTaskByUuid(uuid: string) {
   return db.select().from(tasks).where(eq(tasks.uuid, uuid)).get();
 }
 
+/** Non-deleted personal tasks whose is_active has been turned off — the
+ * "Archived Tasks" screen (app/archived.tsx). Restore = updateTaskLocal with
+ * { isActive: true } which re-activates and pushes like any other edit. */
+export function listArchivedTasksLocal() {
+  const db = getLocalDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(tasks)
+    .where(isNull(tasks.deletedAt))
+    .all()
+    .filter((t) => !t.isGlobal && !t.isActive)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+/** Offline search over ACTIVE personal tasks (title + description,
+ * case-insensitive substring — see app/search.tsx). Reads straight from the
+ * local store, so it works offline; capped to keep scrolling sane. */
+export function searchOwnTasksLocal(query: string) {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const db = getLocalDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(tasks)
+    .where(isNull(tasks.deletedAt))
+    .all()
+    .filter((t) => !t.isGlobal && t.isActive)
+    .filter(
+      (t) =>
+        t.title.toLowerCase().includes(q) || (t.description ?? '').toLowerCase().includes(q)
+    )
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, 30);
+}
+
 /** completed == every sub-task done, partially_completed == some done,
  * else the same missed-vs-pending-by-date default as everything else -
  * ported straight from soul-shield/rest/handlers/task/subtask_merge.go's

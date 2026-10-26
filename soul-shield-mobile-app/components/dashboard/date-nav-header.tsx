@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { useLocale } from '@/context/locale-context';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useBackgroundSyncPhase } from '@/hooks/use-background-sync-status';
 import { useThemeColor } from '@/hooks/use-theme-color';
@@ -15,13 +16,14 @@ interface DateNavHeaderProps {
 }
 
 export function DateNavHeader({ date, onPrev, onNext, onToday }: DateNavHeaderProps) {
+  const { t } = useLocale();
   const tint = useThemeColor({}, 'tint');
   const showToday = !isToday(date);
 
   return (
     <View style={styles.container}>
       <View style={styles.titleRow}>
-        <ThemedText type="title">Today&apos;s Tasks</ThemedText>
+        <ThemedText type="title">{t('home.title')}</ThemedText>
         <SyncLabel />
       </View>
       <SyncProgressBar />
@@ -38,7 +40,7 @@ export function DateNavHeader({ date, onPrev, onNext, onToday }: DateNavHeaderPr
         {showToday ? (
           <Pressable onPress={onToday} hitSlop={8}>
             <ThemedText type="link" style={styles.today}>
-              Today
+              {t('home.today')}
             </ThemedText>
           </Pressable>
         ) : null}
@@ -60,6 +62,7 @@ const SYNC_BAR_SWEEP_MS = 900;
  * nothing (no layout reserved), so a session that hasn't synced yet looks
  * exactly like before this existed. */
 function SyncLabel() {
+  const { t } = useLocale();
   const mutedColor = useThemeColor({}, 'muted');
   const errorColor = useThemeColor({}, 'danger');
   const phase = useBackgroundSyncPhase();
@@ -68,7 +71,7 @@ function SyncLabel() {
 
   return (
     <ThemedText style={[styles.syncLabel, { color: phase === 'failed' ? errorColor : mutedColor }]}>
-      {phase === 'syncing' ? 'Syncing…' : phase === 'synced' ? 'Synced' : 'Sync failed'}
+      {phase === 'syncing' ? t('home.syncing') : phase === 'synced' ? t('home.synced') : t('home.syncFailed')}
     </ThemedText>
   );
 }

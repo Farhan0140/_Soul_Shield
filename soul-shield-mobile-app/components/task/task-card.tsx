@@ -13,6 +13,7 @@ import { ExpandableText } from '@/components/ui/expandable-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { isToday } from '@/lib/date';
+import { hapticLight } from '@/lib/feedback';
 
 interface TaskCardProps {
   task: Task;
@@ -120,7 +121,10 @@ export function TaskCard({
           // TODO this button is for toggling completion of a normal type task
           <Pressable
             disabled={controlsDisabled}
-            onPress={onToggleComplete}
+            onPress={() => {
+            hapticLight();
+            onToggleComplete();
+          }}
             hitSlop={8}
             style={styles.checkbox}>
             <IconSymbol

@@ -5,6 +5,7 @@ import { LogBox } from 'react-native';
 import type { Task } from '@/api/types';
 
 const REMINDER_IDS_KEY = 'soulshield_task_reminder_ids';
+const DIGEST_NOTIFICATION_ID_KEY = 'soulshield_daily_digest_id';
 const CHANNEL_ID = 'task-reminders';
 
 // Importing expo-notifications on Android auto-registers a remote push token
@@ -134,4 +135,44 @@ export async function syncAllTaskReminders(tasks: ReminderTask[]): Promise<void>
 export async function cancelAllTaskReminders(): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
   await AsyncStorage.removeItem(REMINDER_IDS_KEY);
+}
+
+// ---- End-of-day digest (#12) ----
+//
+// One static daily reminder ("check off today's tasks") at a user-chosen
+// time. The payload is fixed at schedule time, so it can't count remaining
+// tasks (local notifications carry no dynamic content) — the streak-aware
+// evening nudge with the real number is deliberately out of scope until a
+// background task may update it (see PROJECT_CONTEXT.md §8). Cancels the
+// previous schedule first so toggling/hour changes never duplicate.
+
+async function getDigestNotificationId(): Promise<string | null> {
+  return AsyncStorage.getItem(DIGEST_NOTIFICATION_ID_KEY);
+}
+
+export async function cancelDailyDigest(): Promise<void> {
+  const id = await getDigestNotificationId();
+  if (id) {
+    await Notifications.cancelScheduledNotificationAsync(id).catch(() => {});
+  }
+  await AsyncStorage.removeItem(DIGEST_NOTIFICATION_ID_KEY);
+}
+
+export async function scheduleDailyDigest(hour: number, minute: number): Promise<void> {
+  await cancelDailyDigest();
+  const id = await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Soul Shield',
+      body: "Time to check off today's tasks — small steps count.",
+      data: { type: 'daily-digest' },
+      sound: true,
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour,
+      minute,
+      channelId: CHANNEL_ID,
+    },
+  });
+  await AsyncStorage.setItem(DIGEST_NOTIFICATION_ID_KEY, id);
 }

@@ -14,6 +14,7 @@ import type {
 import { addTaskToMyTasks } from '@/api/tasks';
 import type { TaskStatus } from '@/api/types';
 import { SYNC_RETRY } from '@/lib/background-sync/retry';
+import { recordRejectedChange } from '@/lib/background-sync/rejected';
 import { beginSyncActivity, endSyncActivity } from '@/lib/background-sync/sync-status';
 import { getCategoryByUuid, listActiveCategories, upsertCategoryFromSync } from '@/lib/db/categories-repo';
 import { getLocalDb } from '@/lib/db/client';
@@ -75,6 +76,15 @@ function reconcilePushResults(results: SyncChangeResult[]): void {
   for (const result of results) {
     if (result.status === 'rejected') {
       console.warn(`[sync push] rejected ${result.resource}/${result.uuid}: ${result.error}`);
+      // Surface it: the "Sync Issues" screen lists everything rejected here
+      // (see lib/background-sync/rejected.ts) — a rejected change otherwise
+      // sits local-only forever with no trace in the UI.
+      recordRejectedChange({
+        resource: result.resource,
+        uuid: result.uuid,
+        op: '',
+        error: result.error ?? 'Rejected by the server',
+      });
       continue;
     }
     if (!result.server_row) {

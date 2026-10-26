@@ -56,6 +56,7 @@ F:\Soul_Shield\
 | `infra/db/migrate.go` | sql-migrate runner, `migrate.Up` on `./migrations`, runs on every startup |
 | `migrations/000001_init_schema.sql` | Single baseline schema (replaced 20 legacy migrations). **Never edit once applied — append `000002_...`** |
 | `migrations/000002_add_sub_task_description.sql` | Adds nullable `sub_tasks.description` TEXT (2026-10-23, sub-task descriptions feature) |
+| `migrations/000003_user_push_tokens.sql` | `user_push_tokens` (user FK, UNIQUE token, platform) for cross-device sync-alert pushes (2026-10-24) |
 | `repo/` | Data access layer, one file per aggregate (see §5) |
 | `rest/server.go` | Global middleware chain + `http.ServeMux` registration + Swagger route + ListenAndServe (port = env `PORT` → fallback `HTTPPORT`) |
 | `rest/middlewares/` | `Manager` (compose chain), `Preflight`, `Cors`, `Logger`, `AuthenticateJWT`, `RequireRole` (⚠ defined but never used), `middleware.go` (struct) |
@@ -173,6 +174,22 @@ Unauthenticated: `POST /users/register`, `POST /users/login`,
 `POST /users/verify-security-answer`, `POST /users/reset-password`, `POST /send-otp`,
 `POST /verify-otp` (opt handlers do their own method checks and respond with plain text errors).
 Global (all routes): Preflight → Cors → Logger. Swagger: `/swagger/`.
+
+**Login contract (fixed 2026-10-24):** wrong password now returns **401**
+`{"error": "Incorrect email or password"}` via `util.ErrInvalidCredentials` (previously a
+misleading 400 "Internal Server Error"); success returns **200** (was 201). The mobile login
+screen already mapped 400/401 to friendly copy via `lib/errors.ts`'s CONTEXT_MESSAGES.
+
+**Push tokens (2026-10-24, #19):** `POST /users/push-token` `{token, platform}` (upsert by
+unique token) and `DELETE /users/push-token` — registered devices are stored in
+`user_push_tokens` (repo/push.go). Every successful REST **task** mutation (complete, increment,
+create, update, delete, sub-task complete/increment, add-to-my-tasks) fires
+`pushRepo.NotifyDataChange(userID)` — an async best-effort fan-out to Expo
+(`exp.host/--/api/v2/push/send`, "data changed" payload `data.type = 'data-change'`) telling the
+user's OTHER devices to catch-up-sync; the mobile app listens for that push
+(app/_layout.tsx) and runs `runFullBackgroundSync`. Mobile-to-device latency for web edits
+drops from next-app-open to seconds. v1 is unbatched (one push per REST mutation) and
+best-effort (failures are logged, never surfaced).
 
 JWT-protected:
 
@@ -465,6 +482,51 @@ separate.
   server-equivalent derived status per (task, date), so sub-tasks/recurring instances are never
   double-counted (a sub-tasked parent is one data point via `computeParentStatus`). Colors come
   from `useThemeColor` across all 10 themes; gridlines/labels use theme border/muted/tint.
+- **UX/feature batch** (added 2026-10-24 — see each item's module/screen):
+  - **Streaks**: `StreakChip` on Home (🔥 N-day, tap → Insights) computes current streak from
+    `useTaskHistoryQuery` over 365 days via `lib/insights.ts` (own non-global tasks only; today
+    not done ⇒ counts from yesterday). Milestones [3,7,14,30,60,100,180,365] fire a one-time
+    Alert (shown-set in AsyncStorage `soulshield_shown_streak_milestones`).
+  - **Insights** (`app/insights.tsx`, modal): 30/90-day completion rate, streaks, favorite
+    category, best weekday from `computeInsightStats`; "Share Progress" snapshots the card via
+    `react-native-view-shot` + `expo-sharing` (falls back to text Share).
+  - **Search** (`app/search.tsx`): offline substring search over active personal tasks
+    (`searchOwnTasksLocal`); tapping jumps Home to the task's next recurrence date (or opens its
+    counter/timer page) via the `lib/jump-to-date.ts` one-shot store + `useFocusEffect` on Home.
+  - **Heatmap jump**: History heatmap cells are Pressables → same jump store.
+  - **Archived tasks** (`app/archived.tsx`): `is_active=false` tasks (set from the edit screen's
+    Archive toggle) listed w/ Restore/Delete; listArchivedTasksLocal; reminders self-heal.
+  - **Sync Issues UI** (`app/sync-notifications.tsx`): failed requests (existing) + **rejected
+    changes** (`lib/background-sync/rejected.ts` store — fed by reconcilePushResults, previously
+    console-warn only) + **conflicts** (`sync_conflicts` rows, server version wins; clearable).
+  - **Logout guard**: Profile logout warns when `countPendingMutations() > 0` (explicit logout
+    wipes the local store; auto-401 logout never does) and best-effort deletes the device's push
+    token before `logout()`.
+  - **Offline banner** on Home (`components/dashboard/offline-banner.tsx`, `useNetworkStatus`).
+  - **Daily digest (#12)**: Profile → Notifications toggle + time (`lib/notification-prefs.ts`,
+    `scheduleDailyDigest/cancelDailyDigest` in lib/notifications.ts; DAILY trigger, static copy —
+    content is fixed at schedule time, so it cannot count remaining tasks).
+  - **Onboarding** (`components/onboarding/onboarding-modal.tsx`): 3 slides, once per install
+    (AsyncStorage flag `soulshield_onboarding_done_v1`), over the signed-in app.
+  - **Export** (`lib/export.ts`): Profile → Data → "Export My Data (JSON)" — whole local store
+    (incl. tombstones) to the OS share sheet (RN Share, no new deps).
+  - **Haptics** (`lib/feedback.ts`): light impact on completion toggles/counter taps, success
+    notification on reward modal + falling-confetti burst (Reanimated Keyframe, deterministic
+    per-open seed).
+  - **i18n scaffold** (`lib/i18n.ts` en+bn, `context/locale-context.tsx`, Profile language
+    chips; `useLocale().t()` with EN fallback): tab labels, home header/statuses/banner/streak,
+    chart, sub-task completed section, profile sections/tools/data labels, sync-issues, search/
+    archived/insights screens, onboarding. Deeper surfaces (forms) still EN — add keys as
+    translated.
+  - **Android widget (#20)**: `lib/widget/task-widget.tsx` (react-native-android-widget v0.24,
+    config plugin in app.json with `TaskOverviewWidget`): headless render from SQLite
+    (today catio + next pending tasks, light/dark pair — headless = no React context); Home's
+    `WidgetRefresher` pushes fresh renders on count/date changes. **Requires a native dev
+    rebuild** (like expo-sqlite).
+  - **Push registration (#19 client)**: Profile → "Cross-device sync alerts" toggle — permission
+    + `getExpoPushTokenAsync({projectId from app.json extra.eas})` → POST /users/push-token;
+    disable/logout DELETE it. Registered pushes arrive as `data.type='data-change'` → catch-up
+    sync (app/_layout.tsx listener).
 - 401 anywhere → global handler → logout(**keepLocalData** — offline edits survive; re-login as
   same user pushes them). Explicit logout (Profile) wipes SQLite + reminders.
 - `clearLocalDatabase` also runs at sign-out because the store is **not user-scoped**.
@@ -576,8 +638,10 @@ mutation-defaults.ts` (mobile), `src/pages/Dashboard.jsx` + `components/TaskCard
    matches, so `NotFound` is unreachable.
 
 **API/behavioral quirks**
-7. `POST /users/login`: wrong password returns **400** with message "Internal Server Error"
-   (repo `Find` returns `(nil, nil)` on bcrypt mismatch); success returns 201 (not 200).
+7. ~~`POST /users/login`: wrong password returns **400** with message "Internal Server Error"
+   (repo `Find` returns `(nil, nil)` on bcrypt mismatch); success returns 201 (not 200).~~
+   **FIXED 2026-10-24** — now 401 "Incorrect email or password" (`util.ErrInvalidCredentials`)
+   and 200 on success (see §5 route notes).
 8. `GET /users/me` re-parses the Authorization header (duplicates middleware; ignores the
    verified context values).
 9. REST `POST /tasks/{id}/complete` cannot un-complete (upsert only sets 'completed'). Web users

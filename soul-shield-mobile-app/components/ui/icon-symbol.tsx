@@ -62,6 +62,7 @@ const MAPPING = {
   'chevron.up': 'keyboard-arrow-up',
   'chevron.down': 'keyboard-arrow-down',
   'textformat': 'text-fields',
+  globe: 'language',
 } as IconMapping;
 
 /**

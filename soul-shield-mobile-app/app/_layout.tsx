@@ -9,16 +9,21 @@ import { ActivityIndicator, AppState, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
-import { runForegroundSyncIfDue } from '@/lib/background-sync/sync';
+import { runForegroundSyncIfDue, runFullBackgroundSync } from '@/lib/background-sync/sync';
 import { registerBackgroundSync } from '@/lib/background-sync/task';
 import { ensureTimerNotificationChannel } from '@/lib/timer/notifications';
 import { ensureTimerTaskNotificationChannel } from '@/lib/timer-task/notifications';
 import { ArabicFontProvider } from '@/context/arabic-font-context';
 import { AuthProvider, useAuth } from '@/context/auth-context';
+import { LocaleProvider } from '@/context/locale-context';
 import { SyncNotificationsProvider } from '@/context/sync-notifications-context';
 import { AppThemeProvider, useAppTheme } from '@/context/theme-context';
 import { ThemeScheme } from '@/constants/theme';
 import { ARABIC_FONT_OPTIONS } from '@/lib/arabic';
+import { OnboardingModal } from '@/components/onboarding/onboarding-modal';
+// Side effect: registers the headless Android widget renderer (see the module
+// doc — the OS imports the bundle for widget updates).
+import '@/lib/widget/task-widget';
 import '@/lib/network';
 import { getNavigationTheme } from '@/lib/navigation-theme';
 import { ensureNotificationSetup } from '@/lib/notifications';
@@ -51,6 +56,9 @@ function RootNavigator() {
           name="sync-notifications"
           options={{ presentation: 'modal', title: 'Sync Issues' }}
         />
+        <Stack.Screen name="insights" options={{ presentation: 'modal', headerShown: false }} />
+        <Stack.Screen name="search" options={{ presentation: 'modal', headerShown: false }} />
+        <Stack.Screen name="archived" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="timer" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="timer-task" options={{ presentation: 'modal', headerShown: false }} />
       </Stack.Protected>
@@ -65,6 +73,7 @@ function ThemedApp() {
     <ThemeProvider value={getNavigationTheme(resolvedTheme)}>
       <SyncNotificationsProvider>
         <RootNavigator />
+        <OnboardingModal />
       </SyncNotificationsProvider>
       <StatusBar style={ThemeScheme[resolvedTheme] === 'dark' ? 'light' : 'dark'} />
     </ThemeProvider>
@@ -116,10 +125,21 @@ export default function RootLayout() {
         },
       });
     });
+    // Cross-device sync alerts (#19): a "data-change" push (sent by the API
+    // when tasks change via the web/REST path) triggers an immediate catch-up
+    // sync. Coalescing/single-flight + the online checks live inside
+    // runFullBackgroundSync; on failure the next trigger picks it up, and the
+    // sync status indicator surfaces persistent failures.
+    const dataChangeSubscription = Notifications.addNotificationReceivedListener((notification) => {
+      const data = notification.request.content.data as { type?: string } | undefined;
+      if (data?.type !== 'data-change') return;
+      runFullBackgroundSync(queryClient).catch(() => {});
+    });
 
     return () => {
       appStateSubscription.remove();
       notificationSubscription.remove();
+      dataChangeSubscription.remove();
     };
   }, []);
 
@@ -146,9 +166,11 @@ export default function RootLayout() {
         }}>
         <ArabicFontProvider>
           <AppThemeProvider>
-            <AuthProvider>
-              <ThemedApp />
-            </AuthProvider>
+            <LocaleProvider>
+              <AuthProvider>
+                <ThemedApp />
+              </AuthProvider>
+            </LocaleProvider>
           </AppThemeProvider>
         </ArabicFontProvider>
       </PersistQueryClientProvider>

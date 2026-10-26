@@ -120,5 +120,10 @@ export const apiPost = <T,>(path: string, body: unknown, token?: string | null, 
 export const apiPatch = <T,>(path: string, body: unknown, token?: string | null) =>
   request<T>(path, { method: 'PATCH', body: JSON.stringify(body ?? {}), token });
 
+/** DELETE with a JSON body — the Go handlers read DELETE payloads (e.g.
+ * DELETE /users/push-token), which the plain apiDelete (no body) can't send. */
+export const apiDeleteWithBody = <T,>(path: string, body: unknown, token?: string | null) =>
+  request<T>(path, { method: 'DELETE', body: JSON.stringify(body ?? {}), token });
+
 export const apiDelete = <T,>(path: string, token?: string | null) =>
   request<T>(path, { method: 'DELETE', token });

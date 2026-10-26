@@ -3,6 +3,7 @@ import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Line, Polyline, Text as SvgText } from 'react-native-svg';
 
 import { ThemedText } from '@/components/themed-text';
+import { useLocale } from '@/context/locale-context';
 import { useTaskHistoryQuery } from '@/hooks/queries/use-tasks';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { addDays, dateRange, weekdayIndex, weekdayLabel } from '@/lib/date';
@@ -42,6 +43,7 @@ interface DayCounts {
  * (solid), warning = partially completed (dashed, the same "in-progress"
  * distinction the summary bar draws with its striped section). */
 export function TaskProgressChart({ selectedDate }: { selectedDate: string }) {
+  const { t } = useLocale();
   const { width: windowWidth } = useWindowDimensions();
   const [containerWidth, setContainerWidth] = useState<number | null>(null);
 
@@ -107,14 +109,14 @@ export function TaskProgressChart({ selectedDate }: { selectedDate: string }) {
       }}>
       <View style={styles.header}>
         <ThemedText type="defaultSemiBold" style={styles.title}>
-          7-Day Progress
+          {t('home.chart.title')}
         </ThemedText>
         {/* Legend mirrors the summary bar's color semantics (see doc comment). */}
         <View style={styles.legend}>
           <View style={[styles.legendDot, { backgroundColor: successColor }]} />
-          <ThemedText style={[styles.legendLabel, { color: mutedColor }]}>Completed</ThemedText>
+          <ThemedText style={[styles.legendLabel, { color: mutedColor }]}>{t('home.chart.completed')}</ThemedText>
           <View style={[styles.legendDot, styles.legendDotDashed, { backgroundColor: warningColor }]} />
-          <ThemedText style={[styles.legendLabel, { color: mutedColor }]}>Partial</ThemedText>
+          <ThemedText style={[styles.legendLabel, { color: mutedColor }]}>{t('home.chart.partial')}</ThemedText>
         </View>
       </View>
 

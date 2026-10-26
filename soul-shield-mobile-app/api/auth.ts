@@ -1,4 +1,4 @@
-import { apiGet, apiPost, type RetryOptions } from '@/api/client';
+import { apiDeleteWithBody, apiGet, apiPost, type RetryOptions } from '@/api/client';
 import type { User } from '@/api/types';
 
 interface RegisterInput {
@@ -62,4 +62,16 @@ export function verifySecurityAnswer(email: string, securityAnswer: string) {
 
 export function resetPassword(resetToken: string, newPassword: string) {
   return apiPost<void>('/users/reset-password', { reset_token: resetToken, new_password: newPassword });
+}
+
+/** Cross-device sync alerts (#19): register/delete this device's Expo push
+ * token against the signed-in user. The backend fans a short "data changed"
+ * push to all of the user's tokens whenever tasks change via the REST path
+ * (web edits); the mobile client listens for it and runs a catch-up sync. */
+export function registerPushToken(pushToken: string, platform: string, authToken?: string | null) {
+  return apiPost<{ message: string }>('/users/push-token', { token: pushToken, platform }, authToken);
+}
+
+export function deletePushToken(pushToken: string, authToken?: string | null) {
+  return apiDeleteWithBody<{ message: string }>('/users/push-token', { token: pushToken }, authToken);
 }

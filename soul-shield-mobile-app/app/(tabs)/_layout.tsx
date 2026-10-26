@@ -16,11 +16,13 @@ import {
   TAB_BAR_RADIUS,
 } from '@/constants/tab-bar';
 import { useAuth } from '@/context/auth-context';
+import { useLocale } from '@/context/locale-context';
 import { useAppTheme } from '@/context/theme-context';
 
 export default function TabLayout() {
   const { resolvedTheme } = useAppTheme();
   const { user } = useAuth();
+  const { t } = useLocale();
   const insets = useSafeAreaInsets();
   const colors = Colors[resolvedTheme];
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -66,14 +68,14 @@ export default function TabLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: 'Home',
+            title: t('tab.home'),
             tabBarIcon: ({ color }) => <IconSymbol size={26} name="house.fill" color={color} />,
           }}
         />
         <Tabs.Screen
           name="history"
           options={{
-            title: 'History',
+            title: t('tab.history'),
             tabBarIcon: ({ color }) => <IconSymbol size={26} name="calendar" color={color} />,
           }}
         />
@@ -89,14 +91,14 @@ export default function TabLayout() {
         <Tabs.Screen
           name="categories"
           options={{
-            title: 'Categories',
+            title: t('tab.categories'),
             tabBarIcon: ({ color }) => <IconSymbol size={26} name="tag.fill" color={color} />,
           }}
         />
         <Tabs.Screen
           name="profile"
           options={{
-            title: 'Profile',
+            title: t('tab.profile'),
             tabBarIcon: ({ color }) => <IconSymbol size={26} name="person.fill" color={color} />,
           }}
         />
@@ -104,7 +106,7 @@ export default function TabLayout() {
           <Tabs.Screen
             name="admin"
             options={{
-              title: 'Admin',
+              title: t('tab.admin'),
               tabBarIcon: ({ color }) => <IconSymbol size={26} name="shield.fill" color={color} />,
             }}
           />

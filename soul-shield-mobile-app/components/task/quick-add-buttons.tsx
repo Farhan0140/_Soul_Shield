@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { hapticLight } from '@/lib/feedback';
 
 const AMOUNTS = [1, 5, 10];
 
@@ -20,7 +21,10 @@ export function QuickAddButtons({ onAdd, disabled }: QuickAddButtonsProps) {
         <Pressable
           key={amount}
           disabled={disabled}
-          onPress={() => onAdd(amount)}
+          onPress={() => {
+            hapticLight();
+            onAdd(amount);
+          }}
           style={({ pressed }) => [
             styles.button,
             { backgroundColor: card, opacity: disabled ? 0.5 : pressed ? 0.7 : 1 },

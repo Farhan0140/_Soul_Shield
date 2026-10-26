@@ -2,7 +2,7 @@
   "expo": {
     "name": "Soul Shield",
     "slug": "soul-shield",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "soulshieldmobileapp",
@@ -50,7 +50,26 @@
         }
       ],
       "expo-background-task",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "react-native-android-widget",
+        {
+          "fonts": [],
+          "widgets": [
+            {
+              "name": "TaskOverviewWidget",
+              "label": "Soul Shield — Today",
+              "description": "Today's task progress and the next few pending tasks.",
+              "minWidth": "180dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

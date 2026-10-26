@@ -1,12 +1,14 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { Task } from '@/api/types';
 import { DailyVerseCard } from '@/components/dashboard/daily-verse-card';
 import { DateNavHeader } from '@/components/dashboard/date-nav-header';
+import { OfflineBanner } from '@/components/dashboard/offline-banner';
 import { ProgressSummaryBar } from '@/components/dashboard/progress-summary-bar';
+import { StreakChip } from '@/components/dashboard/streak-chip';
 import { TaskProgressChart } from '@/components/dashboard/task-progress-chart';
 import { FiltersMenu } from '@/components/filters/filters-menu';
 import type { SourceFilter } from '@/components/filters/source-filter';
@@ -17,6 +19,7 @@ import { RewardModal } from '@/components/task/reward-modal';
 import { ErrorState } from '@/components/ui/error-state';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { useAuth } from '@/context/auth-context';
+import { useLocale } from '@/context/locale-context';
 import { useCategoriesQuery } from '@/hooks/queries/use-categories';
 import { useCompleteTask, useDeleteTask } from '@/hooks/queries/use-task-mutations';
 import { useTasksQuery } from '@/hooks/queries/use-tasks';
@@ -26,6 +29,9 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 import { runFullBackgroundSync } from '@/lib/background-sync/sync';
 import { addDays, todayISODate } from '@/lib/date';
 import { getErrorMessage } from '@/lib/errors';
+import { hapticLight } from '@/lib/feedback';
+import { consumeJumpToDate } from '@/lib/jump-to-date';
+import { refreshTaskWidget } from '@/lib/widget/task-widget';
 
 const FIXED_SECTION_KEY = 'fixed';
 const UNCATEGORIZED_SECTION_KEY = 'uncategorized';
@@ -39,6 +45,16 @@ export default function HomeScreen() {
   const [status, setStatus] = useState<StatusFilter>('all');
   const [taskType, setTaskType] = useState<TaskTypeFilter>('all');
   const [source, setSource] = useState<SourceFilter>('all');
+  const { t } = useLocale();
+
+  // Cross-screen "jump to date" (History heatmap / Search): one-shot store →
+  // apply on focus. See lib/jump-to-date.ts for why not route params.
+  useFocusEffect(
+    useCallback(() => {
+      const jump = consumeJumpToDate();
+      if (jump) setDate(jump);
+    }, [])
+  );
   // Owned here rather than by TaskCard: completing a task moves its card from
   // an active section into the separate "Completed Tasks" section below,
   // which unmounts/remounts TaskCard in a new subtree — any modal state kept
@@ -139,6 +155,7 @@ export default function HomeScreen() {
 
 
   const handleToggleComplete = (task: Task) => {
+    hapticLight();
     completeTask.mutate(
       { taskId: task.task_id, date },
       {
@@ -185,12 +202,22 @@ export default function HomeScreen() {
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={tintColor} colors={[tintColor]} />
       }>
+      {/* Offline is a first-class state here (local-first) — say so, and
+          reassure the user nothing is lost. */}
+      {!isOnline ? <OfflineBanner /> : null}
+
       <DateNavHeader
         date={date}
         onPrev={() => setDate((d) => addDays(d, -1))}
         onNext={() => setDate((d) => addDays(d, 1))}
         onToday={() => setDate(todayISODate())}
       />
+
+      {/* Widget push: after every relevant count/date change, hand the OS
+          widget a fresh render (no-op when no widget is on the home screen). */}
+      <WidgetRefresher completed={completedCount} partial={partiallyCompletedCount} total={ownTasks.length} date={date} />
+
+      <StreakChip />
 
       <TaskProgressChart selectedDate={date} />
 
@@ -241,7 +268,7 @@ export default function HomeScreen() {
            * shown as an empty row. */}
           {fixedTasks.length > 0 ? (
             <CategorySection
-              title="Fixed Tasks"
+              title={t('home.section.fixed')}
               count={fixedTasks.length}
               accentColor={tintColor}
               icon="shield.fill"
@@ -263,7 +290,11 @@ export default function HomeScreen() {
           {categorySections.filter((section) => section.tasks.length > 0).map((section) => (
             <CategorySection
               key={section.key}
-              title={section.title}
+              title={
+                section.categoryId === null && section.key === UNCATEGORIZED_SECTION_KEY
+                  ? t('home.section.uncategorized')
+                  : section.title
+              }
               count={section.tasks.length}
               accentColor={section.accentColor}
               tasks={section.tasks}
@@ -274,7 +305,10 @@ export default function HomeScreen() {
                   pathname: '/category/[id]',
                   params: {
                     id: section.categoryId != null ? String(section.categoryId) : UNCATEGORIZED_SECTION_KEY,
-                    name: section.title,
+                    name:
+                      section.categoryId === null && section.key === UNCATEGORIZED_SECTION_KEY
+                        ? t('home.section.uncategorized')
+                        : section.title,
                     date,
                   },
                 })
@@ -287,7 +321,7 @@ export default function HomeScreen() {
           ))}
           {completedTasks.length > 0 ? (
             <CategorySection
-              title="Completed Tasks"
+              title={t('home.section.completed')}
               count={completedTasks.length}
               accentColor={successColor}
               icon="checkmark.circle.fill"
@@ -317,6 +351,16 @@ export default function HomeScreen() {
     />
     </>
   );
+}
+
+/** Renders nothing — exists purely so the OS widget gets a fresh render when
+ * the numbers it displays change (refreshTaskWidget no-ops when no widget is
+ * placed; see lib/widget/task-widget.tsx). */
+function WidgetRefresher(props: { completed: number; partial: number; total: number; date: string }) {
+  useEffect(() => {
+    refreshTaskWidget();
+  }, [props.completed, props.partial, props.total, props.date]);
+  return null;
 }
 
 const styles = StyleSheet.create({

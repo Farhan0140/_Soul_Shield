@@ -9,8 +9,10 @@ import { QuickAddButtons } from '@/components/task/quick-add-buttons';
 import { ExpandableText } from '@/components/ui/expandable-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { PaginationBar } from '@/components/ui/pagination-bar';
+import { useLocale } from '@/context/locale-context';
 import { useCompleteSubTask, useIncrementSubTask } from '@/hooks/queries/use-task-mutations';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { hapticLight } from '@/lib/feedback';
 
 /** How many incomplete sub-tasks one page shows — a sub-tasked Main Task's
  * section stays a short, scannable list no matter how many sub-tasks it has
@@ -59,7 +61,14 @@ function SubTaskRow({ subTask, disabled, onComplete, onIncrement, onOpenCounter,
       <View style={styles.rowHeader}>
         {!isCounter && !isTimer ? (
           // TODO this button is for toggling completion of a normal type sub-task
-          <Pressable disabled={disabled} onPress={() => onComplete(subTask)} hitSlop={8} style={styles.checkbox}>
+          <Pressable
+            disabled={disabled}
+            onPress={() => {
+              hapticLight();
+              onComplete(subTask);
+            }}
+            hitSlop={8}
+            style={styles.checkbox}>
             <IconSymbol
               name={isCompleted ? 'checkmark.circle.fill' : 'circle'}
               size={20}
@@ -121,6 +130,7 @@ interface SubTaskListProps {
 }
 
 export function SubTaskList({ taskId, subTasks, date, disabled, onRewardEarned }: SubTaskListProps) {
+  const { t } = useLocale();
   const borderColor = useThemeColor({}, 'border');
   const successColor = useThemeColor({}, 'success');
   const completeSubTask = useCompleteSubTask();
@@ -223,7 +233,7 @@ export function SubTaskList({ taskId, subTasks, date, disabled, onRewardEarned }
               color={successColor}
             />
             <ThemedText type="defaultSemiBold" style={[styles.completedCount, { color: successColor }]}>
-              Completed Sub-Tasks ({completedSubTasks.length})
+              {`${t('subtasks.completedSection')} (${completedSubTasks.length})`}
             </ThemedText>
           </Pressable>
 

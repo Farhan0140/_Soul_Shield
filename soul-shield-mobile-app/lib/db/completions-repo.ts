@@ -172,6 +172,20 @@ export function listSubTaskCompletionsInRange(fromDate: string, toDate: string) 
     .all();
 }
 
+/** Everything ever stored (incl. tombstones) — the data export reads these
+ * rather than the range-filtered views so a backup loses nothing. */
+export function listAllTaskCompletionsLocal() {
+  const db = getLocalDb();
+  if (!db) return [];
+  return db.select().from(taskCompletions).all();
+}
+
+export function listAllSubTaskCompletionsLocal() {
+  const db = getLocalDb();
+  if (!db) return [];
+  return db.select().from(subTaskCompletions).all();
+}
+
 // ---- Local writes ----
 //
 // Unlike the backend's POST /tasks/{id}/complete (repo/task.go's Complete,

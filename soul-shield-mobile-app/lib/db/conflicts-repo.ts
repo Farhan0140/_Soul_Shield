@@ -32,6 +32,14 @@ export function listSyncConflicts() {
   return db.select().from(syncConflicts).orderBy(desc(syncConflicts.detectedAt)).all();
 }
 
+/** Wipes the local conflict log (the server-side resolution is already
+ * applied — these rows are purely informational; see the Sync Issues UI). */
+export function clearSyncConflicts(): void {
+  const db = getLocalDb();
+  if (!db) return;
+  db.delete(syncConflicts).run();
+}
+
 /** Shared by every *-repo.ts's upsertXFromSync (all five local tables share
  * uuid/syncedAt/updatedAt) - the actual "is this a genuine concurrent edit"
  * check. `existing.syncedAt === null` means this device has a local write

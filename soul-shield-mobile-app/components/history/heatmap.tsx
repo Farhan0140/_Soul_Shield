@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { monthShortLabel, weekdayIndex } from '@/lib/date';
@@ -12,6 +12,9 @@ export interface HeatmapDay {
 
 interface HeatmapProps {
   days: HeatmapDay[];
+  /** When provided, tapping a day square fires it — History passes a handler
+   * that jumps the Home screen to that date (see lib/jump-to-date.ts). */
+  onDayPress?: (iso: string) => void;
 }
 
 const SQUARE_SIZE = 12;
@@ -33,7 +36,7 @@ function levelFor(day: HeatmapDay): 0 | 1 | 2 | 3 | 4 {
   return 4;
 }
 
-export function Heatmap({ days }: HeatmapProps) {
+export function Heatmap({ days, onDayPress }: HeatmapProps) {
   const track = useThemeColor({}, 'border');
   const success = useThemeColor({}, 'success');
   const muted = useThemeColor({}, 'muted');
@@ -98,15 +101,26 @@ export function Heatmap({ days }: HeatmapProps) {
             <View style={styles.weeksRow}>
               {weeks.map((week, weekIndex) => (
                 <View key={weekIndex} style={styles.weekColumn}>
-                  {week.map((cell, rowIndex) => (
-                    <View
-                      key={rowIndex}
-                      style={[
-                        styles.square,
-                        { backgroundColor: cell ? levelColors[levelFor(cell)] : 'transparent' },
-                      ]}
-                    />
-                  ))}
+                  {week.map((cell, rowIndex) => {
+                    const square = (
+                      <View
+                        style={[
+                          styles.square,
+                          { backgroundColor: cell ? levelColors[levelFor(cell)] : 'transparent' },
+                        ]}
+                      />
+                    );
+                    if (!onDayPress || !cell) return square;
+                    return (
+                      <Pressable
+                        key={cell.date}
+                        onPress={() => onDayPress(cell.date)}
+                        accessibilityRole="button"
+                        accessibilityLabel={cell.date}>
+                        {square}
+                      </Pressable>
+                    );
+                  })}
                 </View>
               ))}
             </View>
