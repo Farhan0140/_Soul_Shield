@@ -101,12 +101,7 @@ export function TaskProgressChart({ selectedDate }: { selectedDate: string }) {
   }, [containerWidth, windowWidth, dates, counts, yMax]);
 
   return (
-    <View
-      style={[styles.card, { backgroundColor: cardColor, borderColor }]}
-      onLayout={(e) => {
-        const w = e.nativeEvent.layout.width;
-        if (containerWidth !== w) setContainerWidth(w);
-      }}>
+    <View style={[styles.card, { backgroundColor: cardColor, borderColor }]}>
       <View style={styles.header}>
         <ThemedText type="defaultSemiBold" style={styles.title}>
           {t('home.chart.title')}
@@ -120,6 +115,12 @@ export function TaskProgressChart({ selectedDate }: { selectedDate: string }) {
         </View>
       </View>
 
+      {/* Measure the INNER chart area (inside the card's padding) — measuring
+          the card itself made the SVG spill out of the card's right edge. */}
+      <View style={styles.chartArea} onLayout={(e) => {
+        const w = e.nativeEvent.layout.width;
+        if (containerWidth !== w) setContainerWidth(w);
+      }}>
       {isPending ? (
         // Local derivation resolves within the same tick once SQLite is open;
         // this is only visible on the very first frame (or while the legacy
@@ -245,6 +246,7 @@ export function TaskProgressChart({ selectedDate }: { selectedDate: string }) {
           })}
         </Svg>
       )}
+      </View>
     </View>
   );
 }
@@ -266,6 +268,7 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   legendLabel: { fontSize: 11, marginRight: 6 },
+  chartArea: { width: '100%' },
   pendingChart: { height: CHART_HEIGHT, borderRadius: 12, opacity: 0.3, backgroundColor: 'transparent' },
   fallbackText: { fontSize: 12 },
 });

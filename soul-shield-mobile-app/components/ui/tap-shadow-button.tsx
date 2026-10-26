@@ -80,8 +80,8 @@ export function TapShadowButton({ onPress, disabled, children, style, accessibil
 
 const styles = StyleSheet.create({
   base: {
-    borderWidth: 2,
-    borderStyle: 'dashed',
+    borderWidth: 0,
+    borderStyle: 'solid',
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,

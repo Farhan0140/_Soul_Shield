@@ -5,7 +5,7 @@ import { useScrollToFocusedInput } from '@/components/ui/keyboard-avoiding-scrol
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 interface TextFieldProps extends TextInputProps {
-  label: string;
+  label?: string;
   error?: string;
 }
 
@@ -27,7 +27,7 @@ export function TextField({ label, error, style, onFocus, onBlur, ...rest }: Tex
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, { color: mutedColor }]}>{label}</Text>
+      {label ? <Text style={[styles.label, { color: mutedColor }]}>{label}</Text> : null}
       <TextInput
         placeholderTextColor={mutedColor}
         onFocus={(e) => {

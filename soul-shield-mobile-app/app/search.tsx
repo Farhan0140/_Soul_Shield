@@ -65,7 +65,6 @@ export default function SearchScreen() {
       </View>
 
       <TextField
-        label={t('search.hint')}
         value={queryText}
         onChangeText={setQueryText}
         placeholder={t('search.placeholder')}
