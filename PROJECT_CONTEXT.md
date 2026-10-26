@@ -453,7 +453,18 @@ separate.
   taps fall through to outer Pressables (card details toggle, counter/timer row routing) —
   long titles on cards claim the tap for expand, with routing still available via the bottom
   links. Counter/timer page headers follow the details-page hierarchy: parent title on top,
-  current title in the SAME size/weight, description below the current title.
+  current title in the SAME size/weight, description below the current title. Web equivalents:
+  see §7.
+- **7-Day progress chart** (added 2026-10-23): `components/dashboard/task-progress-chart.tsx`
+  on the home screen above DailyVerseCard — a `react-native-svg` (existing dep) two-line chart
+  of fully-completed (solid, theme `success`) and partially-completed (dashed, theme `warning`)
+  counts per day for the 7 days ENDING at the DateNavHeader's selected date. Data =
+  `useTaskHistoryQuery(from, selectedDate)` → the local-first `deriveTasksForRange` read (no new
+  fetching; works offline), which all mutations and sync pulls already invalidate via
+  `['taskHistory']` — so the chart self-updates on every status change. Counting reuses the
+  server-equivalent derived status per (task, date), so sub-tasks/recurring instances are never
+  double-counted (a sub-tasked parent is one data point via `computeParentStatus`). Colors come
+  from `useThemeColor` across all 10 themes; gridlines/labels use theme border/muted/tint.
 - 401 anywhere → global handler → logout(**keepLocalData** — offline edits survive; re-login as
   same user pushes them). Explicit logout (Profile) wipes SQLite + reminders.
 - `clearLocalDatabase` also runs at sign-out because the store is **not user-scoped**.

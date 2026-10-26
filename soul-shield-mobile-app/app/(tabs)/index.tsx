@@ -7,6 +7,7 @@ import type { Task } from '@/api/types';
 import { DailyVerseCard } from '@/components/dashboard/daily-verse-card';
 import { DateNavHeader } from '@/components/dashboard/date-nav-header';
 import { ProgressSummaryBar } from '@/components/dashboard/progress-summary-bar';
+import { TaskProgressChart } from '@/components/dashboard/task-progress-chart';
 import { FiltersMenu } from '@/components/filters/filters-menu';
 import type { SourceFilter } from '@/components/filters/source-filter';
 import type { StatusFilter } from '@/components/filters/status-tabs';
@@ -190,6 +191,8 @@ export default function HomeScreen() {
         onNext={() => setDate((d) => addDays(d, 1))}
         onToday={() => setDate(todayISODate())}
       />
+
+      <TaskProgressChart selectedDate={date} />
 
       <DailyVerseCard />
 
