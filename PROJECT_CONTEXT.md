@@ -523,10 +523,60 @@ separate.
     (today catio + next pending tasks, light/dark pair — headless = no React context); Home's
     `WidgetRefresher` pushes fresh renders on count/date changes. **Requires a native dev
     rebuild** (like expo-sqlite).
+  - **Config fix (2026-10-24)**: `@react-native-community/datetimepicker` was removed from
+    app.json's `plugins` — that package ships NO config plugin, so Expo aborted startup with
+    "Unable to resolve a valid config plugin". The native module self-configures via autolinking
+    in SDK 54 and never needed a `plugins` entry.
+  - **Bundle fix (2026-10-24)**: `metro.config.js` carries a TEMPORARY resolver alias:
+    `react-native/setup-env` → `react-native/Libraries/Core/InitializeCore`. Root cause: RN
+    0.81.x's exports wildcard publishes `./setup-env.js` but the file doesn't exist in the
+    official tarball, and `@expo/metro-runtime@6.1.2` (the latest stable, requested by
+    expo-router ^6.1.2) hard-imports it — Expo's own fix (import InitializeCore instead, PRs
+    #51177/#50863/#51536) is on the sdk-54 branch but unreleased. **Remove the alias once
+    @expo/metro-runtime ships ≥ 6.1.3 stable**, then `npx expo start --clear`.
   - **Push registration (#19 client)**: Profile → "Cross-device sync alerts" toggle — permission
     + `getExpoPushTokenAsync({projectId from app.json extra.eas})` → POST /users/push-token;
     disable/logout DELETE it. Registered pushes arrive as `data.type='data-change'` → catch-up
     sync (app/_layout.tsx listener).
+- **Counter responsiveness + anti-revert** (fixed 2026-10-24, #counter-performance):
+  - **Instant UI everywhere**: sub-task increments/toggles now optimistically patch the query
+    caches (day list AND every cached `taskHistory` window) via the new
+    `patchSubTaskInCaches`/`patchSubTaskIncrementInCaches`/`patchSubTaskToggleInCaches` in
+    `lib/task-cache.ts`, recomputing the parent's derived status with the SAME exported
+    `computeParentStatus` from `lib/db/tasks-repo.ts` — so the instant paint equals the next
+    refetch (no flash-and-correct). Whole-task completion toggles
+    (`useCompleteTask`) patch via `patchTaskStatusInCaches`; main-counter taps were already
+    instant (increment buffer). Every patch first CANCELS in-flight list fetches for the touched
+    windows (centralized in `patchTaskInCaches`) so a fetch started before the local write can't
+    land stale data over the patch.
+  - **Anti-revert guard against pulls**: a /sync pull whose snapshot predates pending local
+    edits used to overwrite dirty local completion rows (progress reset = the reported "count
+    appears to revert"). `lib/db/completions-repo.ts` now skips applying a pulled completion when
+    the local row is dirty (syncedAt null) and the incoming row isn't strictly ahead (progress
+    not higher AND not newly 'completed') — monotonic-progress rule, clock-skew-proof. The
+    push-reconcile path passes `origin='push-reconcile'`: on an equal-or-ahead skip it clears
+    `syncedAt` only (server provably has our delta), preserving prior reconcile semantics.
+    Completion/push/sync architecture otherwise UNCHANGED (buffer, debounce, delta pushes).
+- **Counter tap stall round 2** (fixed 2026-10-24, follow-up to #counter-performance): after
+  the optimistic patches, taps STILL froze 1-2s because every `invalidateTaskLists` (i.e. every
+  tap AND every push settle) re-derived the Streak chip's 365-day window via
+  `deriveTasksForRange` on the JS thread. Fixes: (1) Streak chip moved to its OWN query key
+  `['completedDates', from, to]` backed by the new lightweight
+  `listOwnCompletedDatesInRange` (lib/db/tasks-repo.ts) — DISTINCT completed-dates rows incl.
+  the sub-tasked-parent-derived rule — invalidated like the rest but now ~ms instead of a
+  year-long task-loop; insights' big windows are only derived while that screen is mounted.
+  (2) Sync PULLS batch all row upserts into ONE SQLite transaction
+  (`withTransactionSync` in lib/background-sync/pull.ts; previously every row autocommitted →
+  hundreds of fsyncs froze the JS thread exactly when the user starts tapping after opening
+  the app). On a batch failure it falls back to per-row best-effort; the cursor advances only
+  after all rows land (idempotent re-pull ✓).
+- **Reward text in edit forms** (fixed 2026-10-24): list endpoints gated `reward_text` to
+  completed tasks only, so the edit form never received the configured reward. Now surfaced
+  whenever configured in ALL list paths (backend `repo/task.go` ×3 + `subtask_merge.go` ×2;
+  mobile derive mirrors it) — display keeps gating on status client-side (reward banner/modal
+  show only when completed; web's upcoming-reward preview now actually works pre-completion).
+  Mobile edit screen additionally falls back to the raw local row (`getTaskByUuid`) for stale
+  cached lists.
 - 401 anywhere → global handler → logout(**keepLocalData** — offline edits survive; re-login as
   same user pushes them). Explicit logout (Profile) wipes SQLite + reminders.
 - `clearLocalDatabase` also runs at sign-out because the store is **not user-scoped**.

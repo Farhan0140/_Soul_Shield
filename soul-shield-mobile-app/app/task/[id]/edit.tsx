@@ -1,13 +1,15 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { Task, TaskInput, TaskUpdateInput } from '@/api/types';
 import { TaskForm } from '@/components/task/task-form';
-import { PrimaryButton } from '@/components/ui/primary-button';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/context/auth-context';
 import { useLocale } from '@/context/locale-context';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import { useCreateTask, useUpdateTask } from '@/hooks/queries/use-task-mutations';
+import { getTaskByUuid } from '@/lib/db/tasks-repo';
 import { todayISODate } from '@/lib/date';
 import { getErrorMessage } from '@/lib/errors';
 import { cancelTaskReminders, scheduleTaskReminders } from '@/lib/notifications';
@@ -17,10 +19,23 @@ export default function EditTaskScreen() {
   const { user } = useAuth();
   const { t } = useLocale();
   const [error, setError] = useState<string | null>(null);
+  const tint = useThemeColor({}, 'tint');
+  const successColor = useThemeColor({}, 'success');
+  const warningColor = useThemeColor({}, 'warning');
+  const textColor = useThemeColor({}, 'text');
 
   const initialTask = useMemo<Task | undefined>(() => {
     try {
-      return taskParam ? (JSON.parse(taskParam) as Task) : undefined;
+      const parsed = taskParam ? (JSON.parse(taskParam) as Task) : undefined;
+      if (!parsed) return undefined;
+      // List responses omitted reward_text for non-completed tasks until the
+      // 2026-10-24 ungate — fall back to the raw local row so the edit form
+      // always pre-fills the configured reward (also covers stale caches).
+      if (!parsed.reward_text) {
+        const raw = getTaskByUuid(parsed.task_id);
+        if (raw?.rewardText) parsed.reward_text = raw.rewardText;
+      }
+      return parsed;
     } catch {
       return undefined;
     }
@@ -95,7 +110,7 @@ export default function EditTaskScreen() {
   };
 
   /** Archive (#11) / restore: flips is_active; archived tasks disappear from
-   * every list but stay restorable via Profile → Archived Tasks (their
+   * every list but stay restorable from Profile → Archived Tasks (their
    * history is kept either way). Archiving cancels the scheduled reminders
    * the same way deleting does (restoring self-heals them on the next sync). */
   const handleToggleArchive = () => {
@@ -116,8 +131,57 @@ export default function EditTaskScreen() {
     router.back();
   };
 
+  /** The nav header ALREADY exists (app/task/_layout.tsx: "Edit Task" title +
+   * close button) — the Duplicate / Archive(↔Restore) icon buttons are added
+   * INTO that existing header via headerRight (icon-only, themed soft-tint
+   * backgrounds), NOT a second custom nav. Overriding headerRight for this
+   * screen replaces the layout's close-only button, so the close (X) is
+   * re-included here at the far right. */
+  const headerRight = () => (
+    <View style={styles.headerActions}>
+      {initialTask && !initialTask.is_global ? (
+        <>
+          <Pressable
+            onPress={handleDuplicate}
+            disabled={createTask.isPending}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.duplicate')}
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.iconButton,
+              { backgroundColor: `${tint}1A`, opacity: createTask.isPending ? 0.5 : pressed ? 0.7 : 1 },
+            ]}>
+            <IconSymbol name="doc.on.doc.fill" size={18} color={tint} />
+          </Pressable>
+          <Pressable
+            onPress={handleToggleArchive}
+            accessibilityRole="button"
+            accessibilityLabel={isArchived ? t('archived.restore') : t('common.archive')}
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.iconButton,
+              {
+                backgroundColor: isArchived ? `${successColor}1A` : `${warningColor}1A`,
+                opacity: pressed ? 0.7 : 1,
+              },
+            ]}>
+            <IconSymbol
+              name={isArchived ? 'arrow.counterclockwise' : 'archivebox.fill'}
+              size={18}
+              color={isArchived ? successColor : warningColor}
+            />
+          </Pressable>
+        </>
+      ) : null}
+      <Pressable onPress={() => router.back()} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close">
+        <IconSymbol name="xmark" size={22} color={textColor} />
+      </Pressable>
+    </View>
+  );
+
   return (
-    <View style={styles.container}>
+    <>
+      <Stack.Screen options={{ headerRight }} />
       <TaskForm
         initialTask={initialTask}
         isAdmin={isAdmin}
@@ -126,22 +190,18 @@ export default function EditTaskScreen() {
         submitLabel={t('common.save')}
         onSubmit={handleSubmit}
       />
-
-      {initialTask && !initialTask.is_global ? (
-        <View style={styles.extraActions}>
-          <PrimaryButton
-            label={isArchived ? t('archived.restore') : t('common.archive')}
-            variant="secondary"
-            onPress={handleToggleArchive}
-          />
-          <PrimaryButton label={t('common.duplicate')} variant="secondary" onPress={handleDuplicate} />
-        </View>
-      ) : null}
-    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  extraActions: { paddingHorizontal: 20, paddingBottom: 24, gap: 12 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginRight: 4 },
+  iconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

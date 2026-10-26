@@ -129,7 +129,9 @@ export function searchOwnTasksLocal(query: string) {
  * derived this way, never read from its own completion row (which
  * shouldn't exist for one - the app never lets a sub-tasked parent be
  * completed directly). */
-function computeParentStatus(subs: SubTask[], date: string, today: string): TaskStatus {
+/** Shared with the optimistic cache patcher (lib/task-cache.ts) so a tap-driven
+ * parent-status recompute EXACTLY matches the derived read on refetch. */
+export function computeParentStatus(subs: SubTask[], date: string, today: string): TaskStatus {
   const completed = subs.filter((s) => s.status === 'completed').length;
   if (completed === subs.length) return 'completed';
   if (completed > 0) return 'partially_completed';
@@ -226,7 +228,7 @@ export function deriveTasksForRange(fromDate: string, toDate: string): Task[] {
         category_id: task.categoryUuid,
         category_name: category?.name ?? null,
         category_color: category?.colorHex ?? null,
-        reward_text: status === 'completed' ? task.rewardText : null,
+        reward_text: task.rewardText ?? null,
         task_type: task.taskType as TaskType,
         target_count: task.targetCount,
         duration_seconds: task.durationSeconds,
@@ -256,7 +258,7 @@ export function deriveTasksForRange(fromDate: string, toDate: string): Task[] {
         });
         item.sub_tasks = subs;
         item.status = computeParentStatus(subs, date, today);
-        item.reward_text = item.status === 'completed' ? task.rewardText : null;
+        item.reward_text = task.rewardText ?? null;
       }
 
       results.push(item);
@@ -453,4 +455,47 @@ export function reorderTasksLocal(orderedUuids: string[]): void {
   orderedUuids.forEach((uuid, index) => {
     db.update(tasks).set({ position: index, updatedAt: now, syncedAt: null }).where(eq(tasks.uuid, uuid)).run();
   });
+}
+
+/** Streak/insights support (#counter-performance): ONLY the calendar dates in
+ * [from, to] on which at least one OWN (non-global, active) task ended up
+ * completed — including sub-tasked parents whose active sub-tasks are all
+ * completed (the parent-derived rule from deriveTasksForRange) — computed from
+ * completions rows directly. Orders of magnitude cheaper than
+ * deriveTasksForRange over a 365-day window, which ran on EVERY
+ * ['taskHistory'] invalidation (i.e. every counter tap) and stalled the UI. */
+export function listOwnCompletedDatesInRange(fromDate: string, toDate: string): string[] {
+  const owned = listAllOwnedTasksFlat().filter((t) => t.isActive);
+  if (owned.length === 0) return [];
+  const ownedByUuid = new Map(owned.map((t) => [t.uuid, t]));
+  const ownedUuids = owned.map((t) => t.uuid);
+
+  const dates = new Set<string>();
+  for (const c of listTaskCompletionsInRange(fromDate, toDate)) {
+    if (c.status !== 'completed' || c.deletedAt) continue;
+    if (!c.taskUuid || !ownedByUuid.has(c.taskUuid)) continue;
+    dates.add(c.taskDate);
+  }
+
+  // Sub-tasked parents: a date counts when every ACTIVE sub-task of the
+  // parent is completed that day (mirrors computeParentStatus's completed rule).
+  const subsByParent = listActiveSubTasksByParents(ownedUuids);
+  const subCompletionRows = listSubTaskCompletionsInRange(fromDate, toDate);
+  const completedPerParentDate = new Map<string, number>();
+  for (const c of subCompletionRows) {
+    if (c.status !== 'completed' || c.deletedAt || !c.subTaskUuid) continue;
+    const parent = ownedByUuid.get(c.parentTaskUuid);
+    if (!parent) continue;
+    const activeSubs = subsByParent.get(c.parentTaskUuid);
+    if (!activeSubs || !activeSubs.some((s) => s.uuid === c.subTaskUuid)) continue;
+    const key = `${c.parentTaskUuid}|${c.taskDate}`;
+    completedPerParentDate.set(key, (completedPerParentDate.get(key) ?? 0) + 1);
+  }
+  for (const [key, completed] of completedPerParentDate) {
+    const parentUuid = key.split('|')[0];
+    const date = key.split('|')[1];
+    if (completed >= (subsByParent.get(parentUuid)?.length ?? Infinity) && completed > 0) dates.add(date);
+  }
+
+  return [...dates];
 }

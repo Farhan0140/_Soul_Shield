@@ -27,11 +27,19 @@ import {
 import { mutationKeys } from '@/lib/mutation-keys';
 import { cancelTaskReminders } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
+import {
+  patchSubTaskIncrementInCaches,
+  patchSubTaskToggleInCaches,
+  patchTaskStatusInCaches,
+} from '@/lib/task-cache';
 
 function invalidateTaskLists(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ['tasks'] });
   queryClient.invalidateQueries({ queryKey: ['taskHistory'] });
   queryClient.invalidateQueries({ queryKey: ['myTasks'] });
+  // Streak chip's lightweight completed-dates windows (own key — NOT under
+  // taskHistory, so this never re-derives a 365-day window per tap).
+  queryClient.invalidateQueries({ queryKey: ['completedDates'] });
 }
 
 function findDerivedTask(date: string, taskId: string): Task | undefined {
@@ -157,6 +165,9 @@ export function useCompleteTask() {
       }
     ) => {
       const { status, completionUuid } = toggleTaskCompletionLocal(taskId, date);
+      // Optimistic first paint — status flips in the cached lists before any
+      // refetch (the SQLite write above already happened synchronously).
+      patchTaskStatusInCaches(queryClient, date, taskId, status);
       invalidateTaskLists(queryClient);
       mutation.mutate(
         { completionUuid },
@@ -289,7 +300,15 @@ export function useCompleteSubTask() {
       options?: { onSuccess?: (data: { parent_status: Task['status']; parent_reward_text?: string }) => void }
     ) => {
       const effectiveDate = date ?? todayISODate();
-      const { completionUuid } = toggleSubTaskCompletionLocal(subTaskId, taskId, effectiveDate);
+      const { status, completionUuid } = toggleSubTaskCompletionLocal(subTaskId, taskId, effectiveDate);
+      // Optimistic first paint: sub flips + parent status recomputed in-cache
+      // (see lib/task-cache.ts's patchSubTaskInCaches).
+      patchSubTaskToggleInCaches(queryClient, {
+        date: effectiveDate,
+        taskId,
+        subTaskId,
+        status,
+      });
       invalidateTaskLists(queryClient);
       mutation.mutate(
         { completionUuid },
@@ -341,6 +360,7 @@ export function useIncrementSubTask() {
         throw new Error('Offline database is not ready on this device yet - please update the app to sync changes.');
       }
       const subTask = getSubTaskByUuid(subTaskId);
+      const subTargetCount = subTask?.targetCount ?? 0;
       const { completionUuid } = incrementSubTaskCompletionLocal(
         subTaskId,
         taskId,
@@ -348,6 +368,15 @@ export function useIncrementSubTask() {
         amount,
         subTask?.targetCount ?? 0
       );
+      // Optimistic first paint: +amount lands in the cached lists instantly
+      // (SQLite write above is already synchronous) — see lib/task-cache.ts.
+      patchSubTaskIncrementInCaches(queryClient, {
+        date: effectiveDate,
+        taskId,
+        subTaskId,
+        amount,
+        targetCount: subTargetCount,
+      });
       invalidateTaskLists(queryClient);
       mutation.mutate(
         { completionUuid, amount },

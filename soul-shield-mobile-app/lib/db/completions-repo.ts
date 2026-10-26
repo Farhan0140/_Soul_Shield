@@ -7,16 +7,72 @@ import { checkForConflict } from '@/lib/db/conflicts-repo';
 import { subTaskCompletions, taskCompletions } from '@/lib/db/schema';
 import { newUuid } from '@/lib/db/uuid';
 
+/** Anti-revert guard for pulled completion rows (#counter performance): a
+ * /sync pull whose server snapshot was taken BEFORE a just-made local
+ * increment/toggle must not clobber the newer local row (it would visibly
+ * reset the counter until the next push recovered it — the "count appears to
+ * revert" bug). Rules, in order:
+ *  - a dirty local row (syncedAt null → this device owes a push) is KEPT when
+ *    the incoming row isn't strictly ahead of it: progress not greater AND
+ *    not newly 'completed'. Counter progress is monotonic per day, so this
+ *    is skew-proof (no clock comparison — local and server clocks can
+ *    disagree);
+ *  - an incoming row that IS ahead (another device's taps, a completion)
+ *    still applies, so multi-device sums keep working;
+ *  - synced (non-dirty) rows always apply (their syncedAt=null write path is
+ *    reconcilePushResults, not a pull). */
+function shouldApplyPulledCompletion(
+  existing:
+    | { uuid: string; syncedAt: string | null; status: string; progressCount: number }
+    | undefined,
+  incoming: { status: string; progress_count: number }
+): boolean {
+  if (!existing) return true;
+  if (existing.syncedAt !== null) return true;
+  if (incoming.progress_count > existing.progressCount) return true;
+  if (incoming.status === 'completed' && existing.status !== 'completed') return true;
+  return false;
+}
+
 /** See categories-repo.ts's upsertCategoryFromSync - identical shape,
  * including the conflict check. task_uuid is nullable (mirrors the
  * backend's historical nullable task_id - see lib/db/schema.ts's comment on
  * taskCompletions). */
-export function upsertTaskCompletionFromSync(row: SyncTaskCompletion): void {
+
+/** When a skip happens during PUSH-RECONCILE (the server_row that answers OUR
+ * accepted push), the server by definition already contains this device's
+ * delta(s) — server total >= local is the proof — so the only correct action is
+ * to clear the dirty flag (syncedAt) without touching data; leaving it dirty
+ * would keep the row in every future safety-net sweep. On a PULL skip the row
+ * stays dirty on purpose (see shouldApplyPulledCompletion). Drizzle requires a
+ * concrete table type, hence the generic param. */
+function applyPostPushSyncMark(
+  origin: 'sync-pull' | 'push-reconcile',
+  existing: { uuid: string; syncedAt: string | null; progressCount: number } | undefined,
+  incomingProgressCount: number,
+  markSynced: () => void
+): void {
+  if (origin !== 'push-reconcile' || !existing || existing.syncedAt !== null) return;
+  if (incomingProgressCount < existing.progressCount) return;
+  markSynced();
+}
+
+export function upsertTaskCompletionFromSync(
+  row: SyncTaskCompletion,
+  origin: 'sync-pull' | 'push-reconcile' = 'sync-pull'
+): void {
   const db = getLocalDb();
   if (!db) return;
 
   const existing = db.select().from(taskCompletions).where(eq(taskCompletions.uuid, row.uuid)).get();
   checkForConflict('task_completions', existing, row.updated_at, row);
+  if (!shouldApplyPulledCompletion(existing, row)) {
+    applyPostPushSyncMark(origin, existing, row.progress_count, () => {
+      const now = new Date().toISOString();
+      db.update(taskCompletions).set({ syncedAt: now }).where(eq(taskCompletions.uuid, existing!.uuid)).run();
+    });
+    return;
+  }
 
   const now = new Date().toISOString();
   db.insert(taskCompletions)
@@ -46,12 +102,22 @@ export function upsertTaskCompletionFromSync(row: SyncTaskCompletion): void {
     .run();
 }
 
-export function upsertSubTaskCompletionFromSync(row: SyncSubTaskCompletion): void {
+export function upsertSubTaskCompletionFromSync(
+  row: SyncSubTaskCompletion,
+  origin: 'sync-pull' | 'push-reconcile' = 'sync-pull'
+): void {
   const db = getLocalDb();
   if (!db) return;
 
   const existing = db.select().from(subTaskCompletions).where(eq(subTaskCompletions.uuid, row.uuid)).get();
   checkForConflict('sub_task_completions', existing, row.updated_at, row);
+  if (!shouldApplyPulledCompletion(existing, row)) {
+    applyPostPushSyncMark(origin, existing, row.progress_count, () => {
+      const now = new Date().toISOString();
+      db.update(subTaskCompletions).set({ syncedAt: now }).where(eq(subTaskCompletions.uuid, existing!.uuid)).run();
+    });
+    return;
+  }
 
   const now = new Date().toISOString();
   db.insert(subTaskCompletions)

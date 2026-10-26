@@ -140,6 +140,7 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
       liveClient.invalidateQueries({ queryKey: ['tasks'] });
       liveClient.invalidateQueries({ queryKey: ['taskHistory'] });
       liveClient.invalidateQueries({ queryKey: ['myTasks'] });
+      liveClient.invalidateQueries({ queryKey: ['completedDates'] });
       liveClient.invalidateQueries({ queryKey: queryKeys.categories });
       if (verses) {
         for (const { date, verse } of verses) {

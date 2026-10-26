@@ -39,11 +39,32 @@ export async function pullLocalDatabase(): Promise<void> {
   const cursor = getSyncCursor();
   const snapshot = await getSyncChanges(cursor, token, SYNC_REQUEST_TIMEOUT_MS, SYNC_RETRY);
 
-  for (const row of snapshot.categories) upsertCategoryFromSync(row);
-  for (const row of snapshot.tasks) upsertTaskFromSync(row);
-  for (const row of snapshot.sub_tasks) upsertSubTaskFromSync(row);
-  for (const row of snapshot.task_completions) upsertTaskCompletionFromSync(row);
-  for (const row of snapshot.sub_task_completions) upsertSubTaskCompletionFromSync(row);
+  // Apply every row inside ONE SQLite transaction: each upsert previously
+  // autocommitted individually, so a large pull stalled the JS thread with
+  // hundreds of fsync-backed writes (a visible multi-second freeze exactly
+  // when the user starts tapping). Batching keeps the JS-thread cost to a
+  // single commit. If anything throws mid-apply, fall back to the original
+  // per-row loop (best effort — the old worst case) rather than blocking all
+  // future syncs on one poison row; the cursor only advances afterwards, and
+  // every write is an idempotent upsert, so a retry re-applies safely either
+  // way.
+  const client = (db as unknown as { $client: { withTransactionSync: (fn: () => void) => void } }).$client;
+  try {
+    client.withTransactionSync(() => {
+      for (const row of snapshot.categories) upsertCategoryFromSync(row);
+      for (const row of snapshot.tasks) upsertTaskFromSync(row);
+      for (const row of snapshot.sub_tasks) upsertSubTaskFromSync(row);
+      for (const row of snapshot.task_completions) upsertTaskCompletionFromSync(row);
+      for (const row of snapshot.sub_task_completions) upsertSubTaskCompletionFromSync(row);
+    });
+  } catch (error) {
+    console.warn('[sync pull] batched apply failed, retrying per-row:', error);
+    for (const row of snapshot.categories) upsertCategoryFromSync(row);
+    for (const row of snapshot.tasks) upsertTaskFromSync(row);
+    for (const row of snapshot.sub_tasks) upsertSubTaskFromSync(row);
+    for (const row of snapshot.task_completions) upsertTaskCompletionFromSync(row);
+    for (const row of snapshot.sub_task_completions) upsertSubTaskCompletionFromSync(row);
+  }
 
   setSyncCursor(snapshot.cursor);
 }

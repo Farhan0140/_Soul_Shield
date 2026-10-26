@@ -3,11 +3,11 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text } from 'react-native';
 
+import { useQuery } from '@tanstack/react-query';
 import { useLocale } from '@/context/locale-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { useTaskHistoryQuery } from '@/hooks/queries/use-tasks';
+import { listOwnCompletedDatesInRange } from '@/lib/db/tasks-repo';
 import { addDays, todayISODate } from '@/lib/date';
-import { datesWithCompletedTasks } from '@/lib/insights';
 
 const MILESTONE_KEY = 'soulshield_shown_streak_milestones';
 const MILESTONES = [3, 7, 14, 30, 60, 100, 180, 365];
@@ -29,7 +29,14 @@ export function StreakChip() {
 
   const today = todayISODate();
   const from = addDays(today, -(STREAK_WINDOW_DAYS - 1));
-  const { data: history, isPending } = useTaskHistoryQuery(from, today);
+  // Deliberately NOT keyed under ['taskHistory'] — that key is invalidated by
+  // every mutation/sync, and deriving a 365-day window per tap stalled the UI
+  // (see listOwnCompletedDatesInRange). This reads only completed-dates rows.
+  const { data: completedDateList, isPending } = useQuery({
+    queryKey: ['completedDates', from, today],
+    queryFn: () => listOwnCompletedDatesInRange(from, today),
+    networkMode: 'always',
+  });
 
   // Only read the shown-milestone list once per session; new milestones are
   // merged into it synchronously so the alert can never double-fire while
@@ -38,8 +45,8 @@ export function StreakChip() {
   const [current, setCurrent] = useState(0);
 
   useEffect(() => {
-    if (isPending || !history) return;
-    const done = datesWithCompletedTasks(history);
+    if (isPending || !completedDateList) return;
+    const done = new Set(completedDateList);
 
     let streak = 0;
     let cursor = today;
@@ -61,10 +68,11 @@ export function StreakChip() {
       return;
     }
     celebrateIfMilestone(streak);
-    // `today` is stable within a calendar day; re-running on the history
-    // refresh (mutation invalidation) is the intended trigger.
+    // `today` is stable within a calendar day; re-running on the completed-
+    // dates refresh (mutation invalidation of ['completedDates']) is the
+    // intended trigger.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [history, isPending]);
+  }, [completedDateList, isPending]);
 
   const celebrateIfMilestone = (streak: number) => {
     const shown = shownMilestones.current;

@@ -2,6 +2,7 @@ import { router, Stack } from 'expo-router';
 import { Pressable } from 'react-native';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useLocale } from '@/context/locale-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 function CloseButton() {
@@ -14,10 +15,11 @@ function CloseButton() {
 }
 
 export default function TaskLayout() {
+  const { t } = useLocale();
   return (
     <Stack screenOptions={{ headerRight: () => <CloseButton /> }}>
       <Stack.Screen name="new" options={{ title: 'New Task' }} />
-      <Stack.Screen name="[id]/edit" options={{ title: 'Edit Task' }} />
+      <Stack.Screen name="[id]/edit" options={{ title: t('edit.title') }} />
     </Stack>
   );
 }

@@ -63,6 +63,8 @@ const MAPPING = {
   'chevron.down': 'keyboard-arrow-down',
   'textformat': 'text-fields',
   globe: 'language',
+  'archivebox.fill': 'archive',
+  'doc.on.doc.fill': 'content-copy',
 } as IconMapping;
 
 /**

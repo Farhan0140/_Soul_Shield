@@ -102,22 +102,22 @@ export function Heatmap({ days, onDayPress }: HeatmapProps) {
               {weeks.map((week, weekIndex) => (
                 <View key={weekIndex} style={styles.weekColumn}>
                   {week.map((cell, rowIndex) => {
-                    const square = (
-                      <View
-                        style={[
-                          styles.square,
-                          { backgroundColor: cell ? levelColors[levelFor(cell)] : 'transparent' },
-                        ]}
-                      />
-                    );
-                    if (!onDayPress || !cell) return square;
+                    if (!cell) {
+                      // Leading/trailing gap cell (before the 1st, after the
+                      // last of the month) — transparent, not tappable.
+                      return <View key={`empty-${weekIndex}-${rowIndex}`} style={styles.square} />;
+                    }
+                    const backgroundColor = levelColors[levelFor(cell)];
+                    if (!onDayPress) {
+                      return <View key={cell.date} style={[styles.square, { backgroundColor }]} />;
+                    }
                     return (
                       <Pressable
                         key={cell.date}
                         onPress={() => onDayPress(cell.date)}
                         accessibilityRole="button"
                         accessibilityLabel={cell.date}>
-                        {square}
+                        <View style={[styles.square, { backgroundColor }]} />
                       </Pressable>
                     );
                   })}

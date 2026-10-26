@@ -47,6 +47,9 @@ function invalidateTaskLists(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ['tasks'] });
   queryClient.invalidateQueries({ queryKey: ['taskHistory'] });
   queryClient.invalidateQueries({ queryKey: ['myTasks'] });
+  // Streak chip's lightweight completed-dates windows (own key — NOT under
+  // taskHistory, so this never re-derives a 365-day window per tap).
+  queryClient.invalidateQueries({ queryKey: ['completedDates'] });
 }
 
 function invalidateCategoryDependents(queryClient: QueryClient) {
