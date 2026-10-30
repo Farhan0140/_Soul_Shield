@@ -24,6 +24,9 @@ import { OnboardingModal } from '@/components/onboarding/onboarding-modal';
 // Side effect: registers the headless Android widget renderer (see the module
 // doc — the OS imports the bundle for widget updates).
 import '@/lib/widget/task-widget';
+// Side effect: initializes the ESP32 Bluetooth manager (state subscription)
+// and auto-reconnects to the paired counter device after launch.
+import { bootBluetooth } from '@/lib/bluetooth/counter-ble';
 import '@/lib/network';
 import { getNavigationTheme } from '@/lib/navigation-theme';
 import { ensureNotificationSetup } from '@/lib/notifications';
@@ -96,6 +99,7 @@ export default function RootLayout() {
     ensureTimerNotificationChannel();
     ensureTimerTaskNotificationChannel();
     registerBackgroundSync();
+    bootBluetooth();
 
     // "Fetch today + the next couple of days whenever I open the app with a
     // connection" (see lib/background-sync/sync.ts) needs a trigger beyond

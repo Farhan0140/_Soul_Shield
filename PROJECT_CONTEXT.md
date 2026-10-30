@@ -577,6 +577,31 @@ separate.
   show only when completed; web's upcoming-reward preview now actually works pre-completion).
   Mobile edit screen additionally falls back to the raw local row (`getTaskByUuid`) for stale
   cached lists.
+- **ESP32 Bluetooth counter control** (added 2026-10-30, #esp32-bluetooth):
+  - **Firmware**: `Framework/` (PlatformIO, ESP32-C3, Arduino BLE) + a second variant
+    `Framework-ESP32-DevModule/` for the classic ESP32/WROOM "ESP32 Dev Module" board
+    (identical BLE identity/behavior; status LED on GPIO2 instead of GPIO8 — the app pairs
+    with either board the same way). GPIO4 button (pull-up, 50ms
+    debounce) → one "1" notification per press on `a1b2c3d4-...` under service
+    `9f83f3d0-8f5f-4a3f-9a1d-2c6a8f4e5b01`; device name `SoulShield-ESP32`; always advertising
+    when disconnected; LED mirrors connection. See Framework/README.md (wiring, flash).
+  - **App**: `react-native-ble-plx@3.5.0` (+ its bundled config plugin in app.json — BG mode
+    simple: no foreground service; `neverForLocation`). Headless manager
+    `lib/bluetooth/counter-ble.ts`: scan (filtered by service UUID, Android 12+ runtime
+    permissions) → connect ({autoConnect:true}) → monitor TX → each press dispatches the SAME
+    +1 path as manual taps (local SQLite increment → optimistic cache patch via
+    patchTaskInCaches/patchSubTaskIncrementInCaches → background additive push via the module
+    mutation fns) — full background support while the app process is alive (no OS kill).
+  - ⚠ **Does NOT run in Expo Go** — the BLE native module only exists in a dev build
+    (`npx expo run:android`); the app surfaces this explicitly in the connect modal
+    (`ble.expoGo` / BLE_ERROR_EXPO_GO sentinel) instead of failing silently.
+  - **One ACTIVE task at a time**: `ActiveCounterTask {taskId, subTaskId|null}` persisted
+    (AsyncStorage) + auto-reconnect on launch (paired device re-connects silently). Connect UX:
+    counter page header Bluetooth icon (success = connected+controlling THIS task; tint =
+    scanning/connecting; muted = off) opens `components/counter/ble-connect-modal.tsx` —
+    picker list (RSSI-sorted) → connect → switches active task; connected-state shows
+    Disconnect; when already connected to device but different task, one-tap
+    "Control this task" switch (no reconnect needed).
 - 401 anywhere → global handler → logout(**keepLocalData** — offline edits survive; re-login as
   same user pushes them). Explicit logout (Profile) wipes SQLite + reminders.
 - `clearLocalDatabase` also runs at sign-out because the store is **not user-scoped**.

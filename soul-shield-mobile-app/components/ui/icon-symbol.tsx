@@ -65,6 +65,8 @@ const MAPPING = {
   globe: 'language',
   'archivebox.fill': 'archive',
   'doc.on.doc.fill': 'content-copy',
+  'b.circle': 'bluetooth',
+  'b.circle.fill': 'bluetooth-connected',
 } as IconMapping;
 
 /**

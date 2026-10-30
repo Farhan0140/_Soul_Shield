@@ -115,6 +115,19 @@ const en = {
   'onb.s2.body': "Set reminders, watch your streak grow, and check Insights to see how far you've come.",
   'onb.s3.title': "You're ready ✨",
   'onb.s3.body': "Pull down anytime to force a sync. If something looks off, check Profile → Sync Issues.",
+  'ble.title': 'Bluetooth Counter',
+  'ble.connect.hint': 'Power your ESP32 near this phone, then tap it below to connect.',
+  'ble.expoGo': "Bluetooth scanning isn't available in Expo Go — run a development build of the app (npx expo run:android) to use the ESP32 button.",
+  'ble.scan': 'Search for ESP32',
+  'ble.scanning': 'Searching for your ESP32…',
+  'ble.noneFound': 'No devices found yet.',
+  'ble.connected': 'Connected',
+  'ble.controllingThis': 'Button presses add +1 to this task — even with the app in the background.',
+  'ble.switchToThis': 'Control this task',
+  'ble.currentlyOther': 'Bluetooth is currently controlling another task.',
+  'ble.disconnect': 'Disconnect',
+  'ble.denied': 'Bluetooth permission is denied. Enable it in system settings.',
+  'ble.turnOn': 'Bluetooth is turned off. Enable it in system settings.',
 } as const;
 
 export type I18nKey = keyof typeof en;
@@ -218,6 +231,19 @@ const bn: Partial<Record<I18nKey, string>> = {
   'onb.s2.body': 'রিমাইন্ডার সেট করুন, ধারাবাহিকতা বাড়ান, আর Insights-এ অগ্রগতি দেখুন।',
   'onb.s3.title': 'প্রস্তুত ✨',
   'onb.s3.body': 'যেকোনো সময় নিচে টেনে সিঙ্ক করুন। সমস্যা হলে Profile → Sync Issues দেখুন।',
+  'ble.title': 'ব্লুটুথ কাউন্টার',
+  'ble.connect.hint': 'আপনার ESP32 ফোনের কাছে চালু করুন, তারপর সংযোগ করতে নিচে ট্যাপ করুন।',
+  'ble.expoGo': 'Expo Go-তে ব্লুটুথ স্ক্যান করা যায় না — ESP32 বাটন ব্যবহার করতে অ্যাপের ডেভেলপমেন্ট বিল্ড চালান (npx expo run:android)।',
+  'ble.scan': 'ESP32 খুঁজুন',
+  'ble.scanning': 'আপনার ESP32 খোঁজা হচ্ছে…',
+  'ble.noneFound': 'এখনো কোনো ডিভাইস পাওয়া যায়নি।',
+  'ble.connected': 'সংযুক্ত',
+  'ble.controllingThis': 'বাটন চাপলে এই কাজে +১ যোগ হবে — অ্যাপ ব্যাকগ্রাউন্ডে থাকলেও।',
+  'ble.switchToThis': 'এই কাজ নিয়ন্ত্রণ করুন',
+  'ble.currentlyOther': 'বর্তমানে অন্য একটি কাজ নিয়ন্ত্রিত হচ্ছে।',
+  'ble.disconnect': 'সংযোগ বিচ্ছিন্ন করুন',
+  'ble.denied': 'ব্লুটুথ অনুমতি নেই। সিস্টেম সেটিংস থেকে চালু করুন।',
+  'ble.turnOn': 'ব্লুটুথ বন্ধ আছে। সিস্টেম সেটিংস থেকে চালু করুন।',
 };
 
 const dictionaries: Record<Locale, Partial<Record<I18nKey, string>>> = {

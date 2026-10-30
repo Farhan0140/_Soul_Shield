@@ -51,6 +51,14 @@
       "expo-background-task",
       "expo-sqlite",
       [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "neverForLocation": true,
+          "bluetoothAlwaysPermission": "Allow Soul Shield to find and connect to your ESP32 counter device."
+        }
+      ],
+      [
         "react-native-android-widget",
         {
           "fonts": [],

@@ -29,8 +29,9 @@ A full-stack habit & task tracker for building consistent daily worship and self
 Soul Shield helps you build and keep daily routines — dhikr, prayers, reading, or any recurring habit — by tracking completion, celebrating streaks with custom reward messages, and nudging you with a notification if you forget. One backend, two clients:
 
 - **Web dashboard** (`soul-shield-client`) — fast, animated, desktop-friendly task management.
-- **Mobile app** (`soul-shield-mobile-app`) — the daily-driver experience, with local push reminders and offline support.
+- **Mobile app** (`soul-shield-mobile-app`) — the daily-driver experience, with local push reminders, offline support, analytics, an ESP32 Bluetooth counter button, and an Android home-screen widget.
 - **API** (`soul-shield`) — a single Go service both clients talk to.
+- **Firmware** (`Framework/` + `Framework-ESP32-DevModule/`) — PlatformIO projects for an ESP32-C3 / ESP32 Dev Module physical button that increments the active counter over Bluetooth.
 
 ## ✨ Features
 
@@ -49,6 +50,34 @@ Soul Shield helps you build and keep daily routines — dhikr, prayers, reading,
 - ⏰ Per-task **reminder notifications** on mobile — set a time, get nudged if you forget
 - 📊 History view with a completion heatmap over any date range
 - 🔒 Past/future days are read-only in both clients — only *today's* tasks can actually be completed, so progress can't be back- or forward-dated
+
+**Progress, analytics & motivation (mobile)**
+- 📈 **7-Day Progress chart** — two-line chart (fully completed vs partially completed) for the last 7 days, theme-colored, updated instantly by every tap/sync
+- 🔥 **Streaks & milestones** — day-streak chip on Home with one-time milestone celebrations (3/7/14/30/100…)
+- 🧭 **Insights screen** — 30/90-day completion rate, best streak, favorite category, most productive weekday — plus **Share Progress** as an image
+- 🟦 **Home-screen widget (Android)** — today's progress and next tasks, always in sync with the app
+
+**Task management extras (mobile + web)**
+- 📝 **Sub-task descriptions** — optional details on every sub-task, saved offline, edited on both clients, synced everywhere
+- 📂 **Paginated & collapsible sub-tasks** — incomplete sub-tasks 2 per page; completed ones collapse into a "Completed Sub-Tasks" section
+- 🔍 **Offline search** — find any task by title/description, jump straight to its next scheduled day
+- 🗄️ **Archive & restore** — hide tasks without losing history; restore any time
+- ⧉ **Duplicate task** — one-tap copy of a task incl. sub-tasks and reminders
+
+**Reliability & transparency**
+- 🛰️ **Cross-device sync alerts** — edit on the web, your phone gets a push and syncs immediately
+- 🩺 **Sync Issues screen** — failed requests, server-rejected edits, and detected conflicts, in plain language
+- ✈️ **Offline banner + logout guard** — the app always says what's online/offline and protects unsynced changes
+- 💾 **Export My Data** — one-tap JSON backup of everything stored on the device
+
+**Personalization & delight**
+- 🌍 **English + বাংলা** interface, 10 theme palettes, Arabic font picker
+- 🎉 Haptics + confetti on rewards, first-run onboarding, daily task reminder setting
+
+**ESP32 Bluetooth counter button**
+- 🔋 Pair once from a counter page's Bluetooth icon; after that a physical button on your ESP32 adds **+1** to the selected counter — even with the app backgrounded or the screen locked
+- Works for Counter Tasks **and** Counter Sub-Tasks; switch the active task any time from any counter page
+- Firmware + flashing guide live in `Framework/` (ESP32-C3) and `Framework-ESP32-DevModule/` (classic ESP32)
 
 **Accounts & security**
 - 🔐 JWT-based authentication
@@ -98,6 +127,9 @@ flowchart LR
 | Migrations | `sql-migrate` | — | — |
 | Docs | Swagger / OpenAPI (`swaggo`) | — | — |
 | Notifications | — | — | `expo-notifications` (local scheduling) |
+| Bluetooth | — | — | `react-native-ble-plx` (ESP32 counter button) |
+| Widget | — | — | `react-native-android-widget` |
+| Hardware | ESP32-C3 / ESP32 (Arduino BLE) | — | — |
 
 ## 📂 Monorepo Structure
 
@@ -122,17 +154,24 @@ Soul_Shield/
 │       ├── context/              # Auth + API providers
 │       └── hooks/                # data-fetching hooks
 │
-└── soul-shield-mobile-app/      # Expo React Native app
+├── Framework/                     # ESP32-C3 PlatformIO firmware (counter button)
+├── Framework-ESP32-DevModule/     # same firmware for the classic ESP32 Dev Module
+└── soul-shield-mobile-app/        # Expo React Native app
     ├── app/                      # file-based routes (expo-router)
     │   ├── (auth)/               # login, register, reset password
     │   ├── (tabs)/                # home, history, categories, profile, admin
     │   └── task/ category/       # create/edit modals
     ├── components/                # TaskCard, RewardModal, CounterControls, ...
     ├── hooks/queries/              # TanStack Query hooks per resource
+    ├── components/                 # TaskCard, RewardModal, BLE modal, charts, …
+    ├── hooks/queries/              # TanStack Query hooks per resource
     └── lib/
         ├── db/                    # Drizzle schema + repos - the on-device SQLite store
         ├── background-sync/       # delta pull/push, retry policy, sync-status, reminders resync
-        └── ...                    # notifications, date, network, storage helpers
+        ├── bluetooth/             # ESP32 BLE manager (scan/connect/+1 dispatch)
+        ├── widget/                # Android home-screen widget renderer
+        └── ...                    # notifications, timers, i18n, insights, network…
+
 ```
 
 ## 🔌 API Reference
@@ -286,16 +325,33 @@ npm install
 npx expo start
 ```
 
-Scan the QR code with **Expo Go** to run it instantly. Local reminder notifications schedule correctly in Expo Go — a custom dev build (`npx expo run:android` / `eas build`) is only needed to see the app's own icon on the notification instead of Expo Go's.
+Scan the QR code with **Expo Go** to explore quickly — but several flagship features
+(SQLite store, ESP32 Bluetooth, home-screen widget) are native and **require the
+development build**: `npx expo run:android`. Local reminder notifications schedule correctly in Expo Go — a custom dev build (`npx expo run:android` / `eas build`) is only needed to see the app's own icon on the notification instead of Expo Go's.
 
 > **Note:** the local-first SQLite store (`expo-sqlite`, `expo-crypto`) needs a custom dev build — it's not available in Expo Go. Without it, reads transparently fall back to the API (see `lib/db/client.ts`), but writes (create/edit/complete/increment) show a clear error instead, since there's no local row for them to queue against — a custom dev build is required for the app to be fully usable.
+
+### 4. ESP32 counter button (optional)
+
+```bash
+cd Framework                       # ESP32-C3 — or: cd Framework-ESP32-DevModule
+pio run -t upload                  # flash the firmware
+```
+
+Wire a push button between **GPIO4** and **GND**, power the board, then in the app:
+open any counter task or counter sub-task → tap the **Bluetooth icon** → tap
+`SoulShield-ESP32` once. Every physical button press now adds **+1** to that
+counter — background and lock-screen included. Full guide:
+`Framework/README.md`.
 
 ## 🗺️ Roadmap
 
 - [ ] iOS/Android production builds via EAS
-- [ ] Streaks & long-term progress analytics
-- [ ] Shareable progress summaries
-- [ ] Push notifications synced across devices (beyond local reminders)
+- [x] Streaks & long-term progress analytics (Insights screen)
+- [x] Shareable progress summaries (Insights → Share Progress)
+- [x] Data-change alerts across devices (edit on web → phones sync instantly)
+- [ ] Push notifications synced across devices (reminder prompts on other devices)
+- [x] ESP32 physical counter button (Bluetooth)
 
 ## 📄 License
 

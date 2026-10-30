@@ -1,5 +1,5 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -17,6 +17,13 @@ import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { useTasksQuery } from '@/hooks/queries/use-tasks';
 import { useIncrementSubTask } from '@/hooks/queries/use-task-mutations';
 import { useTaskIncrementBuffer } from '@/hooks/use-task-increment-buffer';
+import { BleConnectModal } from '@/components/counter/ble-connect-modal';
+import {
+  bleGetStatus,
+  bleSubscribe,
+  isActiveCounterTask,
+  type ActiveCounterTask,
+} from '@/lib/bluetooth/counter-ble';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { isToday, todayISODate } from '@/lib/date';
 import { formatCompactNumber } from '@/lib/format';
@@ -39,6 +46,7 @@ export default function CounterTaskScreen() {
 
   const [reward, setReward] = useState<{ text: string; taskTitle: string } | null>(null);
   const [customModalVisible, setCustomModalVisible] = useState(false);
+  const [bleModalVisible, setBleModalVisible] = useState(false);
 
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -47,9 +55,11 @@ export default function CounterTaskScreen() {
   const textColor = useThemeColor({}, 'text');
   const mutedColor = useThemeColor({}, 'muted');
   const tintColor = useThemeColor({}, 'tint');
+  const successColor = useThemeColor({}, 'success');
   const borderColor = useThemeColor({}, 'border');
 
   const tasksQuery = useTasksQuery(date);
+  const bleStatus = useSyncExternalStore(bleSubscribe, bleGetStatus, bleGetStatus);
 
   const task = useMemo(
     () => tasksQuery.data?.find((t) => t.task_id === taskId),
@@ -130,9 +140,35 @@ export default function CounterTaskScreen() {
         <ThemedText type="defaultSemiBold" style={{ color: mutedColor }}>
           Counter
         </ThemedText>
-        <Pressable onPress={() => router.back()} hitSlop={10} style={styles.closeButton}>
-          <IconSymbol name="xmark" size={24} color={textColor} />
-        </Pressable>
+        <View style={styles.headerActions}>
+          {/* ESP32 Bluetooth control (#esp32-bluetooth): state icon + connect/
+              switch modal. Connected-and-active = filled green icon. */}
+          <Pressable
+            onPress={() => setBleModalVisible(true)}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Bluetooth counter control">
+            <IconSymbol
+              name={
+                status === undefined && bleStatus.phase === 'connected'
+                  ? 'b.circle'
+                  : 'b.circle'
+              }
+              size={24}
+              color={
+                bleStatus.phase === 'connected' &&
+                isActiveCounterTask(String(taskId), isSubTask ? String(subTaskId) : null)
+                  ? successColor
+                  : bleStatus.phase === 'connecting' || bleStatus.phase === 'scanning'
+                    ? tintColor
+                    : mutedColor
+              }
+            />
+          </Pressable>
+          <Pressable onPress={() => router.back()} hitSlop={10} style={styles.closeButton}>
+            <IconSymbol name="xmark" size={24} color={textColor} />
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -185,6 +221,18 @@ export default function CounterTaskScreen() {
         taskTitle={reward?.taskTitle}
         onClose={() => setReward(null)}
       />
+
+      <BleConnectModal
+        visible={bleModalVisible}
+        onClose={() => setBleModalVisible(false)}
+        currentTask={
+          {
+            taskId: String(taskId),
+            subTaskId: isSubTask ? String(subTaskId) : null,
+            title: (isSubTask ? subTask?.title : task?.title) ?? '',
+          } as ActiveCounterTask
+        }
+      />
     </View>
   );
 }
@@ -199,6 +247,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   closeButton: { padding: 4 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   content: { flexGrow: 1, padding: 20, paddingTop: 8, paddingBottom: 60, gap: 28, alignItems: 'center' },
   ringSection: { alignItems: 'center', gap: 12 },
   progressLabel: { fontSize: 18, fontVariant: ['tabular-nums'], fontWeight: '600' },
