@@ -137,6 +137,25 @@ export async function cancelAllTaskReminders(): Promise<void> {
   await AsyncStorage.removeItem(REMINDER_IDS_KEY);
 }
 
+/** Immediate test notification (~3 seconds out) — lets the user verify that
+ * scheduled notifications CAN fire in the current client (Expo Go vs dev
+ * build, permissions, battery rules) instead of waiting for the daily time. */
+export async function sendTestNotification(): Promise<void> {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Soul Shield',
+      body: 'It works! Daily reminders will look like this.',
+      data: { type: 'test' },
+      sound: true,
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: 3,
+      channelId: CHANNEL_ID,
+    },
+  });
+}
+
 // ---- End-of-day digest (#12) ----
 //
 // One static daily reminder ("check off today's tasks") at a user-chosen

@@ -505,7 +505,11 @@ separate.
   - **Offline banner** on Home (`components/dashboard/offline-banner.tsx`, `useNetworkStatus`).
   - **Daily digest (#12)**: Profile → Notifications toggle + time (`lib/notification-prefs.ts`,
     `scheduleDailyDigest/cancelDailyDigest` in lib/notifications.ts; DAILY trigger, static copy —
-    content is fixed at schedule time, so it cannot count remaining tasks).
+     Additionally: Profile → Notifications has a **Send test notification**
+  button (fire-and-forget ~3s scheduled notification) for verifying the pipeline; the Expo Go
+  console warning "Android Push notifications (remote)… removed from Expo Go" is EXPECTED noise
+  from expo-notifications' auto-registration at module load (harmless for LOCAL scheduled
+  notifications — remote push itself genuinely requires the dev build).
   - **Onboarding** (`components/onboarding/onboarding-modal.tsx`): 3 slides, once per install
     (AsyncStorage flag `soulshield_onboarding_done_v1`), over the signed-in app.
   - **Export** (`lib/export.ts`): Profile → Data → "Export My Data (JSON)" — whole local store

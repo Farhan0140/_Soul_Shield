@@ -16,7 +16,7 @@ import { useLocale, type Locale } from '@/context/locale-context';
 import { useAuth } from '@/context/auth-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { getCounterHapticsPref, setCounterHapticsPref } from '@/lib/haptics-pref';
-import { cancelDailyDigest, scheduleDailyDigest } from '@/lib/notifications';
+import { cancelDailyDigest, scheduleDailyDigest, sendTestNotification } from '@/lib/notifications';
 import {
   clearRegisteredPushToken,
   getDigestPref,
@@ -64,6 +64,7 @@ export default function ProfileScreen() {
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [counterHaptics, setCounterHaptics] = useState(true);
+  const [sendingTest, setSendingTest] = useState(false);
 
   const refreshSyncState = useCallback(() => {
     getBackgroundSyncState().then(setSyncState);
@@ -113,6 +114,27 @@ export default function ProfileScreen() {
   const handleCounterHaptics = async (enabled: boolean) => {
     setCounterHaptics(enabled);
     await setCounterHapticsPref(enabled);
+  };
+
+  // ---- Immediate test notification: verifies the notification pipeline in
+  // whatever client is running (Expo Go vs dev build) without waiting for the
+  // daily time — the digest fires at the SET time, and if that time already
+  // passed today, at the same time TOMORROW. ----
+  const handleSendTest = async () => {
+    setSendingTest(true);
+    try {
+      const permission = await ExpoNotifications.requestPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(t('profile.notifications'), t('profile.testNotificationDenied'));
+        return;
+      }
+      await sendTestNotification();
+      Alert.alert(t('profile.testNotification'), t('profile.testNotificationSent'));
+    } catch (err) {
+      Alert.alert(t('profile.notifications'), getErrorMessage(err));
+    } finally {
+      setSendingTest(false);
+    }
   };
 
   // ---- Cross-device sync alerts (#19): register/remove the Expo push token ----
@@ -368,6 +390,13 @@ export default function ProfileScreen() {
           </View>
           <Switch value={pushEnabled} disabled={pushBusy} onValueChange={(v) => void handlePushToggle(v)} />
         </View>
+
+        <PrimaryButton
+          label={t('profile.testNotification')}
+          variant="secondary"
+          loading={sendingTest}
+          onPress={handleSendTest}
+        />
       </View>
 
       <View style={styles.section}>
