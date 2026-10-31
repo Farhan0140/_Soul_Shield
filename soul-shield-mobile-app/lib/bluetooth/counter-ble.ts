@@ -4,6 +4,7 @@ import { useSyncExternalStore } from 'react';
 import { BleManager, type Subscription } from 'react-native-ble-plx';
 
 import { hapticLight } from '@/lib/feedback';
+import { refreshAllWidgets, refreshBleCounterWidget } from '@/lib/widget/task-widget';
 import {
   incrementSubTaskCompletionLocal,
   incrementTaskCompletionLocal,
@@ -368,6 +369,8 @@ export async function disconnectBle(): Promise<void> {
 export async function setActiveCounterTask(task: ActiveCounterTask): Promise<void> {
   replace({ activeTask: task });
   await persistActiveTask(task);
+  // The BLE counter widget displays ONLY the active task — reflect the switch.
+  void refreshBleCounterWidget();
 }
 
 async function persistActiveTask(task: ActiveCounterTask): Promise<void> {
@@ -423,5 +426,7 @@ function handleEspButtonPress(): void {
 
   // Streak chip's completed-dates window may gain "today".
   void queryClient.invalidateQueries({ queryKey: ['completedDates'] });
+  // BLE counter widget mirrors the tap instantly (ESP32 press path).
+  void refreshAllWidgets();
 }
 

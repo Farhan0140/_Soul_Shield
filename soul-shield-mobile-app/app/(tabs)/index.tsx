@@ -31,7 +31,7 @@ import { addDays, todayISODate } from '@/lib/date';
 import { getErrorMessage } from '@/lib/errors';
 import { hapticLight } from '@/lib/feedback';
 import { consumeJumpToDate } from '@/lib/jump-to-date';
-import { refreshTaskWidget } from '@/lib/widget/task-widget';
+import { refreshAllWidgets } from '@/lib/widget/task-widget';
 
 const FIXED_SECTION_KEY = 'fixed';
 const UNCATEGORIZED_SECTION_KEY = 'uncategorized';
@@ -358,7 +358,7 @@ export default function HomeScreen() {
  * placed; see lib/widget/task-widget.tsx). */
 function WidgetRefresher(props: { completed: number; partial: number; total: number; date: string }) {
   useEffect(() => {
-    refreshTaskWidget();
+    refreshAllWidgets();
   }, [props.completed, props.partial, props.total, props.date]);
   return null;
 }

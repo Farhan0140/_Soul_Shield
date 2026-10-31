@@ -10,6 +10,7 @@ import { getLocalDb } from '@/lib/db/client';
 import { getTaskCompletionForDate, incrementTaskCompletionLocal } from '@/lib/db/completions-repo';
 import { persistOptions } from '@/lib/persister';
 import { patchTaskInCaches } from '@/lib/task-cache';
+import { refreshAllWidgets } from '@/lib/widget/task-widget';
 
 const DEBOUNCE_MS = 4000;
 
@@ -230,6 +231,9 @@ export function useTaskIncrementBuffer({
         status: local.status,
       }));
       shared.pending += amount;
+      // Widget mirrors the tap even when Home isn't mounted (background presses
+      // in general; ESP32 presses come through handleEspButtonPress separately).
+      void refreshAllWidgets();
       persistPending();
       scheduleFlush();
     },

@@ -73,6 +73,17 @@
               "targetCellHeight": 2,
               "resizeMode": "horizontal|vertical",
               "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "BleCounterWidget",
+              "label": "Soul Shield — Bluetooth Counter",
+              "description": "The ESP32-controlled counter: current, remaining, target.",
+              "minWidth": "180dp",
+              "minHeight": "120dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
             }
           ]
         }

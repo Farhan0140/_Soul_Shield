@@ -1,7 +1,7 @@
-import * as Haptics from 'expo-haptics';
 import { useCallback, useRef } from 'react';
 import { Animated, Pressable, StyleSheet } from 'react-native';
 
+import { hapticLight } from '@/lib/feedback';
 import { ThemedText } from '@/components/themed-text';
 
 interface MainIncrementButtonProps {
@@ -19,7 +19,7 @@ export function MainIncrementButton({ onPress, disabled, size = 172, color }: Ma
   const scale = useRef(new Animated.Value(1)).current;
 
   const handlePress = useCallback(() => {
-    if (process.env.EXPO_OS === 'ios') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    hapticLight();
     Animated.sequence([
       Animated.timing(scale, { toValue: 0.92, duration: 80, useNativeDriver: true }),
       Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 4 }),

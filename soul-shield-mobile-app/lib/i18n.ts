@@ -35,6 +35,8 @@ const en = {
 
   // Profile / tools
   'profile.appearance': 'Appearance',
+  'profile.counterVibration': 'Counter vibration',
+  'profile.counterVibrationHint': 'Short vibration on counter taps and check-offs.',
   'profile.language': 'Language',
   'profile.arabicFont': 'Arabic Font',
   'profile.notifications': 'Notifications',
@@ -156,6 +158,8 @@ const bn: Partial<Record<I18nKey, string>> = {
   'subtasks.completedSection': 'সম্পন্ন সাব-টাস্ক',
 
   'profile.appearance': 'সাজসজ্জা',
+  'profile.counterVibration': 'কাউন্টার ভাইব্রেশন',
+  'profile.counterVibrationHint': 'কাউন্টার ট্যাপ ও চেক-অফে ছোট ভাইব্রেশন।',
   'profile.language': 'ভাষা',
   'profile.arabicFont': 'আরবি ফন্ট',
   'profile.notifications': 'নোটিফিকেশন',

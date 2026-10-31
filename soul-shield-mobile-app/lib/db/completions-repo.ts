@@ -165,6 +165,32 @@ export function listTaskCompletionsInRange(fromDate: string, toDate: string) {
     .all();
 }
 
+/** The single task_completions row for (taskUuid, date) — main-counter twin
+ * of getSubTaskCompletionForDate (used by the BLE counter widget headlessly,
+ * where reading the Drizzle repo directly is the simplest safe path). */
+export function getMainTaskCompletionForDate(taskUuid: string, date: string) {
+  const db = getLocalDb();
+  if (!db) return undefined;
+  return db
+    .select()
+    .from(taskCompletions)
+    .where(and(eq(taskCompletions.taskUuid, taskUuid), eq(taskCompletions.taskDate, date)))
+    .get();
+}
+
+/** The single sub_task_completions row for (subTaskUuid, date), if one
+ * exists — used by the BLE counter widget to read live sub-task progress
+ * headlessly. */
+export function getSubTaskCompletionForDate(subTaskUuid: string, date: string) {
+  const db = getLocalDb();
+  if (!db) return undefined;
+  return db
+    .select()
+    .from(subTaskCompletions)
+    .where(and(eq(subTaskCompletions.subTaskUuid, subTaskUuid), eq(subTaskCompletions.taskDate, date)))
+    .get();
+}
+
 /** Unsynced completions that carry no counter progress (a plain
  * complete/un-complete toggle) - see lib/background-sync/push-pending.ts.
  * Counter rows (progressCount > 0) are deliberately excluded: they sync as an

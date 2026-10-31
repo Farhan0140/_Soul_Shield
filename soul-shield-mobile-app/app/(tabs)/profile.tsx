@@ -15,6 +15,7 @@ import { PrimaryButton } from '@/components/ui/primary-button';
 import { useLocale, type Locale } from '@/context/locale-context';
 import { useAuth } from '@/context/auth-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { getCounterHapticsPref, setCounterHapticsPref } from '@/lib/haptics-pref';
 import { cancelDailyDigest, scheduleDailyDigest } from '@/lib/notifications';
 import {
   clearRegisteredPushToken,
@@ -62,6 +63,7 @@ export default function ProfileScreen() {
   const [digestTime, setDigestTimeState] = useState({ hour: 20, minute: 0 });
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  const [counterHaptics, setCounterHaptics] = useState(true);
 
   const refreshSyncState = useCallback(() => {
     getBackgroundSyncState().then(setSyncState);
@@ -74,6 +76,7 @@ export default function ProfileScreen() {
       setDigestTimeState({ hour: pref.hour, minute: pref.minute });
     });
     getPushPref().then(setPushEnabled);
+    setCounterHaptics(getCounterHapticsPref()); // cached — loaded at module init
   }, [refreshSyncState]);
 
   const handleRunSyncNow = async () => {
@@ -104,6 +107,12 @@ export default function ProfileScreen() {
     setDigestTimeState({ hour, minute });
     persistDigestTime(hour, minute).catch(() => {});
     if (digestEnabled) scheduleDailyDigest(hour, minute).catch(() => {});
+  };
+
+  // ---- Counter vibration (#vibration-toggle): gates hapticLight everywhere ----
+  const handleCounterHaptics = async (enabled: boolean) => {
+    setCounterHaptics(enabled);
+    await setCounterHapticsPref(enabled);
   };
 
   // ---- Cross-device sync alerts (#19): register/remove the Expo push token ----
@@ -261,6 +270,17 @@ export default function ProfileScreen() {
           </ThemedText>
         </View>
         <ThemePicker />
+
+        <View style={styles.switchRow}>
+          <View style={styles.switchLabel}>
+            <ThemedText type="defaultSemiBold">{t('profile.counterVibration')}</ThemedText>
+            <ThemedText style={{ color: mutedColor }}>{t('profile.counterVibrationHint')}</ThemedText>
+          </View>
+          <Switch
+            value={counterHaptics}
+            onValueChange={(v) => void handleCounterHaptics(v)}
+          />
+        </View>
       </View>
 
       <View style={styles.section}>

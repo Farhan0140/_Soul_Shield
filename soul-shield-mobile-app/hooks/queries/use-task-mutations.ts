@@ -32,6 +32,7 @@ import {
   patchSubTaskToggleInCaches,
   patchTaskStatusInCaches,
 } from '@/lib/task-cache';
+import { refreshAllWidgets } from '@/lib/widget/task-widget';
 
 function invalidateTaskLists(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -169,6 +170,7 @@ export function useCompleteTask() {
       // refetch (the SQLite write above already happened synchronously).
       patchTaskStatusInCaches(queryClient, date, taskId, status);
       invalidateTaskLists(queryClient);
+      void refreshAllWidgets();
       mutation.mutate(
         { completionUuid },
         { onSuccess: () => options?.onSuccess?.({ status }), onError: options?.onError }
@@ -310,6 +312,7 @@ export function useCompleteSubTask() {
         status,
       });
       invalidateTaskLists(queryClient);
+      void refreshAllWidgets();
       mutation.mutate(
         { completionUuid },
         {
@@ -378,6 +381,7 @@ export function useIncrementSubTask() {
         targetCount: subTargetCount,
       });
       invalidateTaskLists(queryClient);
+      void refreshAllWidgets();
       mutation.mutate(
         { completionUuid, amount },
         {
