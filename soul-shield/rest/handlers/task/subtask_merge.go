@@ -31,7 +31,7 @@ func computeParentStatus(subs []repo.SubTaskWithStatus, dateStr, today string) s
 // attachSubTasksForDate - একটা নির্দিষ্ট দিনের task list এ sub-task status merge করে এবং
 // sub-task থাকা task গুলোর Status/RewardText পুনরায় গণনা করে (parent নিজে সরাসরি complete
 // করা যায় না, status সবসময় sub-task completion থেকে derive হয়)।
-func (h *Handler) attachSubTasksForDate(tasks []repo.TaskWithStatus, userID int64, date time.Time) error {
+func (h *Handler) attachSubTasksForDate(tasks []repo.TaskWithStatus, userID int64, date, asOf time.Time) error {
 	if len(tasks) == 0 {
 		return nil
 	}
@@ -40,13 +40,13 @@ func (h *Handler) attachSubTasksForDate(tasks []repo.TaskWithStatus, userID int6
 		ids[i] = t.TaskID
 	}
 
-	subsByParent, err := h.subTaskRepo.ListWithStatusForDate(userID, ids, date)
+	subsByParent, err := h.subTaskRepo.ListWithStatusForDate(userID, ids, date, asOf)
 	if err != nil {
 		return err
 	}
 
 	dateStr := date.Format("2006-01-02")
-	today := time.Now().Format("2006-01-02")
+	today := asOf.Format(util.DateLayout)
 
 	for i := range tasks {
 		subs := subsByParent[tasks[i].TaskID]
@@ -69,7 +69,7 @@ func (h *Handler) attachSubTasksForDate(tasks []repo.TaskWithStatus, userID int6
 }
 
 // attachSubTasksForRange - history endpoint এর জন্য, একাধিক দিনের task list এ sub-task status merge করে।
-func (h *Handler) attachSubTasksForRange(tasks []repo.TaskWithStatus, userID int64, from, to time.Time) error {
+func (h *Handler) attachSubTasksForRange(tasks []repo.TaskWithStatus, userID int64, from, to, asOf time.Time) error {
 	if len(tasks) == 0 {
 		return nil
 	}
@@ -83,12 +83,12 @@ func (h *Handler) attachSubTasksForRange(tasks []repo.TaskWithStatus, userID int
 		ids = append(ids, id)
 	}
 
-	subsByDateParent, err := h.subTaskRepo.ListWithStatusForRange(userID, ids, from, to)
+	subsByDateParent, err := h.subTaskRepo.ListWithStatusForRange(userID, ids, from, to, asOf)
 	if err != nil {
 		return err
 	}
 
-	today := time.Now().Format("2006-01-02")
+	today := asOf.Format(util.DateLayout)
 	rewardCache := make(map[int64]*string)
 
 	for i := range tasks {

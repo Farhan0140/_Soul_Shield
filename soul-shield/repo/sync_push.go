@@ -3,11 +3,14 @@ package repo
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"log"
+	"log/slog"
+	"regexp"
 	"soulsheld/util"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 )
 
@@ -18,19 +21,19 @@ import (
 // as a push payload. ----
 
 type syncTaskInput struct {
-	Title           string   `json:"title"`
-	Description     *string  `json:"description"`
-	RecurrenceType  string   `json:"recurrence_type"`
-	RecurrenceDays  []int64  `json:"recurrence_days"`
-	IsActive        *bool    `json:"is_active"`
-	CategoryUUID    *string  `json:"category_uuid"`
-	RewardText      *string  `json:"reward_text"`
-	TaskType        string   `json:"task_type"`
-	TargetCount     *int32   `json:"target_count"`
-	DurationSeconds *int32   `json:"duration_seconds"`
-	ReminderTime    *string  `json:"reminder_time"`
-	SourceTaskUUID  *string  `json:"source_task_uuid"`
-	Position        *int     `json:"position"`
+	Title           string  `json:"title"`
+	Description     *string `json:"description"`
+	RecurrenceType  string  `json:"recurrence_type"`
+	RecurrenceDays  []int64 `json:"recurrence_days"`
+	IsActive        *bool   `json:"is_active"`
+	CategoryUUID    *string `json:"category_uuid"`
+	RewardText      *string `json:"reward_text"`
+	TaskType        string  `json:"task_type"`
+	TargetCount     *int32  `json:"target_count"`
+	DurationSeconds *int32  `json:"duration_seconds"`
+	ReminderTime    *string `json:"reminder_time"`
+	SourceTaskUUID  *string `json:"source_task_uuid"`
+	Position        *int    `json:"position"`
 }
 
 type syncCategoryInput struct {
@@ -62,50 +65,262 @@ type syncCompletionInput struct {
 	Amount         int32  `json:"amount"`
 }
 
-func (r *syncRepo) PushChanges(userID int64, changes []SyncChange) ([]SyncChangeResult, error) {
+// MaxSyncBatchChanges caps one POST /sync body (S6). The mobile client
+// pushes in chunks well below this.
+const MaxSyncBatchChanges = 500
+
+// clockSkewLogThreshold: a client_updated_at further than this ahead of the
+// server clock gets logged (B16 diagnostics).
+const clockSkewLogThreshold = 5 * time.Minute
+
+// pushRun is one PushChanges call: every statement goes through q (a
+// transaction), and uuid -> id lookups are cached for the batch (C2).
+type pushRun struct {
+	q      *sqlx.Tx
+	userID int64
+	// latestDate: completions for a later task_date are rejected (B8).
+	latestDate time.Time
+	now        time.Time
+
+	// Positive-only caches (a uuid missing now may be created by a later
+	// change in the same batch, so misses are never cached).
+	taskIDs     map[string]int64
+	categoryIDs map[string]int64
+	subTaskIDs  map[string]int64
+}
+
+// PushChanges applies a batch of client changes and returns one result per
+// change (accepted / superseded / rejected).
+//
+// Fast path (C2): the whole batch runs in ONE transaction - one commit
+// instead of one per statement, and uuid references are resolved for the
+// whole batch up front. If any change hits a per-change data error, the
+// fast attempt is rolled back (nothing from it persists) and the batch is
+// re-run with a SAVEPOINT around each change, so that one change is rejected
+// and the others still apply. Rejections are rare, so the extra savepoint
+// round-trips are only paid when needed.
+func (r *syncRepo) PushChanges(userID int64, changes []SyncChange, latestDate time.Time) ([]SyncChangeResult, error) {
+	results, err := r.pushBatch(userID, changes, latestDate, false)
+	if errors.Is(err, errRetryWithSavepoints) {
+		return r.pushBatch(userID, changes, latestDate, true)
+	}
+	return results, err
+}
+
+var errRetryWithSavepoints = errors.New("sync push: retry batch with savepoints")
+
+// uuidPattern matches the canonical (lowercase, as Postgres prints it) form.
+var uuidPattern = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+
+func (r *syncRepo) pushBatch(userID int64, changes []SyncChange, latestDate time.Time, isolate bool) ([]SyncChangeResult, error) {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	run := &pushRun{
+		q: tx, userID: userID, latestDate: latestDate, now: time.Now(),
+		taskIDs: map[string]int64{}, categoryIDs: map[string]int64{}, subTaskIDs: map[string]int64{},
+	}
+	if err := run.prefetch(changes); err != nil {
+		return nil, err
+	}
+
 	results := make([]SyncChangeResult, 0, len(changes))
-	for _, change := range changes {
-		result, err := r.pushOne(userID, change)
-		if err != nil {
-			// A data-rule violation (empty title, counter task with no
-			// target, ...) is that ONE change's problem - reject it
-			// individually so it can't take every other queued change in the
-			// batch down with it and leave the client retrying the same
-			// poisoned batch forever. Each pushOne statement autocommits, so
-			// continuing with the next change is safe. Anything else is a
-			// genuine DB/infra failure and still aborts the request.
-			if isIntegrityViolation(err) {
-				// Log it server-side and name the constraint in the reply:
-				// a silently-dropped change is otherwise impossible to
-				// diagnose from either end.
-				log.Printf("sync push: rejected %s/%s (%s): %v", change.Resource, change.UUID, change.Op, err)
-				results = append(results, *rejected(change,
-					fmt.Errorf("%w [%s]", util.ErrSyncInvalidData, pgConstraint(err))))
-				continue
+	for i, change := range changes {
+		if isolate {
+			if _, err := tx.Exec(fmt.Sprintf("SAVEPOINT sync_change_%d", i)); err != nil {
+				return nil, err
 			}
-			return nil, err
+		}
+		result, err := run.pushOne(change)
+		if err != nil {
+			// A data-rule violation (class 23: empty title, counter task
+			// with no target, ...) or an unparseable value (class 22: bad
+			// date, malformed uuid, ...) is that ONE change's problem -
+			// reject it individually so it can't take every other queued
+			// change in the batch down with it and leave the client retrying
+			// the same poisoned batch forever. Anything else is a genuine
+			// DB/infra failure and still aborts the request.
+			if !isRejectableDataError(err) {
+				return nil, err
+			}
+			if !isolate {
+				// The failed statement aborted the whole transaction.
+				return nil, errRetryWithSavepoints
+			}
+			if _, rbErr := tx.Exec(fmt.Sprintf("ROLLBACK TO SAVEPOINT sync_change_%d", i)); rbErr != nil {
+				return nil, rbErr
+			}
+			// Log it server-side and name the constraint in the reply:
+			// a silently-dropped change is otherwise impossible to
+			// diagnose from either end.
+			slog.Warn("sync push: change rejected", "user_id", userID, "resource", change.Resource,
+				"uuid", change.UUID, "op", change.Op, "error", err)
+			results = append(results, *rejected(change,
+				fmt.Errorf("%w [%s]", util.ErrSyncInvalidData, rejectionDetail(err))))
+			continue
+		}
+		if isolate {
+			if _, err := tx.Exec(fmt.Sprintf("RELEASE SAVEPOINT sync_change_%d", i)); err != nil {
+				return nil, err
+			}
 		}
 		results = append(results, *result)
 	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
 	return results, nil
+}
+
+// prefetch resolves every task / category / sub-task uuid the batch
+// references in three queries, instead of one query per reference.
+func (p *pushRun) prefetch(changes []SyncChange) error {
+	var taskUUIDs, categoryUUIDs, subTaskUUIDs []string
+	for _, c := range changes {
+		var refs struct {
+			CategoryUUID   *string `json:"category_uuid"`
+			SourceTaskUUID *string `json:"source_task_uuid"`
+			ParentTaskUUID string  `json:"parent_task_uuid"`
+			TaskUUID       string  `json:"task_uuid"`
+			SubTaskUUID    string  `json:"sub_task_uuid"`
+		}
+		_ = json.Unmarshal(c.Data, &refs) // malformed data is rejected later, per change
+		if refs.CategoryUUID != nil && *refs.CategoryUUID != "" {
+			categoryUUIDs = append(categoryUUIDs, *refs.CategoryUUID)
+		}
+		if refs.SourceTaskUUID != nil && *refs.SourceTaskUUID != "" {
+			taskUUIDs = append(taskUUIDs, *refs.SourceTaskUUID)
+		}
+		for _, u := range []string{refs.ParentTaskUUID, refs.TaskUUID} {
+			if u != "" {
+				taskUUIDs = append(taskUUIDs, u)
+			}
+		}
+		if refs.SubTaskUUID != "" {
+			subTaskUUIDs = append(subTaskUUIDs, refs.SubTaskUUID)
+		}
+	}
+
+	type idRow struct {
+		UUID string `db:"uuid"`
+		ID   int64  `db:"id"`
+	}
+	load := func(dst map[string]int64, uuids []string, query string) error {
+		if len(uuids) == 0 {
+			return nil
+		}
+		// Only well-formed uuids go into the uuid[] parameter: one malformed
+		// value would otherwise fail the cast for the whole prefetch. (That
+		// change is still rejected on its own later.)
+		valid := make([]string, 0, len(uuids))
+		for _, u := range uuids {
+			if uuidPattern.MatchString(u) {
+				valid = append(valid, u)
+			}
+		}
+		if len(valid) == 0 {
+			return nil
+		}
+		var rows []idRow
+		if err := p.q.Select(&rows, query, pq.StringArray(valid), p.userID); err != nil {
+			return err
+		}
+		for _, row := range rows {
+			dst[row.UUID] = row.ID
+		}
+		return nil
+	}
+	if err := load(p.taskIDs, taskUUIDs, `
+		SELECT uuid::text AS uuid, id FROM tasks
+		WHERE uuid = ANY($1::uuid[]) AND deleted_at IS NULL AND (is_global = true OR owner_id = $2)`); err != nil {
+		return err
+	}
+	if err := load(p.categoryIDs, categoryUUIDs, `
+		SELECT uuid::text AS uuid, id FROM categories
+		WHERE uuid = ANY($1::uuid[]) AND owner_id = $2 AND deleted_at IS NULL`); err != nil {
+		return err
+	}
+	return load(p.subTaskIDs, subTaskUUIDs, `
+		SELECT st.uuid::text AS uuid, st.id FROM sub_tasks st JOIN tasks t ON t.id = st.parent_task_id
+		WHERE st.uuid = ANY($1::uuid[]) AND st.deleted_at IS NULL AND (t.is_global = true OR t.owner_id = $2)`)
+}
+
+// serverWins decides an update/delete conflict against the server row's
+// updated_at (B16).
+//
+//   - base_updated_at sent (the server updated_at this device last saw): if
+//     the server row hasn't changed since, the client's edit simply applies,
+//     whatever either clock says. Only a REAL concurrent edit falls through
+//     to the timestamp comparison below.
+//   - Timestamp comparison: client_updated_at is capped at the server's
+//     current time, so a phone whose clock runs ahead can't win every
+//     conflict (and can't pre-empt edits made later on another device).
+func (p *pushRun) serverWins(change SyncChange, serverUpdatedAt time.Time) bool {
+	if change.BaseUpdatedAt != nil &&
+		!serverUpdatedAt.Truncate(time.Microsecond).After(change.BaseUpdatedAt.Truncate(time.Microsecond)) {
+		return false
+	}
+	clientAt := change.ClientUpdatedAt
+	if clientAt.After(p.now) {
+		if skew := clientAt.Sub(p.now); skew > clockSkewLogThreshold {
+			slog.Warn("sync push: client clock ahead of server", "user_id", p.userID,
+				"skew_seconds", int64(skew.Seconds()), "resource", change.Resource)
+		}
+		clientAt = p.now
+	}
+	return clientAt.Before(serverUpdatedAt)
+}
+
+// checkTaskDate validates a completion's task_date: parseable and not after
+// the caller's today (B8). Returns a rejection reason, or nil.
+func (p *pushRun) checkTaskDate(raw string) error {
+	date, err := time.Parse(util.DateLayout, raw)
+	if err != nil {
+		return util.ErrSyncInvalidData
+	}
+	if date.After(p.latestDate) {
+		return util.ErrFutureDate
+	}
+	return nil
+}
+
+// guarded runs fn (one statement) under its own savepoint. Use it where the
+// caller turns a statement error into a per-change rejection: in Postgres a
+// failed statement otherwise aborts the whole batch transaction.
+func (p *pushRun) guarded(fn func() error) error {
+	if _, err := p.q.Exec("SAVEPOINT guarded_stmt"); err != nil {
+		return err
+	}
+	if err := fn(); err != nil {
+		if _, rbErr := p.q.Exec("ROLLBACK TO SAVEPOINT guarded_stmt"); rbErr != nil {
+			return rbErr
+		}
+		return err
+	}
+	_, err := p.q.Exec("RELEASE SAVEPOINT guarded_stmt")
+	return err
 }
 
 func rejected(change SyncChange, err error) *SyncChangeResult {
 	return &SyncChangeResult{Resource: change.Resource, UUID: change.UUID, Status: "rejected", Error: err.Error()}
 }
 
-func (r *syncRepo) pushOne(userID int64, change SyncChange) (*SyncChangeResult, error) {
+func (p *pushRun) pushOne(change SyncChange) (*SyncChangeResult, error) {
 	switch change.Resource {
 	case "tasks":
-		return r.pushTask(userID, change)
+		return p.pushTask(change)
 	case "categories":
-		return r.pushCategory(userID, change)
+		return p.pushCategory(change)
 	case "sub_tasks":
-		return r.pushSubTask(userID, change)
+		return p.pushSubTask(change)
 	case "task_completions":
-		return r.pushTaskCompletion(userID, change)
+		return p.pushTaskCompletion(change)
 	case "sub_task_completions":
-		return r.pushSubTaskCompletion(userID, change)
+		return p.pushSubTaskCompletion(change)
 	default:
 		return rejected(change, util.ErrInvalidSyncResource), nil
 	}
@@ -116,12 +331,15 @@ func (r *syncRepo) pushOne(userID int64, change SyncChange) (*SyncChangeResult, 
 // row. Returns 0, false when unresolvable - callers decide whether that's
 // fatal (a required parent, e.g. sub_tasks.parent_task_uuid) or fine to
 // leave null (an optional relationship, e.g. tasks.category_uuid).
-func (r *syncRepo) resolveTaskID(userID int64, uuid *string) (int64, bool, error) {
+func (p *pushRun) resolveTaskID(userID int64, uuid *string) (int64, bool, error) {
 	if uuid == nil || *uuid == "" {
 		return 0, false, nil
 	}
+	if id, ok := p.taskIDs[*uuid]; ok {
+		return id, true, nil
+	}
 	var id int64
-	err := r.db.Get(&id, `
+	err := p.q.Get(&id, `
 		SELECT id FROM tasks WHERE uuid = $1 AND deleted_at IS NULL AND (is_global = true OR owner_id = $2)
 	`, *uuid, userID)
 	if err != nil {
@@ -130,21 +348,26 @@ func (r *syncRepo) resolveTaskID(userID int64, uuid *string) (int64, bool, error
 		}
 		return 0, false, err
 	}
+	p.taskIDs[*uuid] = id
 	return id, true, nil
 }
 
-func (r *syncRepo) resolveCategoryID(userID int64, uuid *string) (int64, bool, error) {
+func (p *pushRun) resolveCategoryID(userID int64, uuid *string) (int64, bool, error) {
 	if uuid == nil || *uuid == "" {
 		return 0, false, nil
 	}
+	if id, ok := p.categoryIDs[*uuid]; ok {
+		return id, true, nil
+	}
 	var id int64
-	err := r.db.Get(&id, `SELECT id FROM categories WHERE uuid = $1 AND owner_id = $2 AND deleted_at IS NULL`, *uuid, userID)
+	err := p.q.Get(&id, `SELECT id FROM categories WHERE uuid = $1 AND owner_id = $2 AND deleted_at IS NULL`, *uuid, userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return 0, false, nil
 		}
 		return 0, false, err
 	}
+	p.categoryIDs[*uuid] = id
 	return id, true, nil
 }
 
@@ -156,12 +379,12 @@ func (r *syncRepo) resolveCategoryID(userID int64, uuid *string) (int64, bool, e
 // the regular REST endpoints already allow), but a regular user must not be
 // able to inject a new sub-task onto a global task's structure via sync,
 // which only admins manage.
-func (r *syncRepo) resolveOwnedTaskID(userID int64, uuid string) (int64, bool, error) {
+func (p *pushRun) resolveOwnedTaskID(userID int64, uuid string) (int64, bool, error) {
 	if uuid == "" {
 		return 0, false, nil
 	}
 	var id int64
-	err := r.db.Get(&id, `SELECT id FROM tasks WHERE uuid = $1 AND deleted_at IS NULL AND owner_id = $2 AND is_global = false`, uuid, userID)
+	err := p.q.Get(&id, `SELECT id FROM tasks WHERE uuid = $1 AND deleted_at IS NULL AND owner_id = $2 AND is_global = false`, uuid, userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return 0, false, nil
@@ -171,12 +394,15 @@ func (r *syncRepo) resolveOwnedTaskID(userID int64, uuid string) (int64, bool, e
 	return id, true, nil
 }
 
-func (r *syncRepo) resolveSubTaskID(userID int64, uuid *string) (int64, bool, error) {
+func (p *pushRun) resolveSubTaskID(userID int64, uuid *string) (int64, bool, error) {
 	if uuid == nil || *uuid == "" {
 		return 0, false, nil
 	}
+	if id, ok := p.subTaskIDs[*uuid]; ok {
+		return id, true, nil
+	}
 	var id int64
-	err := r.db.Get(&id, `
+	err := p.q.Get(&id, `
 		SELECT st.id FROM sub_tasks st
 		JOIN tasks t ON t.id = st.parent_task_id
 		WHERE st.uuid = $1 AND st.deleted_at IS NULL AND (t.is_global = true OR t.owner_id = $2)
@@ -187,18 +413,20 @@ func (r *syncRepo) resolveSubTaskID(userID int64, uuid *string) (int64, bool, er
 		}
 		return 0, false, err
 	}
+	p.subTaskIDs[*uuid] = id
 	return id, true, nil
 }
 
 // ---- tasks ----
 
-func (r *syncRepo) pushTask(userID int64, change SyncChange) (*SyncChangeResult, error) {
+func (p *pushRun) pushTask(change SyncChange) (*SyncChangeResult, error) {
+	userID := p.userID
 	var existing struct {
-		ID        int64        `db:"id"`
+		ID        int64         `db:"id"`
 		OwnerID   sql.NullInt64 `db:"owner_id"`
-		UpdatedAt time.Time    `db:"updated_at"`
+		UpdatedAt time.Time     `db:"updated_at"`
 	}
-	err := r.db.Get(&existing, `SELECT id, owner_id, updated_at FROM tasks WHERE uuid = $1`, change.UUID)
+	err := p.q.Get(&existing, `SELECT id, owner_id, updated_at FROM tasks WHERE uuid = $1`, change.UUID)
 	found := true
 	if err == sql.ErrNoRows {
 		found = false
@@ -215,29 +443,24 @@ func (r *syncRepo) pushTask(userID int64, change SyncChange) (*SyncChangeResult,
 			// Already gone (or never existed) - deleting is a no-op success.
 			return &SyncChangeResult{Resource: change.Resource, UUID: change.UUID, Status: "accepted"}, nil
 		}
-		if change.ClientUpdatedAt.Before(existing.UpdatedAt) {
-			row, err := r.taskByUUID(change.UUID)
+		if p.serverWins(change, existing.UpdatedAt) {
+			row, err := p.taskByUUID(change.UUID)
 			if err != nil {
 				return nil, err
 			}
 			return &SyncChangeResult{Resource: change.Resource, UUID: change.UUID, Status: "superseded", ServerRow: row}, nil
 		}
-		tx, err := r.db.Beginx()
-		if err != nil {
+		// Already inside the batch transaction: these writes commit together.
+		if _, err := p.q.Exec(`UPDATE tasks SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1`, existing.ID); err != nil {
 			return nil, err
 		}
-		defer tx.Rollback()
-		if _, err := tx.Exec(`UPDATE tasks SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1`, existing.ID); err != nil {
-			return nil, err
-		}
-		if _, err := tx.Exec(`
+		if _, err := p.q.Exec(`
 			UPDATE sub_tasks SET deleted_at = CURRENT_TIMESTAMP WHERE parent_task_id = $1 AND deleted_at IS NULL
 		`, existing.ID); err != nil {
 			return nil, err
 		}
-		if err := tx.Commit(); err != nil {
-			return nil, err
-		}
+		delete(p.taskIDs, change.UUID)
+		p.subTaskIDs = map[string]int64{} // its sub-tasks were soft-deleted too
 		return &SyncChangeResult{Resource: change.Resource, UUID: change.UUID, Status: "accepted"}, nil
 
 	case "upsert":
@@ -252,18 +475,18 @@ func (r *syncRepo) pushTask(userID int64, change SyncChange) (*SyncChangeResult,
 		if input.ReminderTime != nil && *input.ReminderTime == "" {
 			input.ReminderTime = nil
 		}
-		categoryID, hasCategory, err := r.resolveCategoryID(userID, input.CategoryUUID)
+		categoryID, hasCategory, err := p.resolveCategoryID(userID, input.CategoryUUID)
 		if err != nil {
 			return nil, err
 		}
-		sourceTaskID, hasSource, err := r.resolveTaskID(userID, input.SourceTaskUUID)
+		sourceTaskID, hasSource, err := p.resolveTaskID(userID, input.SourceTaskUUID)
 		if err != nil {
 			return nil, err
 		}
 
 		if found {
-			if change.ClientUpdatedAt.Before(existing.UpdatedAt) {
-				row, err := r.taskByUUID(change.UUID)
+			if p.serverWins(change, existing.UpdatedAt) {
+				row, err := p.taskByUUID(change.UUID)
 				if err != nil {
 					return nil, err
 				}
@@ -273,7 +496,7 @@ func (r *syncRepo) pushTask(userID int64, change SyncChange) (*SyncChangeResult,
 			if input.IsActive != nil {
 				isActive = *input.IsActive
 			}
-			_, err := r.db.Exec(`
+			_, err := p.q.Exec(`
 				UPDATE tasks SET
 					title = $1, description = $2, recurrence_type = $3, recurrence_days = $4,
 					is_active = $5, category_id = $6, reward_text = $7, task_type = $8,
@@ -288,24 +511,27 @@ func (r *syncRepo) pushTask(userID int64, change SyncChange) (*SyncChangeResult,
 				return nil, err
 			}
 		} else {
-			_, err := r.db.Exec(`
+			_, err := p.q.Exec(`
 				INSERT INTO tasks (
 					uuid, title, description, is_global, owner_id, recurrence_type, recurrence_days,
 					created_by, category_id, reward_text, task_type, target_count, duration_seconds,
 					reminder_time, source_task_id, position
 				) VALUES ($1,$2,$3,false,$4,$5,$6,$4,$7,$8,$9,$10,$11,$12,$13,$14)
+				ON CONFLICT (uuid) DO NOTHING
 			`, change.UUID, input.Title, input.Description, userID, input.RecurrenceType, pq.Int64Array(input.RecurrenceDays),
 				nullInt64(categoryID, hasCategory), input.RewardText, input.TaskType, input.TargetCount,
 				input.DurationSeconds, input.ReminderTime, nullInt64(sourceTaskID, hasSource), derefInt(input.Position))
-			// A duplicate uuid means this same change already landed (an
-			// overlapping push, or a retry whose first attempt committed) -
-			// idempotent success, not an error.
-			if err != nil && !isDuplicateUUID(err) {
+			// ON CONFLICT (uuid): a duplicate uuid means this same change already
+			// landed (an overlapping push, or a retry whose first attempt
+			// committed) - idempotent success. (It must not be a swallowed
+			// error: inside the batch transaction any failed statement aborts
+			// the transaction.)
+			if err != nil {
 				return nil, err
 			}
 		}
 
-		row, err := r.taskByUUID(change.UUID)
+		row, err := p.taskByUUID(change.UUID)
 		if err != nil {
 			return nil, err
 		}
@@ -316,8 +542,8 @@ func (r *syncRepo) pushTask(userID int64, change SyncChange) (*SyncChangeResult,
 	}
 }
 
-func (r *syncRepo) taskByUUID(uuid string) (*SyncTask, error) {
-	tasks, err := r.pullTasksByUUIDs([]string{uuid})
+func (p *pushRun) taskByUUID(uuid string) (*SyncTask, error) {
+	tasks, err := p.pullTasksByUUIDs([]string{uuid})
 	if err != nil || len(tasks) == 0 {
 		return nil, err
 	}
@@ -328,8 +554,8 @@ func (r *syncRepo) taskByUUID(uuid string) (*SyncTask, error) {
 // form pull.go returns, for "server_row" in a push result - so the client
 // reconciles a rejected/superseded push exactly the same way it would
 // reconcile a pulled row, one code path instead of two.
-func (r *syncRepo) pullTasksByUUIDs(uuids []string) ([]SyncTask, error) {
-	rows, err := r.db.Query(`
+func (p *pushRun) pullTasksByUUIDs(uuids []string) ([]SyncTask, error) {
+	rows, err := p.q.Query(`
 		SELECT
 			t.uuid, t.title, t.description, t.is_global, t.recurrence_type, t.recurrence_days,
 			t.is_active, c.uuid, t.reward_text, t.task_type, t.target_count, t.duration_seconds,
@@ -376,13 +602,14 @@ func (r *syncRepo) pullTasksByUUIDs(uuids []string) ([]SyncTask, error) {
 
 // ---- categories ----
 
-func (r *syncRepo) pushCategory(userID int64, change SyncChange) (*SyncChangeResult, error) {
+func (p *pushRun) pushCategory(change SyncChange) (*SyncChangeResult, error) {
+	userID := p.userID
 	var existing struct {
 		ID        int64     `db:"id"`
 		OwnerID   int64     `db:"owner_id"`
 		UpdatedAt time.Time `db:"updated_at"`
 	}
-	err := r.db.Get(&existing, `SELECT id, owner_id, updated_at FROM categories WHERE uuid = $1`, change.UUID)
+	err := p.q.Get(&existing, `SELECT id, owner_id, updated_at FROM categories WHERE uuid = $1`, change.UUID)
 	found := true
 	if err == sql.ErrNoRows {
 		found = false
@@ -398,27 +625,21 @@ func (r *syncRepo) pushCategory(userID int64, change SyncChange) (*SyncChangeRes
 		if !found {
 			return &SyncChangeResult{Resource: change.Resource, UUID: change.UUID, Status: "accepted"}, nil
 		}
-		if change.ClientUpdatedAt.Before(existing.UpdatedAt) {
-			row, err := r.categoryByUUID(change.UUID)
+		if p.serverWins(change, existing.UpdatedAt) {
+			row, err := p.categoryByUUID(change.UUID)
 			if err != nil {
 				return nil, err
 			}
 			return &SyncChangeResult{Resource: change.Resource, UUID: change.UUID, Status: "superseded", ServerRow: row}, nil
 		}
-		tx, err := r.db.Beginx()
-		if err != nil {
+		// Already inside the batch transaction: these writes commit together.
+		if _, err := p.q.Exec(`UPDATE categories SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1`, existing.ID); err != nil {
 			return nil, err
 		}
-		defer tx.Rollback()
-		if _, err := tx.Exec(`UPDATE categories SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1`, existing.ID); err != nil {
+		if _, err := p.q.Exec(`UPDATE tasks SET category_id = NULL WHERE category_id = $1`, existing.ID); err != nil {
 			return nil, err
 		}
-		if _, err := tx.Exec(`UPDATE tasks SET category_id = NULL WHERE category_id = $1`, existing.ID); err != nil {
-			return nil, err
-		}
-		if err := tx.Commit(); err != nil {
-			return nil, err
-		}
+		delete(p.categoryIDs, change.UUID)
 		return &SyncChangeResult{Resource: change.Resource, UUID: change.UUID, Status: "accepted"}, nil
 
 	case "upsert":
@@ -431,37 +652,42 @@ func (r *syncRepo) pushCategory(userID int64, change SyncChange) (*SyncChangeRes
 		}
 
 		if found {
-			if change.ClientUpdatedAt.Before(existing.UpdatedAt) {
-				row, err := r.categoryByUUID(change.UUID)
+			if p.serverWins(change, existing.UpdatedAt) {
+				row, err := p.categoryByUUID(change.UUID)
 				if err != nil {
 					return nil, err
 				}
 				return &SyncChangeResult{Resource: change.Resource, UUID: change.UUID, Status: "superseded", ServerRow: row}, nil
 			}
-			if _, err := r.db.Exec(`
-				UPDATE categories SET name = $1, color_hex = $2, position = COALESCE($3, position) WHERE id = $4
-			`, input.Name, input.ColorHex, input.Position, existing.ID); err != nil {
+			if err := p.guarded(func() error {
+				_, err := p.q.Exec(`
+					UPDATE categories SET name = $1, color_hex = $2, position = COALESCE($3, position) WHERE id = $4
+				`, input.Name, input.ColorHex, input.Position, existing.ID)
+				return err
+			}); err != nil {
 				if isUniqueViolation(err) {
 					return rejected(change, util.ErrCategoryExists), nil
 				}
 				return nil, err
 			}
 		} else {
-			if _, err := r.db.Exec(`
-				INSERT INTO categories (uuid, name, color_hex, owner_id, position)
-				VALUES ($1, $2, $3, $4, $5)
-			`, change.UUID, input.Name, input.ColorHex, userID, derefInt(input.Position)); err != nil {
-				if isDuplicateUUID(err) {
-					// Same change already landed - idempotent success.
-				} else if isUniqueViolation(err) {
+			if err := p.guarded(func() error {
+				// ON CONFLICT (uuid): same change already landed - idempotent success.
+				_, err := p.q.Exec(`
+					INSERT INTO categories (uuid, name, color_hex, owner_id, position)
+					VALUES ($1, $2, $3, $4, $5)
+					ON CONFLICT (uuid) DO NOTHING
+				`, change.UUID, input.Name, input.ColorHex, userID, derefInt(input.Position))
+				return err
+			}); err != nil {
+				if isUniqueViolation(err) {
 					return rejected(change, util.ErrCategoryExists), nil
-				} else {
-					return nil, err
 				}
+				return nil, err
 			}
 		}
 
-		row, err := r.categoryByUUID(change.UUID)
+		row, err := p.categoryByUUID(change.UUID)
 		if err != nil {
 			return nil, err
 		}
@@ -472,10 +698,10 @@ func (r *syncRepo) pushCategory(userID int64, change SyncChange) (*SyncChangeRes
 	}
 }
 
-func (r *syncRepo) categoryByUUID(uuid string) (*SyncCategory, error) {
+func (p *pushRun) categoryByUUID(uuid string) (*SyncCategory, error) {
 	var item SyncCategory
 	var deletedAt sql.NullTime
-	err := r.db.QueryRow(`
+	err := p.q.QueryRow(`
 		SELECT uuid, name, color_hex, position, created_at, updated_at, deleted_at
 		FROM categories WHERE uuid = $1
 	`, uuid).Scan(&item.UUID, &item.Name, &item.ColorHex, &item.Position, &item.CreatedAt, &item.UpdatedAt, &deletedAt)
@@ -488,14 +714,15 @@ func (r *syncRepo) categoryByUUID(uuid string) (*SyncCategory, error) {
 
 // ---- sub_tasks ----
 
-func (r *syncRepo) pushSubTask(userID int64, change SyncChange) (*SyncChangeResult, error) {
+func (p *pushRun) pushSubTask(change SyncChange) (*SyncChangeResult, error) {
+	userID := p.userID
 	var existing struct {
-		ID           int64        `db:"id"`
-		ParentTaskID int64        `db:"parent_task_id"`
+		ID           int64         `db:"id"`
+		ParentTaskID int64         `db:"parent_task_id"`
 		OwnerID      sql.NullInt64 `db:"owner_id"`
-		UpdatedAt    time.Time    `db:"updated_at"`
+		UpdatedAt    time.Time     `db:"updated_at"`
 	}
-	err := r.db.Get(&existing, `
+	err := p.q.Get(&existing, `
 		SELECT st.id, st.parent_task_id, t.owner_id, st.updated_at
 		FROM sub_tasks st JOIN tasks t ON t.id = st.parent_task_id
 		WHERE st.uuid = $1
@@ -515,16 +742,17 @@ func (r *syncRepo) pushSubTask(userID int64, change SyncChange) (*SyncChangeResu
 		if !found {
 			return &SyncChangeResult{Resource: change.Resource, UUID: change.UUID, Status: "accepted"}, nil
 		}
-		if change.ClientUpdatedAt.Before(existing.UpdatedAt) {
-			row, err := r.subTaskByUUID(change.UUID)
+		if p.serverWins(change, existing.UpdatedAt) {
+			row, err := p.subTaskByUUID(change.UUID)
 			if err != nil {
 				return nil, err
 			}
 			return &SyncChangeResult{Resource: change.Resource, UUID: change.UUID, Status: "superseded", ServerRow: row}, nil
 		}
-		if _, err := r.db.Exec(`UPDATE sub_tasks SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1`, existing.ID); err != nil {
+		if _, err := p.q.Exec(`UPDATE sub_tasks SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1`, existing.ID); err != nil {
 			return nil, err
 		}
+		delete(p.subTaskIDs, change.UUID)
 		return &SyncChangeResult{Resource: change.Resource, UUID: change.UUID, Status: "accepted"}, nil
 
 	case "upsert":
@@ -542,12 +770,12 @@ func (r *syncRepo) pushSubTask(userID int64, change SyncChange) (*SyncChangeResu
 			// already confirmed owned/non-global) - resolveTaskID's
 			// broader global-or-owned scope just needs to confirm the
 			// payload didn't try to move it under a different parent.
-			parentTaskID, hasParent, err = r.resolveTaskID(userID, &input.ParentTaskUUID)
+			parentTaskID, hasParent, err = p.resolveTaskID(userID, &input.ParentTaskUUID)
 		} else {
 			// Creating a brand-new sub-task: only allowed under a task the
 			// user owns outright (see resolveOwnedTaskID) - never under a
 			// global task, which only admins structurally manage.
-			parentTaskID, hasParent, err = r.resolveOwnedTaskID(userID, input.ParentTaskUUID)
+			parentTaskID, hasParent, err = p.resolveOwnedTaskID(userID, input.ParentTaskUUID)
 		}
 		if err != nil {
 			return nil, err
@@ -560,8 +788,8 @@ func (r *syncRepo) pushSubTask(userID int64, change SyncChange) (*SyncChangeResu
 			if parentTaskID != existing.ParentTaskID {
 				return rejected(change, util.ErrForbidden), nil
 			}
-			if change.ClientUpdatedAt.Before(existing.UpdatedAt) {
-				row, err := r.subTaskByUUID(change.UUID)
+			if p.serverWins(change, existing.UpdatedAt) {
+				row, err := p.subTaskByUUID(change.UUID)
 				if err != nil {
 					return nil, err
 				}
@@ -571,7 +799,7 @@ func (r *syncRepo) pushSubTask(userID int64, change SyncChange) (*SyncChangeResu
 			//	ReplaceForParent update) because a sync push always carries the
 			//	client's full row - a null json description here means the
 			//	client cleared it, so it must reach the column as NULL.
-			if _, err := r.db.Exec(`
+			if _, err := p.q.Exec(`
 				UPDATE sub_tasks SET title = $1, task_type = $2, target_count = $3, duration_seconds = $4,
 					description = $5, position = COALESCE($6, position)
 				WHERE id = $7
@@ -579,15 +807,16 @@ func (r *syncRepo) pushSubTask(userID int64, change SyncChange) (*SyncChangeResu
 				return nil, err
 			}
 		} else {
-			if _, err := r.db.Exec(`
+			if _, err := p.q.Exec(`
 				INSERT INTO sub_tasks (uuid, parent_task_id, title, description, task_type, target_count, duration_seconds, position)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-			`, change.UUID, parentTaskID, input.Title, input.Description, input.TaskType, input.TargetCount, input.DurationSeconds, derefInt(input.Position)); err != nil && !isDuplicateUUID(err) {
+				ON CONFLICT (uuid) DO NOTHING
+			`, change.UUID, parentTaskID, input.Title, input.Description, input.TaskType, input.TargetCount, input.DurationSeconds, derefInt(input.Position)); err != nil {
 				return nil, err
 			}
 		}
 
-		row, err := r.subTaskByUUID(change.UUID)
+		row, err := p.subTaskByUUID(change.UUID)
 		if err != nil {
 			return nil, err
 		}
@@ -598,12 +827,12 @@ func (r *syncRepo) pushSubTask(userID int64, change SyncChange) (*SyncChangeResu
 	}
 }
 
-func (r *syncRepo) subTaskByUUID(uuid string) (*SyncSubTask, error) {
+func (p *pushRun) subTaskByUUID(uuid string) (*SyncSubTask, error) {
 	var item SyncSubTask
 	var description sql.NullString
 	var targetCount, durationSeconds sql.NullInt32
 	var deletedAt sql.NullTime
-	err := r.db.QueryRow(`
+	err := p.q.QueryRow(`
 		SELECT st.uuid, t.uuid, st.title, st.description, st.task_type, st.target_count, st.duration_seconds,
 			st.position, st.created_at, st.updated_at, st.deleted_at
 		FROM sub_tasks st JOIN tasks t ON t.id = st.parent_task_id
@@ -633,12 +862,16 @@ func (r *syncRepo) subTaskByUUID(uuid string) (*SyncSubTask, error) {
 // task complete/incomplete) stays timestamp-compared like every other
 // resource, since there's nothing to sum there.
 
-func (r *syncRepo) pushTaskCompletion(userID int64, change SyncChange) (*SyncChangeResult, error) {
+func (p *pushRun) pushTaskCompletion(change SyncChange) (*SyncChangeResult, error) {
+	userID := p.userID
 	var input syncCompletionInput
 	if err := json.Unmarshal(change.Data, &input); err != nil {
 		return rejected(change, err), nil
 	}
-	taskID, hasTask, err := r.resolveTaskID(userID, &input.TaskUUID)
+	if reason := p.checkTaskDate(input.TaskDate); reason != nil {
+		return rejected(change, reason), nil
+	}
+	taskID, hasTask, err := p.resolveTaskID(userID, &input.TaskUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -652,13 +885,19 @@ func (r *syncRepo) pushTaskCompletion(userID int64, change SyncChange) (*SyncCha
 			return rejected(change, util.ErrInvalidIncrementAmount), nil
 		}
 		var uuid string
-		err := r.db.QueryRow(`
+		err := p.q.QueryRow(`
 			INSERT INTO task_completions (uuid, task_id, user_id, task_title_snapshot, was_global_snapshot, task_date, status, progress_count)
-			SELECT $1, $2, $3, t.title, t.is_global, $4::date, 'pending', $5 FROM tasks t WHERE t.id = $2
+			SELECT $1, $2, $3, t.title, t.is_global, $4::date, 'pending', $5 FROM tasks t
+			WHERE t.id = $2 AND t.task_type = 'counter'
+				AND NOT EXISTS (SELECT 1 FROM sub_tasks s WHERE s.parent_task_id = t.id AND s.deleted_at IS NULL)
 			ON CONFLICT (task_id, user_id, task_date)
 			DO UPDATE SET progress_count = task_completions.progress_count + $5
 			RETURNING uuid
 		`, change.UUID, taskID, userID, input.TaskDate, input.Amount).Scan(&uuid)
+		if errors.Is(err, sql.ErrNoRows) {
+			// Not a counter (or a parent whose progress lives in its sub-tasks).
+			return rejected(change, util.ErrNotCounterTask), nil
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -670,7 +909,7 @@ func (r *syncRepo) pushTaskCompletion(userID int64, change SyncChange) (*SyncCha
 		// reconcilePushResults in the mobile app). One-way (pending -> completed
 		// only) since amount is always positive (checked above) - progress only
 		// grows within a day.
-		if _, err := r.db.Exec(`
+		if _, err := p.q.Exec(`
 			UPDATE task_completions tc SET status = 'completed', completed_at = COALESCE(tc.completed_at, now())
 			FROM tasks t
 			WHERE tc.uuid = $1 AND t.id = tc.task_id
@@ -679,18 +918,27 @@ func (r *syncRepo) pushTaskCompletion(userID int64, change SyncChange) (*SyncCha
 		`, uuid); err != nil {
 			return nil, err
 		}
-		row, err := r.taskCompletionByUUID(uuid)
+		row, err := p.taskCompletionByUUID(uuid)
 		if err != nil {
 			return nil, err
 		}
 		return &SyncChangeResult{Resource: change.Resource, UUID: uuid, Status: "accepted", ServerRow: row}, nil
 
 	case "upsert":
+		if input.Status == util.StatusCompleted {
+			var hasSubTasks bool
+			if err := p.q.Get(&hasSubTasks, `SELECT EXISTS (SELECT 1 FROM sub_tasks WHERE parent_task_id = $1 AND deleted_at IS NULL)`, taskID); err != nil {
+				return nil, err
+			}
+			if hasSubTasks {
+				return rejected(change, util.ErrTaskHasSubTasks), nil
+			}
+		}
 		var existing struct {
 			UUID      string    `db:"uuid"`
 			UpdatedAt time.Time `db:"updated_at"`
 		}
-		err := r.db.Get(&existing, `
+		err := p.q.Get(&existing, `
 			SELECT uuid, updated_at FROM task_completions WHERE task_id = $1 AND user_id = $2 AND task_date = $3::date
 		`, taskID, userID, input.TaskDate)
 		found := true
@@ -699,8 +947,8 @@ func (r *syncRepo) pushTaskCompletion(userID int64, change SyncChange) (*SyncCha
 		} else if err != nil {
 			return nil, err
 		}
-		if found && change.ClientUpdatedAt.Before(existing.UpdatedAt) {
-			row, err := r.taskCompletionByUUID(existing.UUID)
+		if found && p.serverWins(change, existing.UpdatedAt) {
+			row, err := p.taskCompletionByUUID(existing.UUID)
 			if err != nil {
 				return nil, err
 			}
@@ -712,7 +960,7 @@ func (r *syncRepo) pushTaskCompletion(userID int64, change SyncChange) (*SyncCha
 		if input.Status == util.StatusCompleted {
 			completedAt = sql.NullTime{Time: time.Now(), Valid: true}
 		}
-		err = r.db.QueryRow(`
+		err = p.q.QueryRow(`
 			INSERT INTO task_completions (uuid, task_id, user_id, task_title_snapshot, was_global_snapshot, task_date, status, completed_at)
 			SELECT $1, $2, $3, t.title, t.is_global, $4::date, $5, $6 FROM tasks t WHERE t.id = $2
 			ON CONFLICT (task_id, user_id, task_date)
@@ -722,7 +970,7 @@ func (r *syncRepo) pushTaskCompletion(userID int64, change SyncChange) (*SyncCha
 		if err != nil {
 			return nil, err
 		}
-		row, err := r.taskCompletionByUUID(uuid)
+		row, err := p.taskCompletionByUUID(uuid)
 		if err != nil {
 			return nil, err
 		}
@@ -733,12 +981,12 @@ func (r *syncRepo) pushTaskCompletion(userID int64, change SyncChange) (*SyncCha
 	}
 }
 
-func (r *syncRepo) taskCompletionByUUID(uuid string) (*SyncTaskCompletion, error) {
+func (p *pushRun) taskCompletionByUUID(uuid string) (*SyncTaskCompletion, error) {
 	var item SyncTaskCompletion
 	var taskUUID sql.NullString
 	var taskDate time.Time
 	var completedAt, deletedAt sql.NullTime
-	err := r.db.QueryRow(`
+	err := p.q.QueryRow(`
 		SELECT tc.uuid, t.uuid, tc.task_date, tc.status, tc.progress_count, tc.completed_at,
 			tc.created_at, tc.updated_at, tc.deleted_at
 		FROM task_completions tc LEFT JOIN tasks t ON t.id = tc.task_id
@@ -757,19 +1005,23 @@ func (r *syncRepo) taskCompletionByUUID(uuid string) (*SyncTaskCompletion, error
 
 // ---- sub_task_completions ---- (same shape/reasoning as task_completions above)
 
-func (r *syncRepo) pushSubTaskCompletion(userID int64, change SyncChange) (*SyncChangeResult, error) {
+func (p *pushRun) pushSubTaskCompletion(change SyncChange) (*SyncChangeResult, error) {
+	userID := p.userID
 	var input syncCompletionInput
 	if err := json.Unmarshal(change.Data, &input); err != nil {
 		return rejected(change, err), nil
 	}
-	subTaskID, hasSubTask, err := r.resolveSubTaskID(userID, &input.SubTaskUUID)
+	if reason := p.checkTaskDate(input.TaskDate); reason != nil {
+		return rejected(change, reason), nil
+	}
+	subTaskID, hasSubTask, err := p.resolveSubTaskID(userID, &input.SubTaskUUID)
 	if err != nil {
 		return nil, err
 	}
 	if !hasSubTask {
 		return rejected(change, util.ErrSyncParentNotFound), nil
 	}
-	parentTaskID, hasParent, err := r.resolveTaskID(userID, &input.ParentTaskUUID)
+	parentTaskID, hasParent, err := p.resolveTaskID(userID, &input.ParentTaskUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -783,13 +1035,18 @@ func (r *syncRepo) pushSubTaskCompletion(userID int64, change SyncChange) (*Sync
 			return rejected(change, util.ErrInvalidIncrementAmount), nil
 		}
 		var uuid string
-		err := r.db.QueryRow(`
+		err := p.q.QueryRow(`
 			INSERT INTO sub_task_completions (uuid, sub_task_id, parent_task_id, user_id, sub_task_title_snapshot, task_date, status, progress_count)
-			SELECT $1, $2, $3, $4, st.title, $5::date, 'pending', $6 FROM sub_tasks st WHERE st.id = $2
+			SELECT $1, $2, $3, $4, st.title, $5::date, 'pending', $6 FROM sub_tasks st
+			WHERE st.id = $2 AND st.task_type = 'counter'
 			ON CONFLICT (sub_task_id, user_id, task_date)
 			DO UPDATE SET progress_count = sub_task_completions.progress_count + $6
 			RETURNING uuid
 		`, change.UUID, subTaskID, parentTaskID, userID, input.TaskDate, input.Amount).Scan(&uuid)
+		if errors.Is(err, sql.ErrNoRows) {
+			// Not a counter (or a parent whose progress lives in its sub-tasks).
+			return rejected(change, util.ErrNotCounterTask), nil
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -798,7 +1055,7 @@ func (r *syncRepo) pushSubTaskCompletion(userID int64, change SyncChange) (*Sync
 		// actually reached 'completed' (which in turn kept its parent from
 		// ever reaching 'completed' too, since that's derived from every
 		// sub-task's status).
-		if _, err := r.db.Exec(`
+		if _, err := p.q.Exec(`
 			UPDATE sub_task_completions stc SET status = 'completed', completed_at = COALESCE(stc.completed_at, now())
 			FROM sub_tasks st
 			WHERE stc.uuid = $1 AND st.id = stc.sub_task_id
@@ -807,7 +1064,7 @@ func (r *syncRepo) pushSubTaskCompletion(userID int64, change SyncChange) (*Sync
 		`, uuid); err != nil {
 			return nil, err
 		}
-		row, err := r.subTaskCompletionByUUID(uuid)
+		row, err := p.subTaskCompletionByUUID(uuid)
 		if err != nil {
 			return nil, err
 		}
@@ -818,7 +1075,7 @@ func (r *syncRepo) pushSubTaskCompletion(userID int64, change SyncChange) (*Sync
 			UUID      string    `db:"uuid"`
 			UpdatedAt time.Time `db:"updated_at"`
 		}
-		err := r.db.Get(&existing, `
+		err := p.q.Get(&existing, `
 			SELECT uuid, updated_at FROM sub_task_completions WHERE sub_task_id = $1 AND user_id = $2 AND task_date = $3::date
 		`, subTaskID, userID, input.TaskDate)
 		found := true
@@ -827,8 +1084,8 @@ func (r *syncRepo) pushSubTaskCompletion(userID int64, change SyncChange) (*Sync
 		} else if err != nil {
 			return nil, err
 		}
-		if found && change.ClientUpdatedAt.Before(existing.UpdatedAt) {
-			row, err := r.subTaskCompletionByUUID(existing.UUID)
+		if found && p.serverWins(change, existing.UpdatedAt) {
+			row, err := p.subTaskCompletionByUUID(existing.UUID)
 			if err != nil {
 				return nil, err
 			}
@@ -840,7 +1097,7 @@ func (r *syncRepo) pushSubTaskCompletion(userID int64, change SyncChange) (*Sync
 		if input.Status == util.StatusCompleted {
 			completedAt = sql.NullTime{Time: time.Now(), Valid: true}
 		}
-		err = r.db.QueryRow(`
+		err = p.q.QueryRow(`
 			INSERT INTO sub_task_completions (uuid, sub_task_id, parent_task_id, user_id, sub_task_title_snapshot, task_date, status, completed_at)
 			SELECT $1, $2, $3, $4, st.title, $5::date, $6, $7 FROM sub_tasks st WHERE st.id = $2
 			ON CONFLICT (sub_task_id, user_id, task_date)
@@ -850,7 +1107,7 @@ func (r *syncRepo) pushSubTaskCompletion(userID int64, change SyncChange) (*Sync
 		if err != nil {
 			return nil, err
 		}
-		row, err := r.subTaskCompletionByUUID(uuid)
+		row, err := p.subTaskCompletionByUUID(uuid)
 		if err != nil {
 			return nil, err
 		}
@@ -861,12 +1118,12 @@ func (r *syncRepo) pushSubTaskCompletion(userID int64, change SyncChange) (*Sync
 	}
 }
 
-func (r *syncRepo) subTaskCompletionByUUID(uuid string) (*SyncSubTaskCompletion, error) {
+func (p *pushRun) subTaskCompletionByUUID(uuid string) (*SyncSubTaskCompletion, error) {
 	var item SyncSubTaskCompletion
 	var subTaskUUID sql.NullString
 	var taskDate time.Time
 	var completedAt, deletedAt sql.NullTime
-	err := r.db.QueryRow(`
+	err := p.q.QueryRow(`
 		SELECT stc.uuid, st.uuid, pt.uuid, stc.task_date, stc.status, stc.progress_count,
 			stc.completed_at, stc.created_at, stc.updated_at, stc.deleted_at
 		FROM sub_task_completions stc

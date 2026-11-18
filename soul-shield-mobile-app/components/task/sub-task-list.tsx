@@ -62,6 +62,9 @@ function SubTaskRow({ subTask, disabled, onComplete, onIncrement, onOpenCounter,
         {!isCounter && !isTimer ? (
           // TODO this button is for toggling completion of a normal type sub-task
           <Pressable
+            accessibilityRole="checkbox"
+            accessibilityLabel={subTask.title}
+            accessibilityState={{ checked: isCompleted, disabled }}
             disabled={disabled}
             onPress={() => {
               hapticLight();
@@ -84,13 +87,13 @@ function SubTaskRow({ subTask, disabled, onComplete, onIncrement, onOpenCounter,
         />
         {isCounter ? (
           // TODO this button is for opening the dedicated counter page for this sub-task
-          <Pressable onPress={() => onOpenCounter(subTask)} hitSlop={8}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Open counter for ${subTask.title}`} onPress={() => onOpenCounter(subTask)} hitSlop={8}>
             <IconSymbol name="arrow.up.right.square" size={16} color={mutedColor} />
           </Pressable>
         ) : null}
         {isTimer ? (
           // TODO this button is for opening the dedicated timer page for this sub-task
-          <Pressable onPress={() => onOpenTimer(subTask)} hitSlop={8}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Open timer for ${subTask.title}`} onPress={() => onOpenTimer(subTask)} hitSlop={8}>
             <IconSymbol name="arrow.up.right.square" size={16} color={mutedColor} />
           </Pressable>
         ) : null}

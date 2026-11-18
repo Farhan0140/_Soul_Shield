@@ -30,6 +30,9 @@ export const categories = sqliteTable('categories', {
   updatedAt: text('updated_at').notNull(),
   deletedAt: text('deleted_at'),
   syncedAt: text('synced_at'),
+  /** Server updated_at as of the last pull/accepted push (migration v3) -
+   * sent as base_updated_at for conflict detection. */
+  serverUpdatedAt: text('server_updated_at'),
 });
 
 export const tasks = sqliteTable('tasks', {
@@ -53,6 +56,9 @@ export const tasks = sqliteTable('tasks', {
   updatedAt: text('updated_at').notNull(),
   deletedAt: text('deleted_at'),
   syncedAt: text('synced_at'),
+  /** Server updated_at as of the last pull/accepted push (migration v3) -
+   * sent as base_updated_at for conflict detection. */
+  serverUpdatedAt: text('server_updated_at'),
 });
 
 export const subTasks = sqliteTable('sub_tasks', {
@@ -72,6 +78,9 @@ export const subTasks = sqliteTable('sub_tasks', {
   updatedAt: text('updated_at').notNull(),
   deletedAt: text('deleted_at'),
   syncedAt: text('synced_at'),
+  /** Server updated_at as of the last pull/accepted push (migration v3) -
+   * sent as base_updated_at for conflict detection. */
+  serverUpdatedAt: text('server_updated_at'),
 });
 
 export const taskCompletions = sqliteTable('task_completions', {
@@ -88,6 +97,9 @@ export const taskCompletions = sqliteTable('task_completions', {
   updatedAt: text('updated_at').notNull(),
   deletedAt: text('deleted_at'),
   syncedAt: text('synced_at'),
+  /** Server updated_at as of the last pull/accepted push (migration v3) -
+   * sent as base_updated_at for conflict detection. */
+  serverUpdatedAt: text('server_updated_at'),
 });
 
 export const subTaskCompletions = sqliteTable('sub_task_completions', {
@@ -104,6 +116,9 @@ export const subTaskCompletions = sqliteTable('sub_task_completions', {
   updatedAt: text('updated_at').notNull(),
   deletedAt: text('deleted_at'),
   syncedAt: text('synced_at'),
+  /** Server updated_at as of the last pull/accepted push (migration v3) -
+   * sent as base_updated_at for conflict detection. */
+  serverUpdatedAt: text('server_updated_at'),
 });
 
 /** Single-row table (id is always 1) holding the last successful pull

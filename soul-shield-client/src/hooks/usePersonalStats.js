@@ -1,84 +1,49 @@
 import { useState, useEffect } from 'react';
 import { useApi } from '../context/ApiContext';
-import { fmtDate } from './useTasks';
 
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const EMPTY_STATS = {
+  totalCompleted: 0, completionRate: 0, streak: 0,
+  favoriteCategory: null, favoriteCategoryCount: 0,
+  bestDay: null, totalTasks: 0,
+};
+
+/**
+ * Personal stats for the profile page, computed by the server
+ * (GET /tasks/stats) over the last year. This used to download a full year of
+ * history and crunch it in the browser; it also parsed dates as UTC, which put
+ * "best day" on the wrong weekday for users west of UTC.
+ */
 export function usePersonalStats() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { getTasksHistory } = useApi();
+  const { getPersonalStats } = useApi();
 
   useEffect(() => {
     let ignore = false;
-    const load = async () => {
-      try {
-        // Fetch last 365 days of history
-        const to = new Date();
-        const from = new Date();
-        from.setDate(to.getDate() - 365);
-
-        const history = await getTasksHistory(fmtDate(from), fmtDate(to));
-        const items = Array.isArray(history) ? history : [];
-
-        const completed = items.filter(t => t.status === 'completed');
-        const total = items.length;
-
-        // Completion rate
-        const completionRate = total === 0 ? 0 : Math.round((completed.length / total) * 100);
-
-        // Current streak (consecutive days ending today/yesterday with ≥1 completion)
-        let streak = 0;
-        const completedByDate = new Set(completed.map(t => t.date));
-        const d = new Date();
-        if (!completedByDate.has(fmtDate(d))) d.setDate(d.getDate() - 1);
-        while (completedByDate.has(fmtDate(d))) {
-          streak++;
-          d.setDate(d.getDate() - 1);
-        }
-
-        // Favorite category (most completions)
-        const catCounts = {};
-        completed.forEach(t => {
-          if (t.category_name) {
-            catCounts[t.category_name] = (catCounts[t.category_name] || 0) + 1;
-          }
-        });
-        const favCat = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0];
-
-        // Most productive day of week
-        const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const dayCounts = Array(7).fill(0);
-        completed.forEach(t => {
-          const dt = new Date(t.date);
-          dayCounts[dt.getDay()]++;
-        });
-        const maxDay = Math.max(...dayCounts);
-        const bestDay = maxDay === 0 ? null : DAY_NAMES[dayCounts.indexOf(maxDay)];
-
+    getPersonalStats(365)
+      .then((s) => {
         if (ignore) return;
         setStats({
-          totalCompleted: completed.length,
-          completionRate,
-          streak,
-          favoriteCategory: favCat ? favCat[0] : null,
-          favoriteCategoryCount: favCat ? favCat[1] : 0,
-          bestDay,
-          totalTasks: total,
+          totalCompleted: s.total_completed ?? 0,
+          completionRate: s.completion_rate ?? 0,
+          streak: s.streak ?? 0,
+          favoriteCategory: s.favorite_category ?? null,
+          favoriteCategoryCount: s.favorite_category_count ?? 0,
+          bestDay: s.best_weekday == null ? null : DAY_NAMES[s.best_weekday] ?? null,
+          totalTasks: s.total_tasks ?? 0,
         });
-      } catch (err) {
+      })
+      .catch((err) => {
         console.warn('Stats load failed:', err.message);
-        if (ignore) return;
-        setStats({
-          totalCompleted: 0, completionRate: 0, streak: 0,
-          favoriteCategory: null, favoriteCategoryCount: 0,
-          bestDay: null, totalTasks: 0,
-        });
-      } finally {
+        if (!ignore) setStats(EMPTY_STATS);
+      })
+      .finally(() => {
         if (!ignore) setLoading(false);
-      }
-    };
-    load();
+      });
     return () => { ignore = true; };
-  }, [getTasksHistory]);
+  }, [getPersonalStats]);
 
   return { stats, loading };
 }

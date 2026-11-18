@@ -2,7 +2,8 @@ package repo
 
 import (
 	"errors"
-	"strings"
+	"fmt"
+	"soulsheld/util"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/lib/pq"
@@ -40,6 +41,43 @@ func isIntegrityViolation(err error) bool {
 	return len(code) == 5 && code[:2] == "23"
 }
 
+// isDataException reports SQLSTATE class 22 (data exception): a value the
+// database couldn't even parse or store, e.g. an invalid date ("2026-13-45"),
+// a malformed uuid, or a number out of range. Like class 23 it is a problem
+// with ONE change's data, not with the database.
+func isDataException(err error) bool {
+	code := pgErrCode(err)
+	return len(code) == 5 && code[:2] == "22"
+}
+
+// isRejectableDataError reports whether err means "this one change's data is
+// unacceptable" (class 22 or 23) - which /sync push answers with a
+// per-change "rejected" - as opposed to an infrastructure failure, which
+// fails the whole request so the client retries it later.
+func isRejectableDataError(err error) bool {
+	return isIntegrityViolation(err) || isDataException(err)
+}
+
+// asInputError turns "the database refused this data" (SQLSTATE class 22 or a
+// non-unique class 23) into util.ErrInvalidInput, keeping the original error
+// wrapped for logging; anything else is returned unchanged.
+func asInputError(err error) error {
+	if err == nil || isUniqueViolation(err) || !isRejectableDataError(err) {
+		return err
+	}
+	return fmt.Errorf("%w: %w", util.ErrInvalidInput, err)
+}
+
+// rejectionDetail names what was wrong for a rejected sync change: the
+// violated constraint when there is one (class 23), else the SQLSTATE
+// (class 22 errors carry no constraint name).
+func rejectionDetail(err error) string {
+	if c := pgConstraint(err); c != "" {
+		return c
+	}
+	return "SQLSTATE " + pgErrCode(err)
+}
+
 // pgConstraint returns the violated constraint's name, if err carries one.
 func pgConstraint(err error) string {
 	var pgErr *pgconn.PgError
@@ -47,13 +85,4 @@ func pgConstraint(err error) string {
 		return pgErr.ConstraintName
 	}
 	return ""
-}
-
-// isDuplicateUUID reports a unique violation on a row's uuid column
-// (tasks_uuid_key, categories_uuid_key, ...). For a /sync push that means
-// this exact change was already inserted - by an overlapping request, or by
-// a retry whose first attempt actually committed before the connection
-// dropped - so the caller treats it as success instead of an error.
-func isDuplicateUUID(err error) bool {
-	return isUniqueViolation(err) && strings.HasSuffix(pgConstraint(err), "_uuid_key")
 }

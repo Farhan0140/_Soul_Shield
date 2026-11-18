@@ -10,7 +10,7 @@ export class ApiError extends Error {
   }
 }
 
-export type ErrorContext = 'login' | 'register' | 'verify-security-answer' | 'reset-password';
+export type ErrorContext = | 'login' | 'register' | 'verify-security-answer' | 'reset-password' | 'change-password' | 'delete-account';
 
 // Backend messages are written for logs, not users (e.g. "Internal Server Error" for a
 // wrong password). Per-screen overrides translate known status codes into copy someone
@@ -31,6 +31,13 @@ const CONTEXT_MESSAGES: Record<ErrorContext, Partial<Record<number, string>>> = 
   'reset-password': {
     401: "That reset session expired. Please verify your security answer again.",
   },
+  // 400 here carries the server's specific reason ("Your current password is
+  // incorrect", "Password must be at least 6 characters"), shown as-is by the
+  // generic 400 case below.
+  'change-password': {},
+  'delete-account': {
+    403: "Admin accounts can't be deleted from the app.",
+  },
 };
 
 export function getErrorMessage(error: unknown, context?: ErrorContext): string {
@@ -49,7 +56,7 @@ export function getErrorMessage(error: unknown, context?: ErrorContext): string 
         return "That couldn't be found.";
       case 409:
         return error.message || 'That already exists.';
-      case 0:
+      case 429: return 'Too many attempts. Please wait a few minutes and try again.'; case 0:
         return 'Network error — check your connection and try again.';
       default:
         return error.message || 'Something went wrong. Please try again.';

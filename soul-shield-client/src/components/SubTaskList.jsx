@@ -12,7 +12,7 @@ const QUICK_AMOUNTS = [1, 10];
 const SUB_TASKS_PER_PAGE = 2;
 
 export default function SubTaskList({ task, date, onUpdate, onRewardEarned, disabled = false }) {
-  const { completeSubTask, incrementSubTask } = useApi();
+  const { completeSubTask, uncompleteSubTask, incrementSubTask } = useApi();
   const toast = useToast();
   const navigate = useNavigate();
   const [pendingId, setPendingId] = useState(null);
@@ -41,7 +41,10 @@ export default function SubTaskList({ task, date, onUpdate, onRewardEarned, disa
   const handleComplete = async (subTask) => {
     setPendingId(subTask.sub_task_id);
     try {
-      const res = await completeSubTask(task.task_id, subTask.sub_task_id, fmtDate(date));
+      // The checkbox toggles: a completed sub-task is marked not done again.
+      const res = subTask.status === 'completed'
+        ? await uncompleteSubTask(task.task_id, subTask.sub_task_id, fmtDate(date))
+        : await completeSubTask(task.task_id, subTask.sub_task_id, fmtDate(date));
       applyResult(subTask.sub_task_id, res);
     } catch (err) {
       toast.error(err.message);

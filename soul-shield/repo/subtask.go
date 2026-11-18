@@ -18,10 +18,12 @@ type SubTaskRepo interface {
 	// existing row delete (completions ON DELETE SET NULL এর কারণে history থেকে যায়)।
 	ReplaceForParent(parentTaskID int64, inputs []SubTask) ([]SubTask, error)
 	ListByParentIDs(parentIDs []int64) (map[int64][]SubTask, error)
-	ListWithStatusForDate(userID int64, parentTaskIDs []int64, date time.Time) (map[int64][]SubTaskWithStatus, error)
-	ListWithStatusForRange(userID int64, parentTaskIDs []int64, from, to time.Time) (map[string]map[int64][]SubTaskWithStatus, error)
+	ListWithStatusForDate(userID int64, parentTaskIDs []int64, date, asOf time.Time) (map[int64][]SubTaskWithStatus, error)
+	ListWithStatusForRange(userID int64, parentTaskIDs []int64, from, to, asOf time.Time) (map[string]map[int64][]SubTaskWithStatus, error)
 	Complete(parentTaskID, subTaskID, userID int64, date time.Time) (*SubTaskCompletion, error)
 	Increment(parentTaskID, subTaskID, userID int64, date time.Time, amount int32) (*SubTaskCompletion, error)
+	// Uncomplete puts a normal sub-task back to 'pending' for date (idempotent).
+	Uncomplete(parentTaskID, subTaskID, userID int64, date time.Time) (*SubTaskCompletion, error)
 }
 
 type subTaskRepo struct {
@@ -34,29 +36,8 @@ func NewSubTaskRepo(db *sqlx.DB) SubTaskRepo {
 
 // ---- ReplaceForParent ----
 func (r *subTaskRepo) ReplaceForParent(parentTaskID int64, inputs []SubTask) ([]SubTask, error) {
-	// প্রতিটা input validate করছি (task.go এর Create এ যেমন করা হয়)
-	for i := range inputs {
-		if inputs[i].Title == "" {
-			return nil, util.ErrSubTaskTitleRequired
-		}
-		if inputs[i].TaskType == "" {
-			inputs[i].TaskType = "normal"
-		}
-		if inputs[i].TaskType == "counter" {
-			if !inputs[i].TargetCount.Valid || inputs[i].TargetCount.Int32 <= 0 {
-				return nil, util.ErrInvalidCounterTarget
-			}
-			inputs[i].DurationSeconds = sql.NullInt32{}
-		} else if inputs[i].TaskType == "timer" {
-			if !inputs[i].DurationSeconds.Valid || inputs[i].DurationSeconds.Int32 <= 0 {
-				return nil, util.ErrInvalidTimerDuration
-			}
-			inputs[i].TargetCount = sql.NullInt32{}
-		} else {
-			inputs[i].TargetCount = sql.NullInt32{}
-			inputs[i].DurationSeconds = sql.NullInt32{}
-		}
-		inputs[i].Position = i
+	if err := prepareSubTaskInputs(inputs); err != nil {
+		return nil, err
 	}
 
 	tx, err := r.db.Beginx()
@@ -65,6 +46,51 @@ func (r *subTaskRepo) ReplaceForParent(parentTaskID int64, inputs []SubTask) ([]
 	}
 	defer tx.Rollback()
 
+	result, err := replaceSubTasksTx(tx, parentTaskID, inputs)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// prepareSubTaskInputs validates and normalizes a full sub-task list in place
+// (type defaults, type-specific fields, positions). Call it BEFORE opening a
+// transaction so a validation error never touches the database.
+func prepareSubTaskInputs(inputs []SubTask) error {
+	// প্রতিটা input validate করছি (task.go এর Create এ যেমন করা হয়)
+	for i := range inputs {
+		if inputs[i].Title == "" {
+			return util.ErrSubTaskTitleRequired
+		}
+		if inputs[i].TaskType == "" {
+			inputs[i].TaskType = "normal"
+		}
+		if inputs[i].TaskType == "counter" {
+			if !inputs[i].TargetCount.Valid || inputs[i].TargetCount.Int32 <= 0 {
+				return util.ErrInvalidCounterTarget
+			}
+			inputs[i].DurationSeconds = sql.NullInt32{}
+		} else if inputs[i].TaskType == "timer" {
+			if !inputs[i].DurationSeconds.Valid || inputs[i].DurationSeconds.Int32 <= 0 {
+				return util.ErrInvalidTimerDuration
+			}
+			inputs[i].TargetCount = sql.NullInt32{}
+		} else {
+			inputs[i].TargetCount = sql.NullInt32{}
+			inputs[i].DurationSeconds = sql.NullInt32{}
+		}
+		inputs[i].Position = i
+	}
+	return nil
+}
+
+// replaceSubTasksTx replaces parentTaskID's sub-task list inside tx with the
+// already-prepared inputs: matching ids are updated, id 0 is inserted, and
+// existing sub-tasks missing from inputs are soft-deleted.
+func replaceSubTasksTx(tx *sqlx.Tx, parentTaskID int64, inputs []SubTask) ([]SubTask, error) {
 	var existingIDs []int64
 	if err := tx.Select(&existingIDs, `
 		SELECT id FROM sub_tasks WHERE parent_task_id = $1 AND deleted_at IS NULL
@@ -76,22 +102,22 @@ func (r *subTaskRepo) ReplaceForParent(parentTaskID int64, inputs []SubTask) ([]
 	result := make([]SubTask, len(inputs))
 	for i, in := range inputs {
 		if in.ID != 0 {
-		// The UPDATE branch assigns `description` directly (matching the /sync
-		// push path's full-row semantics): the web form now always includes
-		// description on every sub-task it sends (null = cleared). A payload
-		// that omits the field decodes to NULL too - i.e. only pre-description
-		// web bundles could wipe a description written elsewhere, which the
-		// client reload window makes transient.
-		var updated SubTask
-		err := tx.QueryRow(`
+			// The UPDATE branch assigns `description` directly (matching the /sync
+			// push path's full-row semantics): the web form now always includes
+			// description on every sub-task it sends (null = cleared). A payload
+			// that omits the field decodes to NULL too - i.e. only pre-description
+			// web bundles could wipe a description written elsewhere, which the
+			// client reload window makes transient.
+			var updated SubTask
+			err := tx.QueryRow(`
 			UPDATE sub_tasks
 			SET title = $1, description = $2, task_type = $3, target_count = $4, duration_seconds = $5, position = $6, updated_at = CURRENT_TIMESTAMP
 			WHERE id = $7 AND parent_task_id = $8
 			RETURNING id, parent_task_id, title, description, task_type, target_count, duration_seconds, position, created_at, updated_at
 		`, in.Title, in.Description, in.TaskType, in.TargetCount, in.DurationSeconds, in.Position, in.ID, parentTaskID).Scan(
-			&updated.ID, &updated.ParentTaskID, &updated.Title, &updated.Description, &updated.TaskType,
-			&updated.TargetCount, &updated.DurationSeconds, &updated.Position, &updated.CreatedAt, &updated.UpdatedAt,
-		)
+				&updated.ID, &updated.ParentTaskID, &updated.Title, &updated.Description, &updated.TaskType,
+				&updated.TargetCount, &updated.DurationSeconds, &updated.Position, &updated.CreatedAt, &updated.UpdatedAt,
+			)
 			if err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
 					return nil, util.ErrSubTaskNotFound
@@ -129,10 +155,6 @@ func (r *subTaskRepo) ReplaceForParent(parentTaskID int64, inputs []SubTask) ([]
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
-
 	return result, nil
 }
 
@@ -167,13 +189,13 @@ func (r *subTaskRepo) ListByParentIDs(parentIDs []int64) (map[int64][]SubTask, e
 }
 
 // ---- ListWithStatusForDate ----
-func (r *subTaskRepo) ListWithStatusForDate(userID int64, parentTaskIDs []int64, date time.Time) (map[int64][]SubTaskWithStatus, error) {
+func (r *subTaskRepo) ListWithStatusForDate(userID int64, parentTaskIDs []int64, date, asOf time.Time) (map[int64][]SubTaskWithStatus, error) {
 	result := make(map[int64][]SubTaskWithStatus)
 	if len(parentTaskIDs) == 0 {
 		return result, nil
 	}
 	dateStr := date.Format("2006-01-02")
-	today := time.Now().Format("2006-01-02")
+	today := asOf.Format(util.DateLayout)
 
 	query := `
 		SELECT
@@ -203,14 +225,14 @@ func (r *subTaskRepo) ListWithStatusForDate(userID int64, parentTaskIDs []int64,
 }
 
 // ---- ListWithStatusForRange ----
-func (r *subTaskRepo) ListWithStatusForRange(userID int64, parentTaskIDs []int64, from, to time.Time) (map[string]map[int64][]SubTaskWithStatus, error) {
+func (r *subTaskRepo) ListWithStatusForRange(userID int64, parentTaskIDs []int64, from, to, asOf time.Time) (map[string]map[int64][]SubTaskWithStatus, error) {
 	result := make(map[string]map[int64][]SubTaskWithStatus)
 	if len(parentTaskIDs) == 0 {
 		return result, nil
 	}
 	fromStr := from.Format("2006-01-02")
 	toStr := to.Format("2006-01-02")
-	today := time.Now().Format("2006-01-02")
+	today := asOf.Format(util.DateLayout)
 
 	query := `
 		SELECT
@@ -354,6 +376,43 @@ func (r *subTaskRepo) Increment(parentTaskID, subTaskID, userID int64, date time
 		return nil, err
 	}
 
+	return &completion, nil
+}
+
+// ---- Uncomplete ----
+func (r *subTaskRepo) Uncomplete(parentTaskID, subTaskID, userID int64, date time.Time) (*SubTaskCompletion, error) {
+	_, sub, err := r.getParentAndSubTask(parentTaskID, subTaskID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if sub.TaskType == "counter" {
+		return nil, util.ErrNotCounterTask
+	}
+
+	var completion SubTaskCompletion
+	err = r.db.QueryRow(`
+		UPDATE sub_task_completions
+		SET status = 'pending', completed_at = NULL
+		WHERE sub_task_id = $1 AND user_id = $2 AND task_date = $3::date
+		RETURNING id, sub_task_id, parent_task_id, user_id, sub_task_title_snapshot, task_date, status, progress_count, completed_at, created_at
+	`, sub.ID, userID, date.Format(util.DateLayout)).Scan(
+		&completion.ID, &completion.SubTaskID, &completion.ParentTaskID, &completion.UserID,
+		&completion.SubTaskTitleSnapshot, &completion.TaskDate,
+		&completion.Status, &completion.ProgressCount, &completion.CompletedAt, &completion.CreatedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return &SubTaskCompletion{
+			SubTaskID:            sql.NullInt64{Int64: sub.ID, Valid: true},
+			ParentTaskID:         parentTaskID,
+			UserID:               userID,
+			SubTaskTitleSnapshot: sub.Title,
+			TaskDate:             date,
+			Status:               util.StatusPending,
+		}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
 	return &completion, nil
 }
 

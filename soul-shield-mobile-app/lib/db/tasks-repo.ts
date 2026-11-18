@@ -5,7 +5,7 @@ import type { ManageableTask, RecurrenceType, SubTask, Task, TaskStatus, TaskTyp
 import { listActiveCategories } from '@/lib/db/categories-repo';
 import { getLocalDb } from '@/lib/db/client';
 import { listSubTaskCompletionsInRange, listTaskCompletionsInRange } from '@/lib/db/completions-repo';
-import { checkForConflict } from '@/lib/db/conflicts-repo';
+import { checkForConflict } from '@/lib/db/conflicts-repo'; import { computeParentStatus } from '@/lib/db/parent-status';
 import { decodeIntArray, encodeIntArray } from '@/lib/db/json-array';
 import { tasks } from '@/lib/db/schema';
 import { listActiveSubTasksByParents } from '@/lib/db/sub-tasks-repo';
@@ -42,6 +42,7 @@ export function upsertTaskFromSync(row: SyncTask): void {
       position: row.position,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      serverUpdatedAt: row.updated_at,
       deletedAt: row.deleted_at ?? null,
       syncedAt: now,
     })
@@ -62,7 +63,7 @@ export function upsertTaskFromSync(row: SyncTask): void {
         reminderTime: row.reminder_time ?? null,
         sourceTaskUuid: row.source_task_uuid ?? null,
         position: row.position,
-        updatedAt: row.updated_at,
+        updatedAt: row.updated_at, serverUpdatedAt: row.updated_at,
         deletedAt: row.deleted_at ?? null,
         syncedAt: now,
       },
@@ -122,21 +123,10 @@ export function searchOwnTasksLocal(query: string) {
     .slice(0, 30);
 }
 
-/** completed == every sub-task done, partially_completed == some done,
- * else the same missed-vs-pending-by-date default as everything else -
- * ported straight from soul-shield/rest/handlers/task/subtask_merge.go's
- * computeParentStatus. A sub-tasked parent's own status is *always*
- * derived this way, never read from its own completion row (which
- * shouldn't exist for one - the app never lets a sub-tasked parent be
- * completed directly). */
-/** Shared with the optimistic cache patcher (lib/task-cache.ts) so a tap-driven
- * parent-status recompute EXACTLY matches the derived read on refetch. */
-export function computeParentStatus(subs: SubTask[], date: string, today: string): TaskStatus {
-  const completed = subs.filter((s) => s.status === 'completed').length;
-  if (completed === subs.length) return 'completed';
-  if (completed > 0) return 'partially_completed';
-  return date < today ? 'missed' : 'pending';
-}
+// computeParentStatus lives in its own dependency-free module so it can be
+// unit-tested against the same fixtures as the Go implementation (see
+// lib/db/parent-status.ts). Re-exported here for existing importers.
+export { computeParentStatus } from '@/lib/db/parent-status';
 
 function defaultStatus(date: string, today: string): TaskStatus {
   return date < today ? 'missed' : 'pending';

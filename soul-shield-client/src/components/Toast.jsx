@@ -55,4 +55,5 @@ export function ToastProvider({ children }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- the provider's hook lives beside it
 export const useToast = () => useContext(ToastContext);

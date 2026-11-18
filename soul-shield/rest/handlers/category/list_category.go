@@ -2,6 +2,7 @@ package category
 
 import (
 	"net/http"
+	"soulsheld/rest/middlewares"
 	"soulsheld/util"
 )
 
@@ -16,7 +17,7 @@ import (
 // @Failure 401 {object} ErrorResponse
 // @Router /categories [get]
 func (h *Handler) ListCategories(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserID(r)
+	userID, ok := middlewares.UserID(r)
 	if !ok {
 		unauthorized(w)
 		return

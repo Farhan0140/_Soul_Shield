@@ -1,4 +1,51 @@
+basePath: /
 definitions:
+  admin.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  admin.StatsResponse:
+    properties:
+      active_today:
+        type: integer
+      active_users:
+        type: integer
+      days:
+        type: integer
+      from:
+        type: string
+      new_users:
+        type: integer
+      tasks:
+        items:
+          $ref: '#/definitions/admin.TaskUsageResponse'
+        type: array
+      to:
+        type: string
+      total_users:
+        type: integer
+    type: object
+  admin.TaskUsageResponse:
+    properties:
+      added_by:
+        type: integer
+      completion_rate:
+        type: integer
+      completions:
+        type: integer
+      opportunities:
+        description: Opportunities = scheduled days in the window x active users.
+        type: integer
+      task_id:
+        description: TaskID is the task's uuid (the same task_id the task list endpoints
+          return).
+        type: string
+      title:
+        type: string
+      users:
+        type: integer
+    type: object
   category.CategoryResponse:
     properties:
       color_hex:
@@ -6,6 +53,14 @@ definitions:
       id:
         type: integer
       name:
+        type: string
+      position:
+        type: integer
+      uuid:
+        description: |-
+          UUID backs the mobile app's local-first store (see repo/sync.go) - kept
+          alongside the numeric ID above, not in place of it, since the web
+          client (soul-shield-client) still reads id as a number.
         type: string
     type: object
   category.CreateCategoryRequest:
@@ -22,6 +77,13 @@ definitions:
       error:
         type: string
     type: object
+  category.ReorderCategoriesRequest:
+    properties:
+      ordered_ids:
+        items:
+          type: integer
+        type: array
+    type: object
   category.SuccessResponse:
     properties:
       message:
@@ -35,31 +97,220 @@ definitions:
       name:
         type: string
     type: object
-  otp.ErrorResponse:
+  repo.SyncCategory:
+    properties:
+      color_hex:
+        type: string
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      name:
+        type: string
+      position:
+        type: integer
+      updated_at:
+        type: string
+      uuid:
+        type: string
+    type: object
+  repo.SyncChangeResult:
     properties:
       error:
-        example: invalid request
+        type: string
+      resource:
+        type: string
+      server_row: {}
+      status:
+        description: |-
+          Status: "accepted" (applied as sent), "superseded" (a newer
+          server-side updated_at won - ServerRow carries the authoritative
+          version so the caller can reconcile/log it), or "rejected" (validation
+          or ownership failure for this one change specifically - Error
+          explains why; unlike a Go error return from PushChanges, this does
+          NOT abort the rest of the batch).
+        type: string
+      uuid:
         type: string
     type: object
-  otp.SendOTPRequest:
+  repo.SyncSnapshot:
     properties:
-      email:
+      categories:
+        items:
+          $ref: '#/definitions/repo.SyncCategory'
+        type: array
+      cursor:
+        description: |-
+          Cursor is the server's own clock at the moment the pull started
+          (captured via `SELECT now()`, not derived from the returned rows'
+          max updated_at) - passing it back as the next `since` means a row
+          updated concurrently with this exact request is simply picked up on
+          the *next* pull instead of possibly being missed, and (since nothing
+          here is paginated - this app's per-user row counts are small enough
+          to return in one response) there's no page-boundary tie to worry
+          about either.
+        type: string
+      sub_task_completions:
+        items:
+          $ref: '#/definitions/repo.SyncSubTaskCompletion'
+        type: array
+      sub_tasks:
+        items:
+          $ref: '#/definitions/repo.SyncSubTask'
+        type: array
+      task_completions:
+        items:
+          $ref: '#/definitions/repo.SyncTaskCompletion'
+        type: array
+      tasks:
+        items:
+          $ref: '#/definitions/repo.SyncTask'
+        type: array
+    type: object
+  repo.SyncSubTask:
+    properties:
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      description:
+        type: string
+      duration_seconds:
+        type: integer
+      parent_task_uuid:
+        type: string
+      position:
+        type: integer
+      target_count:
+        type: integer
+      task_type:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+      uuid:
         type: string
     type: object
-  otp.SuccessResponse:
+  repo.SyncSubTaskCompletion:
     properties:
-      message:
-        example: OTP sent successfully
+      completed_at:
         type: string
-      success:
-        example: true
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      parent_task_uuid:
+        type: string
+      progress_count:
+        type: integer
+      status:
+        type: string
+      sub_task_uuid:
+        type: string
+      task_date:
+        type: string
+      updated_at:
+        type: string
+      uuid:
+        type: string
+    type: object
+  repo.SyncTask:
+    properties:
+      category_uuid:
+        type: string
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      description:
+        type: string
+      duration_seconds:
+        type: integer
+      is_active:
         type: boolean
-    type: object
-  otp.VerifyOTPRequest:
-    properties:
-      email:
+      is_global:
+        type: boolean
+      position:
+        type: integer
+      recurrence_days:
+        items:
+          type: integer
+        type: array
+      recurrence_type:
         type: string
-      otp:
+      reminder_time:
+        type: string
+      reward_text:
+        type: string
+      source_task_uuid:
+        type: string
+      target_count:
+        type: integer
+      task_type:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+      uuid:
+        type: string
+    type: object
+  repo.SyncTaskCompletion:
+    properties:
+      completed_at:
+        type: string
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      progress_count:
+        type: integer
+      status:
+        type: string
+      task_date:
+        type: string
+      task_uuid:
+        type: string
+      updated_at:
+        type: string
+      uuid:
+        type: string
+    type: object
+  sync.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  sync.PushRequest:
+    type: object
+  sync.PushResponse:
+    properties:
+      results:
+        items:
+          $ref: '#/definitions/repo.SyncChangeResult'
+        type: array
+    type: object
+  task.AddToMyTasksResponse:
+    properties:
+      already_added:
+        description: |-
+          AlreadyAdded true হলে বোঝাবে নতুন কোনো task তৈরি হয়নি - user এর আগে থেকেই এই
+          fixed task টার একটা personal copy আছে (lineage বা case-insensitive title ম্যাচে)
+        example: false
+        type: boolean
+      category_id:
+        example: 3
+        type: integer
+      category_name:
+        example: Fitness
+        type: string
+      category_uuid:
+        type: string
+      task_id:
+        example: 12
+        type: integer
+      task_uuid:
         type: string
     type: object
   task.CompleteTaskRequest:
@@ -100,6 +351,10 @@ definitions:
       description:
         example: Read at least 1 page daily
         type: string
+      duration_seconds:
+        description: task_type=timer হলে required
+        example: 1500
+        type: integer
       is_global:
         example: false
         type: boolean
@@ -140,6 +395,7 @@ definitions:
         enum:
         - normal
         - counter
+        - timer
         example: normal
         type: string
       title:
@@ -161,6 +417,84 @@ definitions:
       date:
         example: "2026-07-04"
         type: string
+    type: object
+  task.ManageableTaskResponse:
+    properties:
+      category_id:
+        type: integer
+      category_uuid:
+        type: string
+      id:
+        type: integer
+      position:
+        type: integer
+      sub_tasks:
+        items:
+          $ref: '#/definitions/task.SubTaskStatusResponse'
+        type: array
+      title:
+        type: string
+      uuid:
+        type: string
+    type: object
+  task.PaginatedTasksResponse:
+    properties:
+      completed_items:
+        example: 5
+        type: integer
+      page:
+        example: 1
+        type: integer
+      page_size:
+        example: 10
+        type: integer
+      tasks:
+        items:
+          $ref: '#/definitions/task.TaskWithStatusResponse'
+        type: array
+      total_items:
+        example: 23
+        type: integer
+      total_pages:
+        example: 3
+        type: integer
+    type: object
+  task.PersonalStatsResponse:
+    properties:
+      best_weekday:
+        description: 'BestWeekday: 0 = Sunday ... 6 = Saturday; omitted with no completions.'
+        example: 5
+        type: integer
+      completion_rate:
+        example: 75
+        type: integer
+      days:
+        example: 365
+        type: integer
+      favorite_category:
+        example: Prayer
+        type: string
+      favorite_category_count:
+        example: 300
+        type: integer
+      streak:
+        example: 12
+        type: integer
+      total_completed:
+        example: 900
+        type: integer
+      total_tasks:
+        example: 1200
+        type: integer
+    type: object
+  task.ReorderTasksRequest:
+    properties:
+      category_id:
+        type: integer
+      ordered_ids:
+        items:
+          type: integer
+        type: array
     type: object
   task.SubTaskCompletionResponse:
     properties:
@@ -194,6 +528,14 @@ definitions:
     type: object
   task.SubTaskInput:
     properties:
+      description:
+        description: optional
+        example: Read the page slowly, focusing on meaning
+        type: string
+      duration_seconds:
+        description: task_type=timer হলে required
+        example: 600
+        type: integer
       id:
         description: update এ existing sub-task ম্যাচ করাতে; create এ omit করবেন
         example: 5
@@ -206,6 +548,7 @@ definitions:
         enum:
         - normal
         - counter
+        - timer
         example: normal
         type: string
       title:
@@ -216,6 +559,12 @@ definitions:
     properties:
       completed_at:
         type: string
+      description:
+        example: Read the page slowly, focusing on meaning
+        type: string
+      duration_seconds:
+        example: 600
+        type: integer
       progress_count:
         type: integer
       status:
@@ -224,6 +573,13 @@ definitions:
       sub_task_id:
         example: 5
         type: integer
+      sub_task_uuid:
+        description: |-
+          SubTaskUUID backs the mobile app's local-first store (see repo/sync.go)
+          - kept alongside the numeric SubTaskID above, not in place of it, since
+          the web client (soul-shield-client) still reads this same field as a
+          number.
+        type: string
       target_count:
         example: 10
         type: integer
@@ -262,6 +618,8 @@ definitions:
       owner_id:
         example: 3
         type: integer
+      position:
+        type: integer
       recurrence_days:
         example:
         - 1
@@ -285,11 +643,18 @@ definitions:
     type: object
   task.TaskWithStatusResponse:
     properties:
+      already_added:
+        description: |-
+          AlreadyAdded - is_global task এর জন্য, বর্তমান ইউজার আগেই এই fixed task টা
+          নিজের task লিস্টে "Add to Your Own Tasks" দিয়ে যুক্ত করেছে কিনা (personal task এর জন্য সবসময় false)
+        type: boolean
       category_color:
         type: string
       category_id:
         type: integer
       category_name:
+        type: string
+      category_uuid:
         type: string
       completed_at:
         type: string
@@ -297,8 +662,12 @@ definitions:
         type: string
       description:
         type: string
+      duration_seconds:
+        type: integer
       is_global:
         type: boolean
+      position:
+        type: integer
       progress_count:
         type: integer
       recurrence_days:
@@ -323,6 +692,12 @@ definitions:
         type: integer
       task_type:
         type: string
+      task_uuid:
+        description: |-
+          TaskUUID backs the mobile app's local-first store (see repo/sync.go) -
+          kept alongside the numeric TaskID above, not in place of it, since the
+          web client (soul-shield-client) still reads task_id as a number.
+        type: string
       title:
         type: string
     type: object
@@ -333,6 +708,8 @@ definitions:
         type: integer
       description:
         type: string
+      duration_seconds:
+        type: integer
       is_active:
         type: boolean
       recurrence_days:
@@ -362,6 +739,28 @@ definitions:
       title:
         type: string
     type: object
+  user.ChangePasswordRequest:
+    properties:
+      current_password:
+        example: OldPassword@123
+        type: string
+      new_password:
+        example: NewPassword@123
+        type: string
+    type: object
+  user.ChangePasswordResponse:
+    properties:
+      message:
+        type: string
+      token:
+        type: string
+    type: object
+  user.DeleteAccountRequest:
+    properties:
+      password:
+        example: Password@123
+        type: string
+    type: object
   user.ErrorResponse:
     properties:
       error:
@@ -372,6 +771,20 @@ definitions:
       email:
         type: string
       password:
+        type: string
+    type: object
+  user.PushTokenRequest:
+    properties:
+      platform:
+        description: ios | android | unknown
+        example: android
+        type: string
+      token:
+        description: |-
+          The Expo push token (ExponentPushToken[...]) obtained on-device via
+          getExpoPushTokenAsync. Unique per device; re-registering updates the
+          row's user/platform.
+        example: ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]
         type: string
     type: object
   user.RegisterRequest:
@@ -385,6 +798,18 @@ definitions:
       security_answer:
         example: Bluebird
         type: string
+    type: object
+  user.RegisterResponse:
+    properties:
+      email:
+        example: user@gmail.com
+        type: string
+      full_name:
+        example: Farhan
+        type: string
+      id:
+        example: 1
+        type: integer
     type: object
   user.ResetPasswordRequest:
     properties:
@@ -415,9 +840,48 @@ definitions:
       reset_token:
         type: string
     type: object
+host: localhost:3000
 info:
-  contact: {}
+  contact:
+    email: farhannadim0000@gmail.com
+    name: Farhan
+  description: Your Daily Steps Towards Jannah
+  termsOfService: http://swagger.io/terms/
+  title: Soul Shield
+  version: "1.0"
 paths:
+  /admin/stats:
+    get:
+      description: |-
+        Real usage numbers across ALL users for the last `days` days (default 30, max 366):
+        user counts, daily/period active users, and per fixed task: completions, distinct users,
+        how many users added it to their own tasks, and a completion rate
+        (completions / (scheduled days x active users)). Admins only.
+      parameters:
+      - description: Window size in days (1-366), default 30
+        in: query
+        name: days
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.StatsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Admin usage statistics
+      tags:
+      - Admin
   /categories:
     get:
       description: লগইন করা user এর তৈরি করা সব category লিস্ট করে
@@ -465,6 +929,44 @@ paths:
       summary: Create category
       tags:
       - Categories
+  /categories/{categoryId}/tasks:
+    get:
+      description: date না দিলে আজকের তারিখ ধরা হবে। page (default 1) আর page_size
+        (default 10, max 100) দিয়ে pagination হয়।
+      parameters:
+      - description: Category ID
+        in: path
+        name: categoryId
+        required: true
+        type: integer
+      - description: 'YYYY-MM-DD, default: today'
+        in: query
+        name: date
+        type: string
+      - description: 'default: 1'
+        in: query
+        name: page
+        type: integer
+      - description: 'default: 10'
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/task.PaginatedTasksResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List a category's tasks for a date, paginated
+      tags:
+      - Tasks
   /categories/{id}:
     delete:
       description: Delete করলে যেসব task এই category ব্যবহার করছিল সেগুলো uncategorized
@@ -535,36 +1037,104 @@ paths:
       summary: Update category
       tags:
       - Categories
-  /send-otp:
-    post:
+  /categories/reorder:
+    patch:
       consumes:
       - application/json
-      description: Send verification OTP to user email address
+      description: |-
+        caller এর সব category এর জন্য নতুন display order সেট করে। ordered_ids এ অবশ্যই
+        caller এর বর্তমান সব category id (কোনোটা বাদ না দিয়ে, নতুন কোনোটা না যোগ করে) নতুন
+        ক্রমে থাকতে হবে - অন্য ডিভাইস থেকে ইতিমধ্যে কিছু বদলে থাকলে 409 রিটার্ন করবে।
       parameters:
-      - description: Email Information
+      - description: New category order
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/otp.SendOTPRequest'
+          $ref: '#/definitions/category.ReorderCategoriesRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/otp.SuccessResponse'
+            items:
+              $ref: '#/definitions/category.CategoryResponse'
+            type: array
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/otp.ErrorResponse'
-        "500":
-          description: Internal Server Error
+            $ref: '#/definitions/category.ErrorResponse'
+        "409":
+          description: Conflict
           schema:
-            $ref: '#/definitions/otp.ErrorResponse'
-      summary: Send OTP
+            $ref: '#/definitions/category.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Reorder my categories
       tags:
-      - OTP
+      - Categories
+  /sync:
+    get:
+      description: তোর ব্যবহারকারীর tasks/categories/sub_tasks/completions - 'since'
+        এর পর যা কিছু
+      parameters:
+      - description: RFC3339 timestamp - omit for a full pull
+        in: query
+        name: since
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repo.SyncSnapshot'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/sync.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Pull sync changes
+      tags:
+      - Sync
+    post:
+      consumes:
+      - application/json
+      description: ক্লায়েন্টের queued offline change গুলো ব্যাচে পাঠায়। প্রতিটা
+        change আলাদাভাবে
+      parameters:
+      - description: Queued changes
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/sync.PushRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sync.PushResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/sync.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/sync.ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/sync.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Push sync changes
+      tags:
+      - Sync
   /tasks:
     get:
       description: date না দিলে আজকের তারিখ ধরা হবে। যেই দিনে recurrence_days ম্যাচ
@@ -600,8 +1170,9 @@ paths:
         ▹ for recurrence_days: 0=Sunday ... 6=Saturday.
         ▹ recurrence_type: 'daily', 'weekly', 'custom'. 'daily' হলে সব দিন auto বসিয়ে দেওয়া হবে insert time এ
         ▹ category_id: এই field না দিলে global task হিসেবে create হবে, category_id রাখতে চাইলে category id must দিতে হবে
-        ▹ task_type "normal" হলে target_count optional, আর "counter" হলে target_count must দিতে হবে
+        ▹ task_type "normal" হলে target_count/duration_seconds optional, "counter" হলে target_count must, "timer" হলে duration_seconds must দিতে হবে
         ▹ "counter" type task for dhikr
+        ▹ "timer" type task duration_seconds (সেকেন্ডে) পূর্ণ হলে client existing /complete endpoint কল করবে
       parameters:
       - description: Task Info
         in: body
@@ -699,6 +1270,43 @@ paths:
       summary: Update task
       tags:
       - Tasks
+  /tasks/{id}/add-to-my-tasks:
+    post:
+      description: |-
+        একটা is_global fixed task থেকে বর্তমান ইউজারের জন্য একটা personal কপি তৈরি করে।
+        ▹ category: admin task এর category name এর সাথে ম্যাচ করা (case-insensitive) user category থাকলে সেটা reuse করা হয়, না থাকলে নতুন category তৈরি হয়
+        ▹ duplicate: user এর আগে থেকেই এই fixed task এর কপি থাকলে (lineage বা case-insensitive title ম্যাচে) নতুন কিছু তৈরি হয় না, already_added=true রিটার্ন হয়
+        ▹ sub_tasks সহ সব প্রাসঙ্গিক তথ্য কপি করা হয়; original admin task অপরিবর্তিত থাকে
+      parameters:
+      - description: Fixed Task ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Already added
+          schema:
+            $ref: '#/definitions/task.AddToMyTasksResponse'
+        "201":
+          description: Newly added
+          schema:
+            $ref: '#/definitions/task.AddToMyTasksResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Add a fixed (admin) task to the current user's own tasks
+      tags:
+      - Tasks
   /tasks/{id}/complete:
     post:
       consumes:
@@ -772,6 +1380,48 @@ paths:
       security:
       - BearerAuth: []
       summary: Increment progress of a counter-type task
+      tags:
+      - Tasks
+  /tasks/{id}/uncomplete:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Puts a normal (non-counter) task back to "pending" for the date (default: the caller's today).
+        Idempotent: un-completing a task that isn't completed is a no-op.
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Optional date
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/task.CompleteTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/task.CompletionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Un-complete a task for a date
       tags:
       - Tasks
   /tasks/{taskId}/subtasks/{subTaskId}/complete:
@@ -859,9 +1509,93 @@ paths:
       summary: Increment progress of a counter-type sub-task
       tags:
       - Tasks
+  /tasks/{taskId}/subtasks/{subTaskId}/uncomplete:
+    post:
+      consumes:
+      - application/json
+      description: 'Puts a normal (non-counter) sub-task back to "pending" for the
+        date (default: the caller''s today).'
+      parameters:
+      - description: Parent Task ID
+        in: path
+        name: taskId
+        required: true
+        type: integer
+      - description: Sub-task ID
+        in: path
+        name: subTaskId
+        required: true
+        type: integer
+      - description: Optional date
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/task.CompleteTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/task.SubTaskCompletionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Un-complete a sub-task for a date
+      tags:
+      - Tasks
+  /tasks/by-uuid/{uuid}/add-to-my-tasks:
+    post:
+      description: |-
+        AddToMyTasks এর মতোই, শুধু path এ bigint id এর বদলে uuid নেয় - মোবাইল
+        অ্যাপের local-first sync store শুধু uuid দিয়েই fixed task চেনে (দেখো
+        repo/sync.go), তাই এই আলাদা রুট।
+      parameters:
+      - description: Fixed Task UUID
+        in: path
+        name: uuid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Already added
+          schema:
+            $ref: '#/definitions/task.AddToMyTasksResponse'
+        "201":
+          description: Newly added
+          schema:
+            $ref: '#/definitions/task.AddToMyTasksResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Add a fixed (admin) task to the current user's own tasks, by uuid
+      tags:
+      - Tasks
   /tasks/history:
     get:
-      description: from/to না দিলে গত ৭ দিন default হিসেবে দেখাবে (আজসহ)
+      description: |-
+        from/to না দিলে গত ৭ দিন default হিসেবে দেখাবে (আজসহ)
+        Range is at most 366 days.
       parameters:
       - description: YYYY-MM-DD
         in: query
@@ -889,6 +1623,139 @@ paths:
       summary: Get task history for a date range
       tags:
       - Tasks
+  /tasks/mine:
+    get:
+      description: |-
+        caller এর সব personal task (fixed/admin task বাদে) date বা recurrence_days
+        দিয়ে ফিল্টার না করেই রিটার্ন করে - dedicated "Reorder" পেজের জন্য বানানো, যেখানে
+        ইউজার category/task/sub-task এর ক্রম date-independent ভাবে সাজায় (PATCH
+        /tasks/reorder এর ID-set validation ও ঠিক এই সেটটার সাথেই মেলে)।
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/task.ManageableTaskResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List all my personal tasks, flat (no date/recurrence filtering)
+      tags:
+      - Tasks
+  /tasks/reorder:
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        caller এর একটা category (category_id=null হলে "Uncategorized") এর জন্য নতুন
+        display order সেট করে। ordered_ids এ অবশ্যই caller এর সেই category এর বর্তমান
+        সব personal task id (কোনোটা বাদ/নতুন যোগ ছাড়া) নতুন ক্রমে থাকতে হবে - অন্য
+        ডিভাইস থেকে ইতিমধ্যে কিছু বদলে থাকলে 409 রিটার্ন করবে। শুধু personal (is_global=false)
+        task ই reorder করা যায়, fixed/admin task এর জন্য এই endpoint প্রযোজ্য না।
+      parameters:
+      - description: New task order for one category
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/task.ReorderTasksRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/task.TaskResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Reorder my tasks within a category
+      tags:
+      - Tasks
+  /tasks/stats:
+    get:
+      description: |-
+        Completion rate, current streak, favourite category and best weekday over the last `days` days
+        (default 365, max 366), using the same per-day statuses as /tasks/history.
+      parameters:
+      - description: Window size in days (1-366), default 365
+        in: query
+        name: days
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/task.PersonalStatsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/task.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Personal statistics
+      tags:
+      - Tasks
+  /users/change-password:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Change the signed-in user's password. Requires the current password.
+        Bumps the account's token version, which signs out every OTHER device;
+        the response carries a fresh session token for this one.
+      parameters:
+      - description: Current and new password
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/user.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.ChangePasswordResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Change password
+      tags:
+      - Users
   /users/login:
     post:
       consumes:
@@ -912,11 +1779,28 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/user.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
       summary: Login User
       tags:
       - Auth
   /users/me:
-    get:
+    delete:
+      consumes:
+      - application/json
+      description: |-
+        Permanently delete the signed-in user's account and all of their data
+        (tasks, sub-tasks, categories, completions, Quran data, push tokens).
+        Requires the password. Admin accounts can't be deleted here.
+      parameters:
+      - description: Password confirmation
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/user.DeleteAccountRequest'
       produces:
       - application/json
       responses:
@@ -924,16 +1808,117 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/user.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete account
+      tags:
+      - Users
+    get:
+      description: Returns the signed-in user's CURRENT name, email and role from
+        the database.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Current User
+      tags:
+      - Users
+  /users/push-token:
+    delete:
+      consumes:
+      - application/json
+      description: |-
+        Remove this device's push token (called when the user turns
+        cross-device sync alerts off, or logs out).
+      parameters:
+      - description: Push token
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/user.PushTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete push token
+      tags:
+      - Users
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Register (or re-register) this device's Expo push token so the
+        API can send "data changed" sync alerts to it when tasks change
+        elsewhere (e.g. a web edit). Authenticated.
+      parameters:
+      - description: Push token
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/user.PushTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Register push token
       tags:
       - Users
   /users/register:
     post:
       consumes:
       - application/json
-      description: Register a new user
+      description: |-
+        Register a new user. Rules: full_name 1-100 characters, a valid email,
+        password 6-72 characters, security_answer 3-100 characters.
       parameters:
       - description: User Info
         in: body
@@ -947,9 +1932,17 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/user.SuccessResponse'
+            $ref: '#/definitions/user.RegisterResponse'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+        "429":
+          description: Too Many Requests
           schema:
             $ref: '#/definitions/user.ErrorResponse'
       summary: Create user
@@ -984,6 +1977,10 @@ paths:
             $ref: '#/definitions/user.ErrorResponse'
         "404":
           description: Not Found
+          schema:
+            $ref: '#/definitions/user.ErrorResponse'
+        "429":
+          description: Too Many Requests
           schema:
             $ref: '#/definitions/user.ErrorResponse'
         "500":
@@ -1029,38 +2026,11 @@ paths:
       summary: Verify Security Answer
       tags:
       - Users
-  /verify-otp:
-    post:
-      consumes:
-      - application/json
-      description: Verify user email using OTP code
-      parameters:
-      - description: OTP Verification Information
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/otp.VerifyOTPRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/otp.SuccessResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/otp.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/otp.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/otp.ErrorResponse'
-      summary: Verify OTP
-      tags:
-      - OTP
+schemes:
+- http
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

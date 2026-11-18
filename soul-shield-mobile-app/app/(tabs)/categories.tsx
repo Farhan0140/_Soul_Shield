@@ -82,7 +82,7 @@ export default function CategoriesScreen() {
         <ThemedText type="title">Categories</ThemedText>
         {editing === null ? (
           // TODO this button is for opening the create category form
-          <Pressable onPress={() => setEditing('new')} hitSlop={10} style={styles.addButton}>
+          <Pressable accessibilityRole="button" accessibilityLabel="New category" onPress={() => setEditing('new')} hitSlop={10} style={styles.addButton}>
             <IconSymbol name="plus" size={22} color={tintColor} />
           </Pressable>
         ) : null}

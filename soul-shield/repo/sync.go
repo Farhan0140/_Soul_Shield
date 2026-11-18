@@ -98,11 +98,11 @@ type SyncSnapshot struct {
 	// here is paginated - this app's per-user row counts are small enough
 	// to return in one response) there's no page-boundary tie to worry
 	// about either.
-	Cursor             time.Time              `json:"cursor"`
-	Tasks              []SyncTask             `json:"tasks"`
-	Categories         []SyncCategory         `json:"categories"`
-	SubTasks           []SyncSubTask          `json:"sub_tasks"`
-	TaskCompletions    []SyncTaskCompletion   `json:"task_completions"`
+	Cursor             time.Time               `json:"cursor"`
+	Tasks              []SyncTask              `json:"tasks"`
+	Categories         []SyncCategory          `json:"categories"`
+	SubTasks           []SyncSubTask           `json:"sub_tasks"`
+	TaskCompletions    []SyncTaskCompletion    `json:"task_completions"`
 	SubTaskCompletions []SyncSubTaskCompletion `json:"sub_task_completions"`
 }
 
@@ -112,11 +112,16 @@ type SyncSnapshot struct {
 // and is decoded into a resource-specific input struct per Resource/Op in
 // sync_push.go, since its shape differs by both.
 type SyncChange struct {
-	Resource        string          `json:"resource"`
-	Op              string          `json:"op"`
-	UUID            string          `json:"uuid"`
-	ClientUpdatedAt time.Time       `json:"client_updated_at"`
-	Data            json.RawMessage `json:"data"`
+	Resource        string    `json:"resource"`
+	Op              string    `json:"op"`
+	UUID            string    `json:"uuid"`
+	ClientUpdatedAt time.Time `json:"client_updated_at"`
+	// BaseUpdatedAt (optional) is the server updated_at of this row as the
+	// client last saw it (from a pull or an accepted push). When present,
+	// conflicts are detected against it instead of comparing device and
+	// server clocks - see pushRun.serverWins.
+	BaseUpdatedAt *time.Time      `json:"base_updated_at,omitempty"`
+	Data          json.RawMessage `json:"data"`
 }
 
 type SyncChangeResult struct {
@@ -135,7 +140,9 @@ type SyncChangeResult struct {
 
 type SyncRepo interface {
 	PullChanges(userID int64, since time.Time) (*SyncSnapshot, error)
-	PushChanges(userID int64, changes []SyncChange) ([]SyncChangeResult, error)
+	// PushChanges applies changes atomically per batch (see sync_push.go).
+	// latestDate: the caller's today - completions after it are rejected.
+	PushChanges(userID int64, changes []SyncChange, latestDate time.Time) ([]SyncChangeResult, error)
 }
 
 type syncRepo struct {
@@ -149,8 +156,21 @@ func NewSyncRepo(db *sqlx.DB) SyncRepo {
 // ---- Pull ----
 
 func (r *syncRepo) PullChanges(userID int64, since time.Time) (*SyncSnapshot, error) {
+	// The cursor is capped at the start of the oldest transaction still in
+	// flight. A sync push runs as ONE transaction and every row it writes is
+	// stamped with that transaction's start time (set_updated_at uses now()),
+	// but only becomes visible at commit. A plain `now()` cursor taken while
+	// such a push is open would hand out a cursor AFTER those rows'
+	// updated_at, and the next pull (since = cursor) would skip them forever.
+	// Capping costs at most a few re-sent rows (pulls are idempotent).
 	var cursor time.Time
-	if err := r.db.Get(&cursor, `SELECT now()`); err != nil {
+	if err := r.db.Get(&cursor, `
+		SELECT LEAST(now(), COALESCE((
+			SELECT min(xact_start) FROM pg_stat_activity
+			WHERE backend_type = 'client backend' AND xact_start IS NOT NULL
+				AND pid <> pg_backend_pid() AND datname = current_database()
+		), now()))
+	`); err != nil {
 		return nil, err
 	}
 

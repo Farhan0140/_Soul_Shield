@@ -1,6 +1,48 @@
-import { ApiError } from '@/lib/errors';
+import { ApiError } from '@/lib/errors'; import { tokenStore } from '@/lib/secure-store';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+
+/** The device's IANA zone, sent as X-Timezone so the server's "today" (date
+ * defaults, the future-date guard, history ranges) is the user's today rather
+ * than UTC's. Read per request: the user may travel. */
+function deviceTimeZone(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// ---- Sliding session --------------------------------------------------------
+// The server returns a fresh token in X-Refreshed-Token once the one we sent is
+// a day old (sessions last 14 days from the last renewal). Store it here, so it
+// also works from headless background tasks, then tell the auth context.
+
+type RefreshedTokenListener = (token: string) => void;
+const refreshedTokenListeners = new Set<RefreshedTokenListener>();
+
+export function onRefreshedToken(listener: RefreshedTokenListener): () => void {
+  refreshedTokenListeners.add(listener);
+  return () => {
+    refreshedTokenListeners.delete(listener);
+  };
+}
+
+async function adoptRefreshedToken(
+  sentToken: string,
+  refreshed: string,
+): Promise<void> {
+  try {
+    // Only replace the token this request was made with: if the user signed
+    // out (or in as someone else) meanwhile, a late response must not bring
+    // the old session back.
+    if ((await tokenStore.getToken()) !== sentToken) return;
+    await tokenStore.setToken(refreshed);
+    refreshedTokenListeners.forEach((listener) => listener(refreshed));
+  } catch {
+    // Best effort: the current token keeps working until it expires.
+  }
+}
 
 export interface RetryOptions {
   /** Max attempts including the first - e.g. 5 means up to 4 retries after
@@ -41,7 +83,8 @@ function isRetryableError(error: unknown): boolean {
   // symptom is usually the latter (it accepts the connection and holds the
   // request open while the container spins up, rather than refusing it
   // outright), so a timeout has to be treated the same as "try again" here.
-  return error.status === 0 || error.status === 502 || error.status === 503 || error.status === 504;
+  return ( error.status === 0 || error.status === 502 || error.status === 503 || error.status === 504
+  );
 }
 
 function sleep(ms: number): Promise<void> {
@@ -53,6 +96,7 @@ async function requestOnce<T>(path: string, options: Omit<RequestOptions, 'retry
 
   const controller = timeoutMs ? new AbortController() : undefined;
   const timeout = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
+  const timeZone = deviceTimeZone();
 
   let response: Response;
   try {
@@ -60,7 +104,7 @@ async function requestOnce<T>(path: string, options: Omit<RequestOptions, 'retry
       ...rest,
       signal: controller?.signal ?? rest.signal,
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json', ...(timeZone ? { 'X-Timezone': timeZone } : {}),
         ...(token ? { Authorization: `JWT ${token}` } : {}),
         ...headers,
       },
@@ -70,6 +114,9 @@ async function requestOnce<T>(path: string, options: Omit<RequestOptions, 'retry
   } finally {
     if (timeout) clearTimeout(timeout);
   }
+
+  const refreshed = response.headers.get('X-Refreshed-Token');
+  if (refreshed && token) void adoptRefreshedToken(token, refreshed);
 
   if (!response.ok) {
     const raw = await response.text();
@@ -82,11 +129,13 @@ async function requestOnce<T>(path: string, options: Omit<RequestOptions, 'retry
     } catch {
       body = undefined;
     }
+    // `||` for the raw text: trim() gives '' (not null) for an empty body.
     const message =
+      (
       (body?.error as string | undefined) ??
       (body?.message as string | undefined) ??
-      (body?.detail as string | undefined) ??
-      raw.trim() ??
+      (body?.detail as string | undefined)) ||
+      raw.trim() ||
       `Request failed (${response.status})`;
     throw new ApiError(message || `Request failed (${response.status})`, response.status, body ?? raw);
   }
@@ -111,19 +160,19 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
 }
 
-export const apiGet = <T,>(path: string, token?: string | null, timeoutMs?: number, retry?: RetryOptions) =>
+export const apiGet = <T>(path: string, token?: string | null, timeoutMs?: number, retry?: RetryOptions) =>
   request<T>(path, { method: 'GET', token, timeoutMs, retry });
 
-export const apiPost = <T,>(path: string, body: unknown, token?: string | null, retry?: RetryOptions) =>
+export const apiPost = <T>(path: string, body: unknown, token?: string | null, retry?: RetryOptions) =>
   request<T>(path, { method: 'POST', body: JSON.stringify(body ?? {}), token, retry });
 
-export const apiPatch = <T,>(path: string, body: unknown, token?: string | null) =>
+export const apiPatch = <T>(path: string, body: unknown, token?: string | null) =>
   request<T>(path, { method: 'PATCH', body: JSON.stringify(body ?? {}), token });
 
 /** DELETE with a JSON body — the Go handlers read DELETE payloads (e.g.
  * DELETE /users/push-token), which the plain apiDelete (no body) can't send. */
-export const apiDeleteWithBody = <T,>(path: string, body: unknown, token?: string | null) =>
+export const apiDeleteWithBody = <T>(path: string, body: unknown, token?: string | null) =>
   request<T>(path, { method: 'DELETE', body: JSON.stringify(body ?? {}), token });
 
-export const apiDelete = <T,>(path: string, token?: string | null) =>
+export const apiDelete = <T>(path: string, token?: string | null) =>
   request<T>(path, { method: 'DELETE', token });

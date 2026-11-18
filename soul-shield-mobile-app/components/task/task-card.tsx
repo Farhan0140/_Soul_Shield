@@ -120,6 +120,12 @@ export function TaskCard({
         {!isTemplate && !isCounter && !isTimer && !hasSubTasks ? (
           // TODO this button is for toggling completion of a normal type task
           <Pressable
+            accessibilityRole="checkbox"
+            accessibilityLabel={task.title}
+            accessibilityState={{
+              checked: isCompleted,
+              disabled: controlsDisabled,
+            }}
             disabled={controlsDisabled}
             onPress={() => {
             hapticLight();
@@ -212,7 +218,7 @@ export function TaskCard({
 
       {!isTemplate && isCounter && !hasSubTasks ? (
         <View style={styles.counterSection}>
-          <Pressable onPress={handleOpenCounter} hitSlop={8} style={styles.openCounterLink}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Open counter" onPress={handleOpenCounter} hitSlop={8} style={styles.openCounterLink}>
             <IconSymbol name="arrow.up.right.square" size={14} color={mutedColor} />
           </Pressable>
 
@@ -273,6 +279,8 @@ export function TaskCard({
           {canDeleteTemplate ? (
             // TODO this button is for deleting this fixed task (admin only)
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Delete fixed task"
               onPress={onDelete}
               hitSlop={8}
               style={[styles.templateDeleteButton, { borderColor: `${dangerColor}4D` }]}>
@@ -285,11 +293,11 @@ export function TaskCard({
       {canManage ? (
         <View style={styles.actions}>
           {/* TODO this button is for navigating to the edit task screen */}
-          <Pressable onPress={onEdit} hitSlop={8} style={styles.actionButton}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Edit task" onPress={onEdit} hitSlop={8} style={styles.actionButton}>
             <IconSymbol name="pencil" size={18} color={mutedColor} />
           </Pressable>
           {/* TODO this button is for deleting this task */}
-          <Pressable onPress={onDelete} hitSlop={8} style={styles.actionButton}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Delete task" onPress={onDelete} hitSlop={8} style={styles.actionButton}>
             <IconSymbol name="trash" size={18} color={dangerColor} />
           </Pressable>
         </View>

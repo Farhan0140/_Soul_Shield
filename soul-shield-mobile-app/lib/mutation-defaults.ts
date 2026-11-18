@@ -134,6 +134,9 @@ function dropMergedLocalCompletions(changes: SyncChange[], results: SyncChangeRe
   });
 }
 
+/** Changes per POST /sync request (server maximum: 500). */
+const PUSH_CHUNK_SIZE = 200;
+
 async function pushChangesNow(changes: SyncChange[]): Promise<SyncChangeResult[]> {
   if (changes.length === 0) return [];
   beginSyncActivity();
@@ -147,9 +150,17 @@ async function pushChangesNow(changes: SyncChange[]): Promise<SyncChangeResult[]
     // more). Without this, tapping something right after the backend has
     // gone to sleep would show a spurious sync failure instead of just
     // taking longer than usual.
-    const results = await pushSyncChanges(changes, token, SYNC_RETRY);
-    reconcilePushResults(results);
-    dropMergedLocalCompletions(changes, results);
+    // The server takes at most 500 changes per request (413 otherwise); a
+    // long-offline device can owe more. Chunks go in order, so parents still
+    // reach the server before their children.
+    const results: SyncChangeResult[] = [];
+    for (let start = 0; start < changes.length; start += PUSH_CHUNK_SIZE) {
+      const chunk = changes.slice(start, start + PUSH_CHUNK_SIZE);
+      const chunkResults = await pushSyncChanges(chunk, token, SYNC_RETRY);
+    reconcilePushResults(chunkResults);
+    dropMergedLocalCompletions(chunk, chunkResults);
+      results.push(...chunkResults);
+    }
     endSyncActivity(true);
     return results;
   } catch (error) {

@@ -48,7 +48,7 @@ function shouldApplyPulledCompletion(
  * concrete table type, hence the generic param. */
 function applyPostPushSyncMark(
   origin: 'sync-pull' | 'push-reconcile',
-  existing: { uuid: string; syncedAt: string | null; progressCount: number } | undefined,
+  existing: | { uuid: string; syncedAt: string | null; progressCount: number } | undefined,
   incomingProgressCount: number,
   markSynced: () => void
 ): void {
@@ -69,7 +69,7 @@ export function upsertTaskCompletionFromSync(
   if (!shouldApplyPulledCompletion(existing, row)) {
     applyPostPushSyncMark(origin, existing, row.progress_count, () => {
       const now = new Date().toISOString();
-      db.update(taskCompletions).set({ syncedAt: now }).where(eq(taskCompletions.uuid, existing!.uuid)).run();
+      db.update(taskCompletions).set({ syncedAt: now, serverUpdatedAt: row.updated_at }).where(eq(taskCompletions.uuid, existing!.uuid)).run();
     });
     return;
   }
@@ -85,6 +85,7 @@ export function upsertTaskCompletionFromSync(
       completedAt: row.completed_at ?? null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      serverUpdatedAt: row.updated_at,
       deletedAt: row.deleted_at ?? null,
       syncedAt: now,
     })
@@ -94,7 +95,7 @@ export function upsertTaskCompletionFromSync(
         status: row.status,
         progressCount: row.progress_count,
         completedAt: row.completed_at ?? null,
-        updatedAt: row.updated_at,
+        updatedAt: row.updated_at, serverUpdatedAt: row.updated_at,
         deletedAt: row.deleted_at ?? null,
         syncedAt: now,
       },
@@ -114,7 +115,7 @@ export function upsertSubTaskCompletionFromSync(
   if (!shouldApplyPulledCompletion(existing, row)) {
     applyPostPushSyncMark(origin, existing, row.progress_count, () => {
       const now = new Date().toISOString();
-      db.update(subTaskCompletions).set({ syncedAt: now }).where(eq(subTaskCompletions.uuid, existing!.uuid)).run();
+      db.update(subTaskCompletions).set({ syncedAt: now, serverUpdatedAt: row.updated_at }).where(eq(subTaskCompletions.uuid, existing!.uuid)).run();
     });
     return;
   }
@@ -131,6 +132,7 @@ export function upsertSubTaskCompletionFromSync(
       completedAt: row.completed_at ?? null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      serverUpdatedAt: row.updated_at,
       deletedAt: row.deleted_at ?? null,
       syncedAt: now,
     })
@@ -140,7 +142,7 @@ export function upsertSubTaskCompletionFromSync(
         status: row.status,
         progressCount: row.progress_count,
         completedAt: row.completed_at ?? null,
-        updatedAt: row.updated_at,
+        updatedAt: row.updated_at, serverUpdatedAt: row.updated_at,
         deletedAt: row.deleted_at ?? null,
         syncedAt: now,
       },
@@ -421,7 +423,7 @@ export function incrementTaskCompletionLocal(
     .get();
 
   const progressCount = (existing?.progressCount ?? 0) + amount;
-  const status: TaskStatus = progressCount >= targetCount ? 'completed' : (existing?.status as TaskStatus) ?? 'pending';
+  const status: TaskStatus = progressCount >= targetCount ? 'completed' : ((existing?.status as TaskStatus) ?? 'pending');
   const completionUuid = upsertLocalCompletionRow(
     existing,
     {
@@ -561,7 +563,7 @@ export function incrementSubTaskCompletionLocal(
     .get();
 
   const progressCount = (existing?.progressCount ?? 0) + amount;
-  const status: TaskStatus = progressCount >= targetCount ? 'completed' : (existing?.status as TaskStatus) ?? 'pending';
+  const status: TaskStatus = progressCount >= targetCount ? 'completed' : ((existing?.status as TaskStatus) ?? 'pending');
   const completionUuid = upsertLocalSubTaskCompletionRow(
     existing,
     {

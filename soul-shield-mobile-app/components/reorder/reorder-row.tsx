@@ -61,6 +61,9 @@ function ArrowButton({
 }) {
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={icon === 'chevron.up' ? 'Move up' : 'Move down'}
+      accessibilityState={{ disabled }}
       onPress={() => {
         if (process.env.EXPO_OS === 'ios') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onPress();
@@ -69,7 +72,7 @@ function ArrowButton({
       hitSlop={8}
       style={({ pressed }) => [
         styles.arrowCircle,
-        { backgroundColor: `${(disabled ? mutedColor : tintColor)}1A`, opacity: pressed ? 0.6 : 1 },
+        { backgroundColor: `${disabled ? mutedColor : tintColor}1A`, opacity: pressed ? 0.6 : 1 },
       ]}>
       <IconSymbol name={icon} size={22} color={disabled ? mutedColor : tintColor} />
     </Pressable>

@@ -185,7 +185,7 @@ export default function CategoryDetailScreen() {
             {formatDisplayDate(date)}
           </ThemedText>
         </View>
-        <Pressable onPress={() => router.back()} hitSlop={10} style={styles.quitButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => router.back()} hitSlop={10} style={styles.quitButton}>
           <IconSymbol name="xmark" size={24} color={textColor} />
         </Pressable>
       </View>

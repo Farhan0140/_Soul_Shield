@@ -9,12 +9,61 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "contact": {},
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "Farhan",
+            "email": "farhannadim0000@gmail.com"
+        },
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/admin/stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Real usage numbers across ALL users for the last ` + "`" + `days` + "`" + ` days (default 30, max 366):\nuser counts, daily/period active users, and per fixed task: completions, distinct users,\nhow many users added it to their own tasks, and a completion rate\n(completions / (scheduled days x active users)). Admins only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Admin usage statistics",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Window size in days (1-366), default 30",
+                        "name": "days",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/admin.StatsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/categories": {
             "get": {
                 "security": [
@@ -86,6 +135,118 @@ const docTemplate = `{
                         "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/category.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/categories/reorder": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "caller এর সব category এর জন্য নতুন display order সেট করে। ordered_ids এ অবশ্যই\ncaller এর বর্তমান সব category id (কোনোটা বাদ না দিয়ে, নতুন কোনোটা না যোগ করে) নতুন\nক্রমে থাকতে হবে - অন্য ডিভাইস থেকে ইতিমধ্যে কিছু বদলে থাকলে 409 রিটার্ন করবে।",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Categories"
+                ],
+                "summary": "Reorder my categories",
+                "parameters": [
+                    {
+                        "description": "New category order",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/category.ReorderCategoriesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/category.CategoryResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/category.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/category.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/categories/{categoryId}/tasks": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "date না দিলে আজকের তারিখ ধরা হবে। page (default 1) আর page_size (default 10, max 100) দিয়ে pagination হয়।",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "List a category's tasks for a date, paginated",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Category ID",
+                        "name": "categoryId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "YYYY-MM-DD, default: today",
+                        "name": "date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "default: 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "default: 10",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/task.PaginatedTasksResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
                         }
                     }
                 }
@@ -199,9 +360,51 @@ const docTemplate = `{
                 }
             }
         },
-        "/send-otp": {
+        "/sync": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "তোর ব্যবহারকারীর tasks/categories/sub_tasks/completions - 'since' এর পর যা কিছু",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sync"
+                ],
+                "summary": "Pull sync changes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "RFC3339 timestamp - omit for a full pull",
+                        "name": "since",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repo.SyncSnapshot"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/sync.ErrorResponse"
+                        }
+                    }
+                }
+            },
             "post": {
-                "description": "Send verification OTP to user email address",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "ক্লায়েন্টের queued offline change গুলো ব্যাচে পাঠায়। প্রতিটা change আলাদাভাবে",
                 "consumes": [
                     "application/json"
                 ],
@@ -209,17 +412,17 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "OTP"
+                    "Sync"
                 ],
-                "summary": "Send OTP",
+                "summary": "Push sync changes",
                 "parameters": [
                     {
-                        "description": "Email Information",
+                        "description": "Queued changes",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/otp.SendOTPRequest"
+                            "$ref": "#/definitions/sync.PushRequest"
                         }
                     }
                 ],
@@ -227,19 +430,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/otp.SuccessResponse"
+                            "$ref": "#/definitions/sync.PushResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/otp.ErrorResponse"
+                            "$ref": "#/definitions/sync.ErrorResponse"
                         }
                     },
-                    "500": {
-                        "description": "Internal Server Error",
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/otp.ErrorResponse"
+                            "$ref": "#/definitions/sync.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/sync.ErrorResponse"
                         }
                     }
                 }
@@ -292,7 +501,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "User বা Admin task তৈরি করতে পারবে। is_global=true শুধু admin ব্যবহার করতে পারবে।\n▹ for recurrence_days: 0=Sunday ... 6=Saturday.\n▹ recurrence_type: 'daily', 'weekly', 'custom'. 'daily' হলে সব দিন auto বসিয়ে দেওয়া হবে insert time এ\n▹ category_id: এই field না দিলে global task হিসেবে create হবে, category_id রাখতে চাইলে category id must দিতে হবে\n▹ task_type \"normal\" হলে target_count optional, আর \"counter\" হলে target_count must দিতে হবে\n▹ \"counter\" type task for dhikr",
+                "description": "User বা Admin task তৈরি করতে পারবে। is_global=true শুধু admin ব্যবহার করতে পারবে।\n▹ for recurrence_days: 0=Sunday ... 6=Saturday.\n▹ recurrence_type: 'daily', 'weekly', 'custom'. 'daily' হলে সব দিন auto বসিয়ে দেওয়া হবে insert time এ\n▹ category_id: এই field না দিলে global task হিসেবে create হবে, category_id রাখতে চাইলে category id must দিতে হবে\n▹ task_type \"normal\" হলে target_count/duration_seconds optional, \"counter\" হলে target_count must, \"timer\" হলে duration_seconds must দিতে হবে\n▹ \"counter\" type task for dhikr\n▹ \"timer\" type task duration_seconds (সেকেন্ডে) পূর্ণ হলে client existing /complete endpoint কল করবে",
                 "consumes": [
                     "application/json"
                 ],
@@ -336,6 +545,58 @@ const docTemplate = `{
                 }
             }
         },
+        "/tasks/by-uuid/{uuid}/add-to-my-tasks": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "AddToMyTasks এর মতোই, শুধু path এ bigint id এর বদলে uuid নেয় - মোবাইল\nঅ্যাপের local-first sync store শুধু uuid দিয়েই fixed task চেনে (দেখো\nrepo/sync.go), তাই এই আলাদা রুট।",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Add a fixed (admin) task to the current user's own tasks, by uuid",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Fixed Task UUID",
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Already added",
+                        "schema": {
+                            "$ref": "#/definitions/task.AddToMyTasksResponse"
+                        }
+                    },
+                    "201": {
+                        "description": "Newly added",
+                        "schema": {
+                            "$ref": "#/definitions/task.AddToMyTasksResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/tasks/history": {
             "get": {
                 "security": [
@@ -343,7 +604,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "from/to না দিলে গত ৭ দিন default হিসেবে দেখাবে (আজসহ)",
+                "description": "from/to না দিলে গত ৭ দিন default হিসেবে দেখাবে (আজসহ)\nRange is at most 366 days.",
                 "produces": [
                     "application/json"
                 ],
@@ -373,6 +634,133 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/task.TaskWithStatusResponse"
                             }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/mine": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "caller এর সব personal task (fixed/admin task বাদে) date বা recurrence_days\nদিয়ে ফিল্টার না করেই রিটার্ন করে - dedicated \"Reorder\" পেজের জন্য বানানো, যেখানে\nইউজার category/task/sub-task এর ক্রম date-independent ভাবে সাজায় (PATCH\n/tasks/reorder এর ID-set validation ও ঠিক এই সেটটার সাথেই মেলে)।",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "List all my personal tasks, flat (no date/recurrence filtering)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/task.ManageableTaskResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/reorder": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "caller এর একটা category (category_id=null হলে \"Uncategorized\") এর জন্য নতুন\ndisplay order সেট করে। ordered_ids এ অবশ্যই caller এর সেই category এর বর্তমান\nসব personal task id (কোনোটা বাদ/নতুন যোগ ছাড়া) নতুন ক্রমে থাকতে হবে - অন্য\nডিভাইস থেকে ইতিমধ্যে কিছু বদলে থাকলে 409 রিটার্ন করবে। শুধু personal (is_global=false)\ntask ই reorder করা যায়, fixed/admin task এর জন্য এই endpoint প্রযোজ্য না।",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Reorder my tasks within a category",
+                "parameters": [
+                    {
+                        "description": "New task order for one category",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/task.ReorderTasksRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/task.TaskResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Completion rate, current streak, favourite category and best weekday over the last ` + "`" + `days` + "`" + ` days\n(default 365, max 366), using the same per-day statuses as /tasks/history.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Personal statistics",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Window size in days (1-366), default 365",
+                        "name": "days",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/task.PersonalStatsResponse"
                         }
                     },
                     "400": {
@@ -479,6 +867,58 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/{id}/add-to-my-tasks": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "একটা is_global fixed task থেকে বর্তমান ইউজারের জন্য একটা personal কপি তৈরি করে।\n▹ category: admin task এর category name এর সাথে ম্যাচ করা (case-insensitive) user category থাকলে সেটা reuse করা হয়, না থাকলে নতুন category তৈরি হয়\n▹ duplicate: user এর আগে থেকেই এই fixed task এর কপি থাকলে (lineage বা case-insensitive title ম্যাচে) নতুন কিছু তৈরি হয় না, already_added=true রিটার্ন হয়\n▹ sub_tasks সহ সব প্রাসঙ্গিক তথ্য কপি করা হয়; original admin task অপরিবর্তিত থাকে",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Add a fixed (admin) task to the current user's own tasks",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Fixed Task ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Already added",
+                        "schema": {
+                            "$ref": "#/definitions/task.AddToMyTasksResponse"
+                        }
+                    },
+                    "201": {
+                        "description": "Newly added",
+                        "schema": {
+                            "$ref": "#/definitions/task.AddToMyTasksResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/task.ErrorResponse"
                         }
@@ -600,6 +1040,69 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/{id}/uncomplete": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Puts a normal (non-counter) task back to \"pending\" for the date (default: the caller's today).\nIdempotent: un-completing a task that isn't completed is a no-op.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Un-complete a task for a date",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Task ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Optional date",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/task.CompleteTaskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/task.CompletionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/task.ErrorResponse"
                         }
@@ -736,6 +1239,139 @@ const docTemplate = `{
                 }
             }
         },
+        "/tasks/{taskId}/subtasks/{subTaskId}/uncomplete": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Puts a normal (non-counter) sub-task back to \"pending\" for the date (default: the caller's today).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Un-complete a sub-task for a date",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Parent Task ID",
+                        "name": "taskId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Sub-task ID",
+                        "name": "subTaskId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Optional date",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/task.CompleteTaskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/task.SubTaskCompletionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/task.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/change-password": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Change the signed-in user's password. Requires the current password.\nBumps the account's token version, which signs out every OTHER device;\nthe response carries a fresh session token for this one.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Change password",
+                "parameters": [
+                    {
+                        "description": "Current and new password",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/user.ChangePasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/user.ChangePasswordResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/user.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/user.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/user.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/user.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/users/login": {
             "post": {
                 "description": "Login using email and password",
@@ -772,6 +1408,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/user.ErrorResponse"
                         }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/user.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -783,6 +1425,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Returns the signed-in user's CURRENT name, email and role from the database.",
                 "produces": [
                     "application/json"
                 ],
@@ -796,13 +1439,174 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/user.SuccessResponse"
                         }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/user.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Permanently delete the signed-in user's account and all of their data\n(tasks, sub-tasks, categories, completions, Quran data, push tokens).\nRequires the password. Admin accounts can't be deleted here.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Delete account",
+                "parameters": [
+                    {
+                        "description": "Password confirmation",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/user.DeleteAccountRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/user.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/user.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/user.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/user.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/user.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/user.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/push-token": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Register (or re-register) this device's Expo push token so the\nAPI can send \"data changed\" sync alerts to it when tasks change\nelsewhere (e.g. a web edit). Authenticated.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Register push token",
+                "parameters": [
+                    {
+                        "description": "Push token",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/user.PushTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/user.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/user.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Remove this device's push token (called when the user turns\ncross-device sync alerts off, or logs out).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Delete push token",
+                "parameters": [
+                    {
+                        "description": "Push token",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/user.PushTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/user.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/user.ErrorResponse"
+                        }
                     }
                 }
             }
         },
         "/users/register": {
             "post": {
-                "description": "Register a new user",
+                "description": "Register a new user. Rules: full_name 1-100 characters, a valid email,\npassword 6-72 characters, security_answer 3-100 characters.",
                 "consumes": [
                     "application/json"
                 ],
@@ -828,11 +1632,23 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/user.SuccessResponse"
+                            "$ref": "#/definitions/user.RegisterResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/user.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/user.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
                         "schema": {
                             "$ref": "#/definitions/user.ErrorResponse"
                         }
@@ -885,6 +1701,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/user.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
                         "schema": {
                             "$ref": "#/definitions/user.ErrorResponse"
                         }
@@ -949,61 +1771,77 @@ const docTemplate = `{
                     }
                 }
             }
-        },
-        "/verify-otp": {
-            "post": {
-                "description": "Verify user email using OTP code",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "OTP"
-                ],
-                "summary": "Verify OTP",
-                "parameters": [
-                    {
-                        "description": "OTP Verification Information",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/otp.VerifyOTPRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/otp.SuccessResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/otp.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/otp.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/otp.ErrorResponse"
-                        }
-                    }
-                }
-            }
         }
     },
     "definitions": {
+        "admin.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "admin.StatsResponse": {
+            "type": "object",
+            "properties": {
+                "active_today": {
+                    "type": "integer"
+                },
+                "active_users": {
+                    "type": "integer"
+                },
+                "days": {
+                    "type": "integer"
+                },
+                "from": {
+                    "type": "string"
+                },
+                "new_users": {
+                    "type": "integer"
+                },
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/admin.TaskUsageResponse"
+                    }
+                },
+                "to": {
+                    "type": "string"
+                },
+                "total_users": {
+                    "type": "integer"
+                }
+            }
+        },
+        "admin.TaskUsageResponse": {
+            "type": "object",
+            "properties": {
+                "added_by": {
+                    "type": "integer"
+                },
+                "completion_rate": {
+                    "type": "integer"
+                },
+                "completions": {
+                    "type": "integer"
+                },
+                "opportunities": {
+                    "description": "Opportunities = scheduled days in the window x active users.",
+                    "type": "integer"
+                },
+                "task_id": {
+                    "description": "TaskID is the task's uuid (the same task_id the task list endpoints return).",
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "users": {
+                    "type": "integer"
+                }
+            }
+        },
         "category.CategoryResponse": {
             "type": "object",
             "properties": {
@@ -1014,6 +1852,13 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "integer"
+                },
+                "uuid": {
+                    "description": "UUID backs the mobile app's local-first store (see repo/sync.go) - kept\nalongside the numeric ID above, not in place of it, since the web\nclient (soul-shield-client) still reads id as a number.",
                     "type": "string"
                 }
             }
@@ -1039,6 +1884,17 @@ const docTemplate = `{
                 }
             }
         },
+        "category.ReorderCategoriesRequest": {
+            "type": "object",
+            "properties": {
+                "ordered_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
         "category.SuccessResponse": {
             "type": "object",
             "properties": {
@@ -1059,43 +1915,303 @@ const docTemplate = `{
                 }
             }
         },
-        "otp.ErrorResponse": {
+        "repo.SyncCategory": {
+            "type": "object",
+            "properties": {
+                "color_hex": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "uuid": {
+                    "type": "string"
+                }
+            }
+        },
+        "repo.SyncChangeResult": {
             "type": "object",
             "properties": {
                 "error": {
-                    "type": "string",
-                    "example": "invalid request"
-                }
-            }
-        },
-        "otp.SendOTPRequest": {
-            "type": "object",
-            "properties": {
-                "email": {
+                    "type": "string"
+                },
+                "resource": {
+                    "type": "string"
+                },
+                "server_row": {},
+                "status": {
+                    "description": "Status: \"accepted\" (applied as sent), \"superseded\" (a newer\nserver-side updated_at won - ServerRow carries the authoritative\nversion so the caller can reconcile/log it), or \"rejected\" (validation\nor ownership failure for this one change specifically - Error\nexplains why; unlike a Go error return from PushChanges, this does\nNOT abort the rest of the batch).",
+                    "type": "string"
+                },
+                "uuid": {
                     "type": "string"
                 }
             }
         },
-        "otp.SuccessResponse": {
+        "repo.SyncSnapshot": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string",
-                    "example": "OTP sent successfully"
+                "categories": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/repo.SyncCategory"
+                    }
                 },
-                "success": {
+                "cursor": {
+                    "description": "Cursor is the server's own clock at the moment the pull started\n(captured via ` + "`" + `SELECT now()` + "`" + `, not derived from the returned rows'\nmax updated_at) - passing it back as the next ` + "`" + `since` + "`" + ` means a row\nupdated concurrently with this exact request is simply picked up on\nthe *next* pull instead of possibly being missed, and (since nothing\nhere is paginated - this app's per-user row counts are small enough\nto return in one response) there's no page-boundary tie to worry\nabout either.",
+                    "type": "string"
+                },
+                "sub_task_completions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/repo.SyncSubTaskCompletion"
+                    }
+                },
+                "sub_tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/repo.SyncSubTask"
+                    }
+                },
+                "task_completions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/repo.SyncTaskCompletion"
+                    }
+                },
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/repo.SyncTask"
+                    }
+                }
+            }
+        },
+        "repo.SyncSubTask": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "duration_seconds": {
+                    "type": "integer"
+                },
+                "parent_task_uuid": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "integer"
+                },
+                "target_count": {
+                    "type": "integer"
+                },
+                "task_type": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "uuid": {
+                    "type": "string"
+                }
+            }
+        },
+        "repo.SyncSubTaskCompletion": {
+            "type": "object",
+            "properties": {
+                "completed_at": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "parent_task_uuid": {
+                    "type": "string"
+                },
+                "progress_count": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "sub_task_uuid": {
+                    "type": "string"
+                },
+                "task_date": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "uuid": {
+                    "type": "string"
+                }
+            }
+        },
+        "repo.SyncTask": {
+            "type": "object",
+            "properties": {
+                "category_uuid": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "duration_seconds": {
+                    "type": "integer"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "is_global": {
+                    "type": "boolean"
+                },
+                "position": {
+                    "type": "integer"
+                },
+                "recurrence_days": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "recurrence_type": {
+                    "type": "string"
+                },
+                "reminder_time": {
+                    "type": "string"
+                },
+                "reward_text": {
+                    "type": "string"
+                },
+                "source_task_uuid": {
+                    "type": "string"
+                },
+                "target_count": {
+                    "type": "integer"
+                },
+                "task_type": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "uuid": {
+                    "type": "string"
+                }
+            }
+        },
+        "repo.SyncTaskCompletion": {
+            "type": "object",
+            "properties": {
+                "completed_at": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "progress_count": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "task_date": {
+                    "type": "string"
+                },
+                "task_uuid": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "uuid": {
+                    "type": "string"
+                }
+            }
+        },
+        "sync.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "sync.PushRequest": {
+            "type": "object"
+        },
+        "sync.PushResponse": {
+            "type": "object",
+            "properties": {
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/repo.SyncChangeResult"
+                    }
+                }
+            }
+        },
+        "task.AddToMyTasksResponse": {
+            "type": "object",
+            "properties": {
+                "already_added": {
+                    "description": "AlreadyAdded true হলে বোঝাবে নতুন কোনো task তৈরি হয়নি - user এর আগে থেকেই এই\nfixed task টার একটা personal copy আছে (lineage বা case-insensitive title ম্যাচে)",
                     "type": "boolean",
-                    "example": true
-                }
-            }
-        },
-        "otp.VerifyOTPRequest": {
-            "type": "object",
-            "properties": {
-                "email": {
+                    "example": false
+                },
+                "category_id": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "category_name": {
+                    "type": "string",
+                    "example": "Fitness"
+                },
+                "category_uuid": {
                     "type": "string"
                 },
-                "otp": {
+                "task_id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "task_uuid": {
                     "type": "string"
                 }
             }
@@ -1153,6 +2269,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Read at least 1 page daily"
                 },
+                "duration_seconds": {
+                    "description": "task_type=timer হলে required",
+                    "type": "integer",
+                    "example": 1500
+                },
                 "is_global": {
                     "type": "boolean",
                     "example": false
@@ -1202,7 +2323,8 @@ const docTemplate = `{
                     "type": "string",
                     "enum": [
                         "normal",
-                        "counter"
+                        "counter",
+                        "timer"
                     ],
                     "example": "normal"
                 },
@@ -1232,6 +2354,118 @@ const docTemplate = `{
                 "date": {
                     "type": "string",
                     "example": "2026-07-04"
+                }
+            }
+        },
+        "task.ManageableTaskResponse": {
+            "type": "object",
+            "properties": {
+                "category_id": {
+                    "type": "integer"
+                },
+                "category_uuid": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "position": {
+                    "type": "integer"
+                },
+                "sub_tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/task.SubTaskStatusResponse"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                },
+                "uuid": {
+                    "type": "string"
+                }
+            }
+        },
+        "task.PaginatedTasksResponse": {
+            "type": "object",
+            "properties": {
+                "completed_items": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "page": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "page_size": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/task.TaskWithStatusResponse"
+                    }
+                },
+                "total_items": {
+                    "type": "integer",
+                    "example": 23
+                },
+                "total_pages": {
+                    "type": "integer",
+                    "example": 3
+                }
+            }
+        },
+        "task.PersonalStatsResponse": {
+            "type": "object",
+            "properties": {
+                "best_weekday": {
+                    "description": "BestWeekday: 0 = Sunday ... 6 = Saturday; omitted with no completions.",
+                    "type": "integer",
+                    "example": 5
+                },
+                "completion_rate": {
+                    "type": "integer",
+                    "example": 75
+                },
+                "days": {
+                    "type": "integer",
+                    "example": 365
+                },
+                "favorite_category": {
+                    "type": "string",
+                    "example": "Prayer"
+                },
+                "favorite_category_count": {
+                    "type": "integer",
+                    "example": 300
+                },
+                "streak": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "total_completed": {
+                    "type": "integer",
+                    "example": 900
+                },
+                "total_tasks": {
+                    "type": "integer",
+                    "example": 1200
+                }
+            }
+        },
+        "task.ReorderTasksRequest": {
+            "type": "object",
+            "properties": {
+                "category_id": {
+                    "type": "integer"
+                },
+                "ordered_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 }
             }
         },
@@ -1280,6 +2514,16 @@ const docTemplate = `{
         "task.SubTaskInput": {
             "type": "object",
             "properties": {
+                "description": {
+                    "description": "optional",
+                    "type": "string",
+                    "example": "Read the page slowly, focusing on meaning"
+                },
+                "duration_seconds": {
+                    "description": "task_type=timer হলে required",
+                    "type": "integer",
+                    "example": 600
+                },
                 "id": {
                     "description": "update এ existing sub-task ম্যাচ করাতে; create এ omit করবেন",
                     "type": "integer",
@@ -1294,7 +2538,8 @@ const docTemplate = `{
                     "type": "string",
                     "enum": [
                         "normal",
-                        "counter"
+                        "counter",
+                        "timer"
                     ],
                     "example": "normal"
                 },
@@ -1310,6 +2555,14 @@ const docTemplate = `{
                 "completed_at": {
                     "type": "string"
                 },
+                "description": {
+                    "type": "string",
+                    "example": "Read the page slowly, focusing on meaning"
+                },
+                "duration_seconds": {
+                    "type": "integer",
+                    "example": 600
+                },
                 "progress_count": {
                     "type": "integer"
                 },
@@ -1320,6 +2573,10 @@ const docTemplate = `{
                 "sub_task_id": {
                     "type": "integer",
                     "example": 5
+                },
+                "sub_task_uuid": {
+                    "description": "SubTaskUUID backs the mobile app's local-first store (see repo/sync.go)\n- kept alongside the numeric SubTaskID above, not in place of it, since\nthe web client (soul-shield-client) still reads this same field as a\nnumber.",
+                    "type": "string"
                 },
                 "target_count": {
                     "type": "integer",
@@ -1374,6 +2631,9 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 3
                 },
+                "position": {
+                    "type": "integer"
+                },
                 "recurrence_days": {
                     "type": "array",
                     "items": {
@@ -1407,6 +2667,10 @@ const docTemplate = `{
         "task.TaskWithStatusResponse": {
             "type": "object",
             "properties": {
+                "already_added": {
+                    "description": "AlreadyAdded - is_global task এর জন্য, বর্তমান ইউজার আগেই এই fixed task টা\nনিজের task লিস্টে \"Add to Your Own Tasks\" দিয়ে যুক্ত করেছে কিনা (personal task এর জন্য সবসময় false)",
+                    "type": "boolean"
+                },
                 "category_color": {
                     "type": "string"
                 },
@@ -1414,6 +2678,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "category_name": {
+                    "type": "string"
+                },
+                "category_uuid": {
                     "type": "string"
                 },
                 "completed_at": {
@@ -1425,8 +2692,14 @@ const docTemplate = `{
                 "description": {
                     "type": "string"
                 },
+                "duration_seconds": {
+                    "type": "integer"
+                },
                 "is_global": {
                     "type": "boolean"
+                },
+                "position": {
+                    "type": "integer"
                 },
                 "progress_count": {
                     "type": "integer"
@@ -1464,6 +2737,10 @@ const docTemplate = `{
                 "task_type": {
                     "type": "string"
                 },
+                "task_uuid": {
+                    "description": "TaskUUID backs the mobile app's local-first store (see repo/sync.go) -\nkept alongside the numeric TaskID above, not in place of it, since the\nweb client (soul-shield-client) still reads task_id as a number.",
+                    "type": "string"
+                },
                 "title": {
                     "type": "string"
                 }
@@ -1478,6 +2755,9 @@ const docTemplate = `{
                 },
                 "description": {
                     "type": "string"
+                },
+                "duration_seconds": {
+                    "type": "integer"
                 },
                 "is_active": {
                     "type": "boolean"
@@ -1518,6 +2798,39 @@ const docTemplate = `{
                 }
             }
         },
+        "user.ChangePasswordRequest": {
+            "type": "object",
+            "properties": {
+                "current_password": {
+                    "type": "string",
+                    "example": "OldPassword@123"
+                },
+                "new_password": {
+                    "type": "string",
+                    "example": "NewPassword@123"
+                }
+            }
+        },
+        "user.ChangePasswordResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "user.DeleteAccountRequest": {
+            "type": "object",
+            "properties": {
+                "password": {
+                    "type": "string",
+                    "example": "Password@123"
+                }
+            }
+        },
         "user.ErrorResponse": {
             "type": "object",
             "properties": {
@@ -1537,6 +2850,21 @@ const docTemplate = `{
                 }
             }
         },
+        "user.PushTokenRequest": {
+            "type": "object",
+            "properties": {
+                "platform": {
+                    "description": "ios | android | unknown",
+                    "type": "string",
+                    "example": "android"
+                },
+                "token": {
+                    "description": "The Expo push token (ExponentPushToken[...]) obtained on-device via\ngetExpoPushTokenAsync. Unique per device; re-registering updates the\nrow's user/platform.",
+                    "type": "string",
+                    "example": "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]"
+                }
+            }
+        },
         "user.RegisterRequest": {
             "type": "object",
             "properties": {
@@ -1552,6 +2880,23 @@ const docTemplate = `{
                 "security_answer": {
                     "type": "string",
                     "example": "Bluebird"
+                }
+            }
+        },
+        "user.RegisterResponse": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "user@gmail.com"
+                },
+                "full_name": {
+                    "type": "string",
+                    "example": "Farhan"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
                 }
             }
         },
@@ -1599,17 +2944,24 @@ const docTemplate = `{
                 }
             }
         }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
-	Host:             "",
-	BasePath:         "",
-	Schemes:          []string{},
-	Title:            "",
-	Description:      "",
+	Version:          "1.0",
+	Host:             "localhost:3000",
+	BasePath:         "/",
+	Schemes:          []string{"http"},
+	Title:            "Soul Shield",
+	Description:      "Your Daily Steps Towards Jannah",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

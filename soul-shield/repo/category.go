@@ -197,7 +197,10 @@ func (r *categoryRepo) Update(id int64, updates CategoryUpdate, ownerID int64) (
 	`, existing.Name, existing.ColorHex, existing.ID).Scan(&existing.UpdatedAt)
 
 	if err != nil {
-		return nil, err
+		if isUniqueViolation(err) {
+			return nil, util.ErrCategoryExists
+		}
+		return nil, asInputError(err)
 	}
 
 	return existing, nil

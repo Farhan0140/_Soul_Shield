@@ -36,11 +36,11 @@ export function GlobalTaskRow({ task, onEdit, onDelete }: GlobalTaskRowProps) {
         </ThemedText>
       </View>
       {/* TODO this button is for navigating to the edit screen for this global/fixed task */}
-      <Pressable onPress={onEdit} hitSlop={8} style={styles.actionButton}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Edit task" onPress={onEdit} hitSlop={8} style={styles.actionButton}>
         <IconSymbol name="pencil" size={18} color={mutedColor} />
       </Pressable>
       {/* TODO this button is for deleting this global/fixed task */}
-      <Pressable onPress={onDelete} hitSlop={8} style={styles.actionButton}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Delete task" onPress={onDelete} hitSlop={8} style={styles.actionButton}>
         <IconSymbol name="trash" size={18} color={dangerColor} />
       </Pressable>
     </View>

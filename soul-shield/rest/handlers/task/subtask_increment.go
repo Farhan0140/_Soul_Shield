@@ -3,8 +3,8 @@ package task
 import (
 	"encoding/json"
 	"net/http"
+	"soulsheld/rest/middlewares"
 	"soulsheld/util"
-	"time"
 )
 
 // IncrementSubTask godoc
@@ -22,7 +22,7 @@ import (
 // @Failure 400 {object} ErrorResponse
 // @Router /tasks/{taskId}/subtasks/{subTaskId}/increment [post]
 func (h *Handler) IncrementSubTask(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserID(r)
+	userID, ok := middlewares.UserID(r)
 	if !ok {
 		unauthorized(w)
 		return
@@ -43,14 +43,9 @@ func (h *Handler) IncrementSubTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	date := time.Now()
-	if req.Date != "" {
-		parsed, err := time.Parse("2006-01-02", req.Date)
-		if err != nil {
-			util.SendError(w, map[string]string{"error": "Invalid date format"}, http.StatusBadRequest)
-			return
-		}
-		date = parsed
+	date, dateOK := actionDate(w, r, req.Date)
+	if !dateOK {
+		return
 	}
 
 	completion, err := h.subTaskRepo.Increment(taskID, subTaskID, userID, date, req.Amount)
@@ -59,7 +54,7 @@ func (h *Handler) IncrementSubTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	parentStatus, parentRewardText, err := h.computeParentStatusAfterAction(taskID, userID, date)
+	parentStatus, parentRewardText, err := h.computeParentStatusAfterAction(taskID, userID, date, util.RequestToday(r))
 	if err != nil {
 		util.SendError(w, map[string]string{"error": "Failed to compute parent status"}, http.StatusInternalServerError)
 		return

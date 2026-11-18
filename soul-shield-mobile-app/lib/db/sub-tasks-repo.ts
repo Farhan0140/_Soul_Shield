@@ -44,6 +44,7 @@ export function upsertSubTaskFromSync(row: SyncSubTask): void {
       position: row.position,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      serverUpdatedAt: row.updated_at,
       deletedAt: row.deleted_at ?? null,
       syncedAt: now,
     })
@@ -57,7 +58,7 @@ export function upsertSubTaskFromSync(row: SyncSubTask): void {
         targetCount: row.target_count ?? null,
         durationSeconds: row.duration_seconds ?? null,
         position: row.position,
-        updatedAt: row.updated_at,
+        updatedAt: row.updated_at, serverUpdatedAt: row.updated_at,
         deletedAt: row.deleted_at ?? null,
         syncedAt: now,
       },

@@ -4,144 +4,87 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/lpernett/godotenv"
 )
 
-type DBConfig struct {
-	Host          string
-	Port          int
-	DBName        string
-	User          string
-	Password      string
-	EnableSSLMode bool
-}
-
-type SMTPConfig struct {
-	Host     string
-	Port     string
-	Email    string
-	Password string
-}
+// DefaultCorsOrigins are the browser origins allowed to call the API when
+// CORS_ORIGINS is not set: the production web app and Vite's dev/preview ports.
+const DefaultCorsOrigins = "https://soul-shield.vercel.app,http://localhost:5173,http://localhost:4173"
 
 type Config struct {
-	Version       string
-	ServiceName   string
+	Version     string
+	ServiceName string
+	// HttpPort is the local-dev fallback; hosts like Render set PORT instead.
 	HttpPort      int
 	SecretKey     string
-	DB            *DBConfig
-	SMTP          *SMTPConfig
 	NeonDBconnStr string
+	// CorsOrigins are the exact browser origins allowed by CORS ("*" allows all).
+	CorsOrigins []string
 }
 
 var configuration *Config
 
+// fail prints a configuration error and stops: the server can't run without it.
+func fail(format string, args ...any) {
+	fmt.Fprintf(os.Stderr, "config: "+format+"\n", args...)
+	os.Exit(1)
+}
+
 func loadConfig() {
 	if os.Getenv("ENV") != "production" {
-		err := godotenv.Load()
-		if err != nil {
+		if err := godotenv.Load(); err != nil {
 			fmt.Println("No .env file found, using system environment variables")
 		}
 	}
 
-	// Loads all .env variables one by one
-	version := os.Getenv("VERSION")
-	if version == "" {
-		fmt.Println("Version is Required")
-		os.Exit(1)
-	}
-
-	serviceName := os.Getenv("SERVICENAME")
-	if serviceName == "" {
-		fmt.Println("Service Name is Required")
-		os.Exit(1)
-	}
-
-	httpPortStr := os.Getenv("HTTPPORT")
-	if httpPortStr == "" {
-		fmt.Println("HTTP Port is Required")
-		os.Exit(1)
-	}
-	httpPort, err := strconv.Atoi(httpPortStr)
-	if err != nil {
-		fmt.Println("Failed to convert the httpPort String to Int", err)
-		os.Exit(1)
-	}
-
+	// Only what the server actually uses is required. (The old DB_HOST/DB_PORT/
+	// DB_NAME/DB_USER/DB_PASSWORD/DB_ENABLE_SSL_MODE and SMTP_* variables were
+	// required or read but never used; they are ignored now if still set.)
 	secretKey := os.Getenv("SECRETKEY")
 	if secretKey == "" {
-		fmt.Println("Secret Key is Required")
-		os.Exit(1)
+		fail("SECRETKEY is required")
 	}
 
-	// Loads all Data-Base .env variables one by one
-	db_host := os.Getenv("DB_HOST")
-	if db_host == "" {
-		fmt.Println("Database Host is Required")
-		os.Exit(1)
-	}
-
-	db_portStr := os.Getenv("DB_PORT")
-	db_port, err := strconv.Atoi(db_portStr)
-	if err != nil {
-		fmt.Println("Failed to convert the httpPort String to Int", err)
-		os.Exit(1)
-	}
-
-	db_name := os.Getenv("DB_NAME")
-	if db_name == "" {
-		fmt.Println("Database Name is Required")
-		os.Exit(1)
-	}
-
-	db_user := os.Getenv("DB_USER")
-	if db_user == "" {
-		fmt.Println("Database User is Required")
-		os.Exit(1)
-	}
-
-	db_password := os.Getenv("DB_PASSWORD")
-	if db_password == "" {
-		fmt.Println("Database Password is Required")
-		os.Exit(1)
-	}
-
-	db_enable_ssl_mode_bool := os.Getenv("DB_ENABLE_SSL_MODE")
-	db_enable_ssl_mode, err := strconv.ParseBool(db_enable_ssl_mode_bool)
-	if err != nil {
-		fmt.Println("Failed to convert the SSL Mode String to Bool", err)
-		os.Exit(1)
-	}
-
-	db_config := &DBConfig{
-		Host:          db_host,
-		Port:          db_port,
-		DBName:        db_name,
-		User:          db_user,
-		Password:      db_password,
-		EnableSSLMode: db_enable_ssl_mode,
-	}
-
-	var smtp_config = &SMTPConfig{
-		Host:     os.Getenv("SMTP_HOST"),
-		Port:     os.Getenv("SMTP_PORT"),
-		Email:    os.Getenv("SMTP_EMAIL"),
-		Password: os.Getenv("SMTP_PASSWORD"),
-	}
-
-	// Online Neon Database
 	connStr := os.Getenv("CONN_STRING_FOR_DB")
+	if connStr == "" {
+		fail("CONN_STRING_FOR_DB is required (the Postgres connection URL)")
+	}
+
+	httpPort := 3000
+	if v := os.Getenv("HTTPPORT"); v != "" {
+		port, err := strconv.Atoi(v)
+		if err != nil || port <= 0 || port > 65535 {
+			fail("HTTPPORT must be a port number, got %q", v)
+		}
+		httpPort = port
+	}
 
 	configuration = &Config{
-		Version:     version,
-		ServiceName: serviceName,
-		HttpPort:    httpPort,
-		SecretKey:   secretKey,
-		DB:          db_config,
-		SMTP:        smtp_config,
-
+		Version:       os.Getenv("VERSION"),
+		ServiceName:   os.Getenv("SERVICENAME"),
+		HttpPort:      httpPort,
+		SecretKey:     secretKey,
 		NeonDBconnStr: connStr,
+		CorsOrigins:   ParseOrigins(os.Getenv("CORS_ORIGINS")),
 	}
+}
+
+// ParseOrigins splits a comma-separated CORS_ORIGINS value (trailing slashes
+// removed); an empty value means DefaultCorsOrigins.
+func ParseOrigins(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		raw = DefaultCorsOrigins
+	}
+	var origins []string
+	for _, o := range strings.Split(raw, ",") {
+		o = strings.TrimRight(strings.TrimSpace(o), "/")
+		if o != "" {
+			origins = append(origins, o)
+		}
+	}
+	return origins
 }
 
 func GetConfig() *Config {

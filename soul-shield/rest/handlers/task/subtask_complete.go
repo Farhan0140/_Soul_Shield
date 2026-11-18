@@ -2,7 +2,9 @@ package task
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"soulsheld/rest/middlewares"
 	"soulsheld/util"
 	"strconv"
 	"time"
@@ -25,7 +27,7 @@ import (
 // @Failure 404 {object} ErrorResponse
 // @Router /tasks/{taskId}/subtasks/{subTaskId}/complete [post]
 func (h *Handler) CompleteSubTask(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserID(r)
+	userID, ok := middlewares.UserID(r)
 	if !ok {
 		unauthorized(w)
 		return
@@ -39,14 +41,9 @@ func (h *Handler) CompleteSubTask(w http.ResponseWriter, r *http.Request) {
 	var req CompleteTaskRequest
 	_ = json.NewDecoder(r.Body).Decode(&req)
 
-	date := time.Now()
-	if req.Date != "" {
-		parsed, err := time.Parse("2006-01-02", req.Date)
-		if err != nil {
-			util.SendError(w, map[string]string{"error": "Invalid date format, use YYYY-MM-DD"}, http.StatusBadRequest)
-			return
-		}
-		date = parsed
+	date, dateOK := actionDate(w, r, req.Date)
+	if !dateOK {
+		return
 	}
 
 	completion, err := h.subTaskRepo.Complete(taskID, subTaskID, userID, date)
@@ -55,7 +52,7 @@ func (h *Handler) CompleteSubTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	parentStatus, parentRewardText, err := h.computeParentStatusAfterAction(taskID, userID, date)
+	parentStatus, parentRewardText, err := h.computeParentStatusAfterAction(taskID, userID, date, util.RequestToday(r))
 	if err != nil {
 		util.SendError(w, map[string]string{"error": "Failed to compute parent status"}, http.StatusInternalServerError)
 		return
@@ -82,12 +79,14 @@ func parseSubTaskPath(w http.ResponseWriter, r *http.Request) (taskID, subTaskID
 }
 
 func sendSubTaskError(w http.ResponseWriter, err error) {
-	switch err {
-	case util.ErrTaskNotFound, util.ErrSubTaskNotFound:
+	switch {
+	case errors.Is(err, util.ErrTaskNotFound), errors.Is(err, util.ErrSubTaskNotFound):
 		util.SendError(w, map[string]string{"error": err.Error()}, http.StatusNotFound)
-	case util.ErrForbidden:
+	case errors.Is(err, util.ErrForbidden):
 		util.SendError(w, map[string]string{"error": err.Error()}, http.StatusForbidden)
-	case util.ErrTaskNotScheduled, util.ErrNotCounterTask, util.ErrInvalidIncrementAmount:
+	case errors.Is(err, util.ErrTaskNotScheduled),
+		errors.Is(err, util.ErrNotCounterTask),
+		errors.Is(err, util.ErrInvalidIncrementAmount):
 		util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
 	default:
 		util.SendError(w, map[string]string{"error": "Failed to update sub-task"}, http.StatusInternalServerError)
@@ -96,14 +95,14 @@ func sendSubTaskError(w http.ResponseWriter, err error) {
 
 // computeParentStatusAfterAction - একটা sub-task action এর পর সেই দিনের জন্য parent এর aggregate
 // status পুনরায় গণনা করে, আর status completed হলে parent এর reward_text ও রিটার্ন করে।
-func (h *Handler) computeParentStatusAfterAction(taskID, userID int64, date time.Time) (string, *string, error) {
-	subsByParent, err := h.subTaskRepo.ListWithStatusForDate(userID, []int64{taskID}, date)
+func (h *Handler) computeParentStatusAfterAction(taskID, userID int64, date, asOf time.Time) (string, *string, error) {
+	subsByParent, err := h.subTaskRepo.ListWithStatusForDate(userID, []int64{taskID}, date, asOf)
 	if err != nil {
 		return "", nil, err
 	}
 
 	dateStr := date.Format("2006-01-02")
-	today := time.Now().Format("2006-01-02")
+	today := asOf.Format(util.DateLayout)
 	status := computeParentStatus(subsByParent[taskID], dateStr, today)
 
 	var rewardText *string

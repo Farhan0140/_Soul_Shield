@@ -1,7 +1,9 @@
 package task
 
 import (
+	"fmt"
 	"net/http"
+	"soulsheld/rest/middlewares"
 	"soulsheld/util"
 	"time"
 )
@@ -16,10 +18,11 @@ import (
 // @Param from query string false "YYYY-MM-DD"
 // @Param to query string false "YYYY-MM-DD"
 // @Success 200 {array} TaskWithStatusResponse
+// @Description Range is at most 366 days.
 // @Failure 400 {object} ErrorResponse
 // @Router /tasks/history [get]
 func (h *Handler) TaskHistory(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserID(r)
+	userID, ok := middlewares.UserID(r)
 	if !ok {
 		unauthorized(w)
 		return
@@ -28,7 +31,7 @@ func (h *Handler) TaskHistory(w http.ResponseWriter, r *http.Request) {
 	toStr := r.URL.Query().Get("to")
 	fromStr := r.URL.Query().Get("from")
 
-	to := time.Now()
+	to := util.RequestToday(r)
 	if toStr != "" {
 		parsed, err := time.Parse("2006-01-02", toStr)
 		if err != nil {
@@ -52,14 +55,18 @@ func (h *Handler) TaskHistory(w http.ResponseWriter, r *http.Request) {
 		util.SendError(w, map[string]string{"error": "'from' date cannot be after 'to' date"}, http.StatusBadRequest)
 		return
 	}
+	if to.Sub(from) >= MaxHistoryDays*24*time.Hour {
+		util.SendError(w, map[string]string{"error": fmt.Sprintf("The date range can be at most %d days", MaxHistoryDays)}, http.StatusBadRequest)
+		return
+	}
 
-	tasks, err := h.taskRepo.ListForRange(userID, from, to)
+	tasks, err := h.taskRepo.ListForRange(userID, from, to, util.RequestToday(r))
 	if err != nil {
 		util.SendError(w, map[string]string{"error": "Failed to fetch task history"}, http.StatusInternalServerError)
 		return
 	}
 
-	if err := h.attachSubTasksForRange(tasks, userID, from, to); err != nil {
+	if err := h.attachSubTasksForRange(tasks, userID, from, to, util.RequestToday(r)); err != nil {
 		util.SendError(w, map[string]string{"error": "Failed to fetch task history"}, http.StatusInternalServerError)
 		return
 	}

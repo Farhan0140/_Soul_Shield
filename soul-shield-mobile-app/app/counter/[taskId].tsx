@@ -78,8 +78,8 @@ export default function CounterTaskScreen() {
   const buffer = useTaskIncrementBuffer({
     taskId,
     date,
-    serverProgressCount: !isSubTask ? task?.progress_count ?? 0 : 0,
-    targetCount: !isSubTask ? task?.target_count ?? 0 : 0,
+    serverProgressCount: !isSubTask ? ( task?.progress_count ?? 0) : 0,
+    targetCount: !isSubTask ? ( task?.target_count ?? 0) : 0,
     onRewardEarned: (text) => setReward({ text, taskTitle: task?.title ?? '' }),
   });
   const incrementSubTask = useIncrementSubTask();
@@ -126,7 +126,7 @@ export default function CounterTaskScreen() {
   const disabled = isReadOnly || isMissed || (isSubTask && isCompleted);
 
   const targetCount = (isSubTask ? subTask?.target_count : task?.target_count) ?? 0;
-  const currentCount = isSubTask ? subTask?.progress_count ?? 0 : buffer.displayProgress;
+  const currentCount = isSubTask ? ( subTask?.progress_count ?? 0) : buffer.displayProgress;
   const ratio = targetCount > 0 ? Math.min(currentCount / targetCount, 1) : 0;
 
   const title = isSubTask ? subTask?.title : task?.title;
@@ -165,7 +165,7 @@ export default function CounterTaskScreen() {
               }
             />
           </Pressable>
-          <Pressable onPress={() => router.back()} hitSlop={10} style={styles.closeButton}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => router.back()} hitSlop={10} style={styles.closeButton}>
             <IconSymbol name="xmark" size={24} color={textColor} />
           </Pressable>
         </View>
@@ -194,7 +194,7 @@ export default function CounterTaskScreen() {
                 />
               </CounterProgressRing>
               <ThemedText style={[styles.progressLabel, { color: mutedColor }]}>
-                {formatCompactNumber(currentCount)} / {formatCompactNumber(targetCount)}
+                {formatCompactNumber(currentCount)} /{' '} {formatCompactNumber(targetCount)}
               </ThemedText>
               {isCompleted ? <StatusBadge label="Completed" tone="success" /> : null}
               {isMissed ? <StatusBadge label="Missed" tone="danger" /> : null}

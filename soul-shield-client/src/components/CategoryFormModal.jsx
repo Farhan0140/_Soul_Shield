@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
-import { X, Loader2 } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { useToast } from './Toast';
 import ColorPicker from './ColorPicker';
@@ -17,6 +17,7 @@ export default function CategoryFormModal({ open, onClose, onCreated }) {
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset the form when the modal opens
       setName('');
       setColor('#4F46E5');
       setErrors({});

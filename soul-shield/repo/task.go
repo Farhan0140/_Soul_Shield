@@ -15,14 +15,20 @@ import (
 type TaskRepo interface {
 	Create(task Task) (*Task, error)
 	Update(id int64, updates TaskUpdate, requestingUserID int64, role string) (*Task, error)
+	// CreateWithSubTasks / UpdateWithSubTasks write the task and its sub-task
+	// list atomically (one transaction).
+	CreateWithSubTasks(task Task, subTasks []SubTask) (*Task, []SubTask, error)
+	UpdateWithSubTasks(id int64, updates TaskUpdate, requestingUserID int64, role string, subTasks []SubTask) (*Task, []SubTask, error)
 	Delete(id int64, requestingUserID int64, role string) error
 	GetByID(id int64) (*Task, error)
 	GetByUUID(uuid string) (*Task, error)
-	ListForDate(userID int64, date time.Time) ([]TaskWithStatus, error)
-	ListForRange(userID int64, from, to time.Time) ([]TaskWithStatus, error)
-	ListForDateByCategory(userID int64, date time.Time, categoryID int64) ([]TaskWithStatus, error)
+	ListForDate(userID int64, date, asOf time.Time) ([]TaskWithStatus, error)
+	ListForRange(userID int64, from, to, asOf time.Time) ([]TaskWithStatus, error)
+	ListForDateByCategory(userID int64, date time.Time, categoryID int64, asOf time.Time) ([]TaskWithStatus, error)
 	Complete(taskID int64, userID int64, date time.Time) (*TaskCompletion, error)
 	Increment(taskID int64, userID int64, date time.Time, amount int32) (*TaskCompletion, error) // নতুন
+	// Uncomplete puts a normal task back to 'pending' for date (idempotent).
+	Uncomplete(taskID int64, userID int64, date time.Time) (*TaskCompletion, error)
 
 	// FindOwnedMatch - user এর নিজের (is_global=false) task গুলোর মধ্যে sourceTaskID (lineage)
 	// অথবা title (case-insensitive) ম্যাচ করে এমন একটা task খুঁজে বের করে - "already added" চেক এ ব্যবহার হয়
@@ -48,6 +54,40 @@ func NewTaskRepo(db *sqlx.DB) TaskRepo {
 
 // ---- Create ----
 func (r *taskRepo) Create(task Task) (*Task, error) {
+	return r.createWith(r.db, task)
+}
+
+// CreateWithSubTasks inserts the task and its sub-tasks in ONE transaction:
+// either both land or neither does (B9 - this replaced a create-then-delete-
+// on-failure workaround in the handler).
+func (r *taskRepo) CreateWithSubTasks(task Task, subTasks []SubTask) (_ *Task, _ []SubTask, err error) {
+	defer func() { err = asInputError(err) }()
+	if err := prepareSubTaskInputs(subTasks); err != nil {
+		return nil, nil, err
+	}
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return nil, nil, err
+	}
+	defer tx.Rollback()
+
+	created, err := r.createWith(tx, task)
+	if err != nil {
+		return nil, nil, err
+	}
+	var subs []SubTask
+	if len(subTasks) > 0 {
+		if subs, err = replaceSubTasksTx(tx, created.ID, subTasks); err != nil {
+			return nil, nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, nil, err
+	}
+	return created, subs, nil
+}
+
+func (r *taskRepo) createWith(q sqlx.Ext, task Task) (*Task, error) {
 	if task.RecurrenceType == util.RecurrenceDaily {
 		task.RecurrenceDays = pq.Int64Array{0, 1, 2, 3, 4, 5, 6}
 	}
@@ -88,7 +128,7 @@ func (r *taskRepo) Create(task Task) (*Task, error) {
 	// user পরে drag করে যেকোনো জায়গায় নিতে পারবে। Global (admin fixed) task এর জন্য এটা
 	// user-specific না, শুধু সব fixed task এর মধ্যে একটা deterministic default order দেয়।
 	var nextPosition int
-	if err := r.db.Get(&nextPosition, `
+	if err := sqlx.Get(q, &nextPosition, `
 		SELECT COALESCE(MAX(position) + 1, 0) FROM tasks
 		WHERE owner_id IS NOT DISTINCT FROM $1 AND category_id IS NOT DISTINCT FROM $2 AND deleted_at IS NULL
 	`, task.OwnerID, task.CategoryID); err != nil {
@@ -106,7 +146,7 @@ func (r *taskRepo) Create(task Task) (*Task, error) {
 		RETURNING id, uuid, is_active, created_at, updated_at
 	`
 
-	row := r.db.QueryRow(
+	row := q.QueryRowx(
 		query,
 		task.Title, task.Description, task.IsGlobal, task.OwnerID,
 		task.RecurrenceType, task.RecurrenceDays, task.CreatedBy,
@@ -123,6 +163,43 @@ func (r *taskRepo) Create(task Task) (*Task, error) {
 
 // ---- Update ----
 func (r *taskRepo) Update(id int64, updates TaskUpdate, requestingUserID int64, role string) (*Task, error) {
+	return r.updateWith(r.db, id, updates, requestingUserID, role)
+}
+
+// UpdateWithSubTasks applies updates and, when subTasks is non-nil, replaces
+// the sub-task list - in ONE transaction, so a failing sub-task write can't
+// leave the task half-updated (B9). With subTasks == nil the sub-tasks are
+// left alone and the returned slice is nil.
+func (r *taskRepo) UpdateWithSubTasks(id int64, updates TaskUpdate, requestingUserID int64, role string, subTasks []SubTask) (_ *Task, _ []SubTask, err error) {
+	defer func() { err = asInputError(err) }()
+	if subTasks != nil {
+		if err := prepareSubTaskInputs(subTasks); err != nil {
+			return nil, nil, err
+		}
+	}
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return nil, nil, err
+	}
+	defer tx.Rollback()
+
+	updated, err := r.updateWith(tx, id, updates, requestingUserID, role)
+	if err != nil {
+		return nil, nil, err
+	}
+	var subs []SubTask
+	if subTasks != nil {
+		if subs, err = replaceSubTasksTx(tx, id, subTasks); err != nil {
+			return nil, nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, nil, err
+	}
+	return updated, subs, nil
+}
+
+func (r *taskRepo) updateWith(q sqlx.Ext, id int64, updates TaskUpdate, requestingUserID int64, role string) (*Task, error) {
 	existing, err := r.GetByID(id)
 	if err != nil {
 		return nil, err
@@ -208,7 +285,7 @@ func (r *taskRepo) Update(id int64, updates TaskUpdate, requestingUserID int64, 
 		RETURNING updated_at
 	`
 
-	err = r.db.QueryRow(
+	err = q.QueryRowx(
 		query,
 		existing.Title,
 		existing.Description,
@@ -297,7 +374,7 @@ func (r *taskRepo) GetByUUID(uuid string) (*Task, error) {
 }
 
 // ---- ListForDate: একটা নির্দিষ্ট দিনের জন্য user এর দেখা task + status ----
-func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, error) {
+func (r *taskRepo) ListForDate(userID int64, date, asOf time.Time) ([]TaskWithStatus, error) {
 	dateStr := date.Format("2006-01-02")
 
 	query := `
@@ -324,7 +401,7 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 	}
 	defer rows.Close()
 
-	today := time.Now().Format("2006-01-02")
+	today := asOf.Format(util.DateLayout) // the USER's today (util.RequestToday), not the server clock
 	var results []TaskWithStatus
 
 	for rows.Next() {
@@ -408,7 +485,7 @@ func (r *taskRepo) ListForDate(userID int64, date time.Time) ([]TaskWithStatus, 
 // সব task দেয় (active + completed, unpaginated) - completed বাদ দেওয়া আর pagination
 // handler লেয়ারে হয়, কারণ sub-task থাকা parent task এর status DB fetch এর পরে
 // (attachSubTasksForDate এর sub-task aggregation থেকে) নির্ধারিত হয়, SQL এ না ----
-func (r *taskRepo) ListForDateByCategory(userID int64, date time.Time, categoryID int64) ([]TaskWithStatus, error) {
+func (r *taskRepo) ListForDateByCategory(userID int64, date time.Time, categoryID int64, asOf time.Time) ([]TaskWithStatus, error) {
 	dateStr := date.Format("2006-01-02")
 
 	query := `
@@ -436,7 +513,7 @@ func (r *taskRepo) ListForDateByCategory(userID int64, date time.Time, categoryI
 	}
 	defer rows.Close()
 
-	today := time.Now().Format("2006-01-02")
+	today := asOf.Format(util.DateLayout) // the USER's today (util.RequestToday), not the server clock
 	var results []TaskWithStatus
 
 	for rows.Next() {
@@ -517,7 +594,7 @@ func (r *taskRepo) ListForDateByCategory(userID int64, date time.Time, categoryI
 }
 
 // ---- ListForRange: history এর জন্য, একাধিক দিন একসাথে ----
-func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithStatus, error) {
+func (r *taskRepo) ListForRange(userID int64, from, to, asOf time.Time) ([]TaskWithStatus, error) {
 	fromStr := from.Format("2006-01-02")
 	toStr := to.Format("2006-01-02")
 
@@ -546,7 +623,7 @@ func (r *taskRepo) ListForRange(userID int64, from, to time.Time) ([]TaskWithSta
 	}
 	defer rows.Close()
 
-	today := time.Now().Format("2006-01-02")
+	today := asOf.Format(util.DateLayout) // the USER's today (util.RequestToday), not the server clock
 	var results []TaskWithStatus
 
 	for rows.Next() {
@@ -657,6 +734,11 @@ func (r *taskRepo) Complete(taskID int64, userID int64, date time.Time) (*TaskCo
 	if !scheduled {
 		return nil, util.ErrTaskNotScheduled
 	}
+	// A parent's status is derived from its sub-tasks (computeParentStatus);
+	// a direct completion row would contradict that.
+	if err := r.rejectIfHasSubTasks(task.ID); err != nil {
+		return nil, err
+	}
 
 	dateStr := date.Format("2006-01-02")
 	var completion TaskCompletion
@@ -718,6 +800,11 @@ func (r *taskRepo) Increment(taskID int64, userID int64, date time.Time, amount 
 	}
 	if !scheduled {
 		return nil, util.ErrTaskNotScheduled
+	}
+	// A parent's status is derived from its sub-tasks (computeParentStatus);
+	// a direct completion row would contradict that.
+	if err := r.rejectIfHasSubTasks(task.ID); err != nil {
+		return nil, err
 	}
 
 	dateStr := date.Format("2006-01-02")
@@ -898,4 +985,60 @@ func (r *taskRepo) getCategoryForValidation(id int64) (*Category, error) {
 		return nil, err
 	}
 	return &cat, nil
+}
+
+// rejectIfHasSubTasks returns ErrTaskHasSubTasks when the task has live sub-tasks.
+func (r *taskRepo) rejectIfHasSubTasks(taskID int64) error {
+	var has bool
+	if err := r.db.Get(&has, `SELECT EXISTS (SELECT 1 FROM sub_tasks WHERE parent_task_id = $1 AND deleted_at IS NULL)`, taskID); err != nil {
+		return err
+	}
+	if has {
+		return util.ErrTaskHasSubTasks
+	}
+	return nil
+}
+
+// ---- Uncomplete: a normal (non-counter) task back to 'pending' for one date.
+// Idempotent: with no completion row there is nothing to undo and the pending
+// state is returned as-is. ----
+func (r *taskRepo) Uncomplete(taskID int64, userID int64, date time.Time) (*TaskCompletion, error) {
+	task, err := r.GetByID(taskID)
+	if err != nil {
+		return nil, err
+	}
+	if !task.IsActive {
+		return nil, util.ErrTaskNotFound
+	}
+	if task.TaskType == "counter" {
+		return nil, util.ErrNotCounterTask
+	}
+	if !task.IsGlobal && (!task.OwnerID.Valid || task.OwnerID.Int64 != userID) {
+		return nil, util.ErrForbidden
+	}
+
+	var completion TaskCompletion
+	err = r.db.QueryRow(`
+		UPDATE task_completions
+		SET status = 'pending', completed_at = NULL
+		WHERE task_id = $1 AND user_id = $2 AND task_date = $3::date
+		RETURNING id, task_id, user_id, task_title_snapshot, task_date, status, progress_count, completed_at, created_at
+	`, task.ID, userID, date.Format(util.DateLayout)).Scan(
+		&completion.ID, &completion.TaskID, &completion.UserID,
+		&completion.TaskTitleSnapshot, &completion.TaskDate,
+		&completion.Status, &completion.ProgressCount, &completion.CompletedAt, &completion.CreatedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return &TaskCompletion{
+			TaskID:            sql.NullInt64{Int64: task.ID, Valid: true},
+			UserID:            userID,
+			TaskTitleSnapshot: task.Title,
+			TaskDate:          date,
+			Status:            util.StatusPending,
+		}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &completion, nil
 }

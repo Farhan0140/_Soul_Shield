@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { currentDhakaDateString } from '@/lib/background-sync/time';
+import { currentLocalDateString } from '@/lib/background-sync/time';
 
 const STATE_KEY = 'soulshield_background_sync_state';
 
@@ -10,8 +10,9 @@ export interface BackgroundSyncState {
   lastAttemptAt: number;
   lastOutcome: SyncOutcome;
   lastErrorMessage?: string;
-  /** Asia/Dhaka YYYY-MM-DD the last *successful* full sync ran on — this, not
-   * a timestamp diff, is what task.ts gates on, since "once per Dhaka day" is
+  /** Device-local YYYY-MM-DD (was Asia/Dhaka before C8; the stored key keeps
+   * its old name so existing state still reads) the last *successful* full sync ran on — this, not
+   * a timestamp diff, is what task.ts gates on, since "once per local day" is
    * the actual requirement rather than "every 24h from an arbitrary instant". */
   lastSuccessDhakaDate?: string;
   lastSuccessAt?: number;
@@ -38,7 +39,7 @@ export async function recordSyncOutcome(
     lastOutcome: outcome,
     lastErrorMessage: outcome === 'failed' ? errorMessage : undefined,
     lastSuccessDhakaDate:
-      outcome === 'success' ? currentDhakaDateString() : previous?.lastSuccessDhakaDate,
+      outcome === 'success' ? currentLocalDateString() : previous?.lastSuccessDhakaDate,
     lastSuccessAt: outcome === 'success' ? now : previous?.lastSuccessAt,
   };
   await AsyncStorage.setItem(STATE_KEY, JSON.stringify(next));

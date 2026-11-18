@@ -2,25 +2,24 @@ package user
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
+	"regexp"
+	"soulsheld/rest/middlewares"
 	"soulsheld/util"
 	"strings"
 )
 
-// The user package has no shared getUserID/unauthorized helpers (its JWT-authed
-// route, /users/me, parses the header itself) — so define both here.
-func getUserID(r *http.Request) (int64, bool) {
-	val := r.Context().Value("userID")
-	id, ok := val.(int64)
-	if !ok {
-		return 0, false
-	}
-	return id, true
-}
-
 func unauthorized(w http.ResponseWriter) {
 	util.SendError(w, map[string]string{"error": "Unauthorize"}, http.StatusUnauthorized)
 }
+
+// expoPushTokenPattern: what getExpoPushTokenAsync returns
+// (ExponentPushToken[...], or the newer ExpoPushToken[...]).
+var expoPushTokenPattern = regexp.MustCompile(`^Expo(nent)?PushToken\[[A-Za-z0-9_-]{1,200}\]$`)
+
+// validPlatforms mirrors what the clients send (user_push_tokens.platform is VARCHAR(20)).
+var validPlatforms = map[string]bool{"ios": true, "android": true, "web": true, "unknown": true}
 
 type PushTokenRequest struct {
 	// The Expo push token (ExponentPushToken[...]) obtained on-device via
@@ -45,7 +44,7 @@ type PushTokenRequest struct {
 // @Failure 400 {object} ErrorResponse
 // @Router /users/push-token [post]
 func (h *Handler) RegisterPushToken(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserID(r)
+	userID, ok := middlewares.UserID(r)
 	if !ok {
 		unauthorized(w)
 		return
@@ -57,16 +56,21 @@ func (h *Handler) RegisterPushToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	token := strings.TrimSpace(req.Token)
-	if token == "" {
-		util.SendError(w, map[string]string{"error": "token is required"}, http.StatusBadRequest)
+	if !expoPushTokenPattern.MatchString(token) {
+		util.SendError(w, map[string]string{"error": util.ErrInvalidPushToken.Error()}, http.StatusBadRequest)
 		return
 	}
-	platform := strings.TrimSpace(req.Platform)
+	platform := strings.ToLower(strings.TrimSpace(req.Platform))
 	if platform == "" {
 		platform = "unknown"
 	}
+	if !validPlatforms[platform] {
+		util.SendError(w, map[string]string{"error": util.ErrInvalidPlatform.Error()}, http.StatusBadRequest)
+		return
+	}
 
 	if err := h.pushRepo.UpsertToken(userID, token, platform); err != nil {
+		slog.Error("register push token failed", "user_id", userID, "error", err)
 		util.SendError(w, map[string]string{"error": "Failed to register push token"}, http.StatusInternalServerError)
 		return
 	}
@@ -88,7 +92,7 @@ func (h *Handler) RegisterPushToken(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {object} ErrorResponse
 // @Router /users/push-token [delete]
 func (h *Handler) DeletePushToken(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserID(r)
+	userID, ok := middlewares.UserID(r)
 	if !ok {
 		unauthorized(w)
 		return

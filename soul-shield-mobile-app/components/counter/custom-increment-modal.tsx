@@ -55,7 +55,7 @@ export function CustomIncrementModal({ visible, onClose, onConfirm }: CustomIncr
             <ThemedText type="subtitle" style={styles.headerTitle}>
               Add Custom Amount
             </ThemedText>
-            <Pressable onPress={handleClose} hitSlop={10}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={handleClose} hitSlop={10}>
               <IconSymbol name="xmark" size={20} color={mutedColor} />
             </Pressable>
           </View>

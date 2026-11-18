@@ -38,9 +38,9 @@ export async function pushPendingLocalChanges(): Promise<{ pushed: number; rejec
   if (!getLocalDb()) return { pushed: 0, rejected: 0 };
 
   const changes: SyncChange[] = [
-    ...listUnsyncedCategories().map((c) => (c.deletedAt ? categoryDeleteChange(c.uuid, c.updatedAt) : categoryUpsertChange(c))),
-    ...listUnsyncedTasks().map((t) => (t.deletedAt ? taskDeleteChange(t.uuid, t.updatedAt) : taskUpsertChange(t))),
-    ...listUnsyncedSubTasks().map((s) => (s.deletedAt ? subTaskDeleteChange(s.uuid, s.updatedAt) : subTaskUpsertChange(s))),
+    ...listUnsyncedCategories().map((c) => (c.deletedAt ? categoryDeleteChange(c.uuid, c.updatedAt, c.serverUpdatedAt) : categoryUpsertChange(c))),
+    ...listUnsyncedTasks().map((t) => (t.deletedAt ? taskDeleteChange(t.uuid, t.updatedAt, t.serverUpdatedAt) : taskUpsertChange(t))),
+    ...listUnsyncedSubTasks().map((s) => (s.deletedAt ? subTaskDeleteChange(s.uuid, s.updatedAt, s.serverUpdatedAt) : subTaskUpsertChange(s))),
     ...listUnsyncedTaskCompletions().map(taskCompletionUpsertChange),
     ...listUnsyncedSubTaskCompletions().map(subTaskCompletionUpsertChange),
   ];

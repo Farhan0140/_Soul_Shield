@@ -57,6 +57,24 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, manager *middlewares.Manage
 	)
 
 	mux.Handle(
+		"POST /users/change-password",
+
+		manager.With(
+			http.HandlerFunc(h.ChangePassword),
+			h.middlewares.AuthenticateJWT,
+		),
+	)
+
+	mux.Handle(
+		"DELETE /users/me",
+
+		manager.With(
+			http.HandlerFunc(h.DeleteAccount),
+			h.middlewares.AuthenticateJWT,
+		),
+	)
+
+	mux.Handle(
 		"GET /users/me",
 
 		manager.With(

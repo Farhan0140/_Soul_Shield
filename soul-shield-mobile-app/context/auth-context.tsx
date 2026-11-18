@@ -10,9 +10,8 @@ import {
 } from 'react';
 
 import { fetchMe, login as apiLogin } from '@/api/auth';
-import type { User } from '@/api/types';
-import { clearLocalDatabase } from '@/lib/db/client';
-import { ApiError } from '@/lib/errors';
+import { onRefreshedToken } from '@/api/client'; import type { User } from '@/api/types';
+import { ApiError } from '@/lib/errors'; import { ensureLocalOwnerRecorded, prepareLocalDataForUser, wipeAccountLocalData, } from '@/lib/local-owner';
 import { queryKeys } from '@/lib/query-keys';
 import { setUnauthorizedHandler } from '@/lib/query-client';
 import { cachedUserStore, tokenStore } from '@/lib/secure-store';
@@ -26,6 +25,9 @@ interface AuthContextValue {
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Replaces the stored session token (e.g. the one change-password returns,
+   * since changing the password revokes every existing session). */
+  replaceToken: (token: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -92,18 +94,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // rejected (401) must NOT wipe the on-device store - it may hold offline
   // edits that haven't been pushed yet, and signing back in as the same user
   // pushes them. Only an explicit logout clears it (see clearLocalDatabase).
+  // Users who were already signed in before local-data ownership was tracked:
+  // their local data is theirs, so record them as its owner (no-op once set).
+  const signedInUserId =
+    status === 'signedIn' ? (meQuery.data ?? cachedUser)?.id : undefined;
+  useEffect(() => {
+    if (signedInUserId != null)
+      ensureLocalOwnerRecorded(signedInUserId).catch(() => {});
+  }, [signedInUserId]);
   const logout = useCallback(
     async (options?: { keepLocalData?: boolean }) => {
       await tokenStore.removeToken();
       await cachedUserStore.clear();
       await cancelAllTaskReminders();
-      if (!options?.keepLocalData) clearLocalDatabase();
+      if (options?.keepLocalData) {
+        // Expired session: keep local data (and its recorded owner) so the
+        // SAME user's offline edits survive re-login. A different account
+        // signing in next gets it wiped by prepareLocalDataForUser.
+        queryClient.clear();
+      } else {
+        // Explicit logout: remove everything that belongs to this account.
+        await wipeAccountLocalData(queryClient);
+      }
       setToken(null);
       setCachedUser(null);
-      queryClient.clear();
       setStatus('signedOut');
     },
-    [queryClient]
+    [queryClient],
+  );
+
+  // api/client.ts already stored a renewed token; keep state in step so
+  // screens pass the current one.
+  useEffect(() => onRefreshedToken(setToken), []);
+
+  const replaceToken = useCallback(async (next: string) => {
+    await tokenStore.setToken(next);
+    setToken(next);
+  }, []
   );
 
   useEffect(() => {
@@ -115,8 +142,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (email: string, password: string) => {
       const newToken = await apiLogin({ email, password });
-      await tokenStore.setToken(newToken);
       const me = await fetchMe(newToken);
+      // BEFORE the token is stored (nothing can sync with it yet): if the
+      // local data belongs to a different account, wipe it so it can't be
+      // shown to, or pushed into, this account.
+      await prepareLocalDataForUser(me.id, queryClient);
+      await tokenStore.setToken(newToken);
       await cachedUserStore.set(me);
       queryClient.setQueryData(queryKeys.me, me);
       setToken(newToken);
@@ -133,8 +164,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       token,
       login,
       logout,
+      replaceToken,
     }),
-    [status, meQuery.data, cachedUser, token, login, logout]
+    [status, meQuery.data, cachedUser, token, login, logout, replaceToken]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -31,6 +31,7 @@ export function useHistory() {
     }
   }, [range, getTasksHistory]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- loading flag for the fetch this effect starts
   useEffect(() => { load(); }, [load]);
 
   // Group items by date → { 'YYYY-MM-DD': [tasks...] }

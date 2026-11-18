@@ -373,6 +373,16 @@ export async function setActiveCounterTask(task: ActiveCounterTask): Promise<voi
   void refreshBleCounterWidget();
 }
 
+/** Forgets the active counter task (in memory + persisted). Used when the
+ * signed-in account changes: the previous user's task uuid must not keep
+ * receiving ESP32 presses (see lib/local-owner.ts). The paired device itself
+ * is a device-level setting and stays paired. */
+export async function clearActiveCounterTask(): Promise<void> {
+  replace({ activeTask: null });
+  await AsyncStorage.removeItem(ACTIVE_TASK_STORE_KEY);
+  void refreshBleCounterWidget();
+}
+
 async function persistActiveTask(task: ActiveCounterTask): Promise<void> {
   await AsyncStorage.setItem(ACTIVE_TASK_STORE_KEY, JSON.stringify(task));
 }

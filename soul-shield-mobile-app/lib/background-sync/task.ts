@@ -4,7 +4,9 @@ import * as TaskManager from 'expo-task-manager';
 import { getBackgroundSyncState } from '@/lib/background-sync/state';
 import { runFullBackgroundSync } from '@/lib/background-sync/sync';
 import { checkAndCompleteFinishedTaskTimers } from '@/lib/background-sync/timer-task';
-import { currentDhakaDateString, isWithinDhakaSyncWindow } from '@/lib/background-sync/time';
+import {
+  currentLocalDateString,
+  isWithinSyncWindow } from '@/lib/background-sync/time';
 
 export const BACKGROUND_SYNC_TASK = 'soulshield-daily-data-sync';
 
@@ -14,7 +16,7 @@ export const BACKGROUND_SYNC_TASK = 'soulshield-daily-data-sync';
 // the top of app/_layout.tsx, same pattern as lib/network.ts and
 // lib/notifications.ts.
 TaskManager.defineTask(BACKGROUND_SYNC_TASK, async () => {
-  // Runs on every wake-up regardless of the Dhaka sync window below — a
+  // Runs on every wake-up regardless of the local sync window below — a
   // running Timer Task can reach its duration at any time of day, unlike the
   // once-nightly data sync, so this opportunistic check can't wait for that
   // window. Best-effort: swallows its own errors so it never blocks the sync
@@ -24,15 +26,15 @@ TaskManager.defineTask(BACKGROUND_SYNC_TASK, async () => {
   try {
     // WorkManager only guarantees a *minimum interval* between wake-ups, not
     // a wall-clock time (see registerBackgroundSync below) — most wake-ups
-    // land outside the 1-6AM Dhaka window and should cost nothing beyond this
+    // land outside the 1-6AM local window and should cost nothing beyond this
     // clock check: no network touched, no wake lock held longer than a
     // microtask.
-    if (!isWithinDhakaSyncWindow()) {
+    if (!isWithinSyncWindow()) {
       return BackgroundTask.BackgroundTaskResult.Success;
     }
 
     const state = await getBackgroundSyncState();
-    if (state?.lastSuccessDhakaDate === currentDhakaDateString()) {
+    if (state?.lastSuccessDhakaDate === currentLocalDateString()) {
       // Already synced today's window — nothing to do until tomorrow.
       return BackgroundTask.BackgroundTaskResult.Success;
     }
@@ -63,7 +65,7 @@ export async function registerBackgroundSync(): Promise<void> {
     // requesting anything shorter is silently clamped to this anyway. This
     // isn't "polling every 15 minutes": the OS still batches actual
     // executions around its own Doze/App Standby maintenance windows, and
-    // every wake-up outside the 1-6AM Dhaka window is a same-tick no-op (see
+    // every wake-up outside the 1-6AM local window is a same-tick no-op (see
     // the task body above) — so there's no meaningful extra battery cost from
     // requesting the shortest available interval. It just gives the 1AM
     // window the best chance of being caught promptly instead of waiting out

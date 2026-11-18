@@ -10,7 +10,7 @@ export default function UsageBadge({ usage, compact = false }) {
         <span className="flex items-center gap-1 text-muted">
           <CheckCircle2 className="w-3.5 h-3.5 text-success" />
           <span className="font-semibold tabular-nums">{usage.completions}</span>
-          <span className="text-muted">/ {usage.total}</span>
+          <span className="text-muted" title="Most completions possible: scheduled days × active users">/ {usage.total}</span>
         </span>
         <span className={`font-semibold tabular-nums ${
           usage.completionRate >= 75 ? 'text-success' :
@@ -37,7 +37,7 @@ export default function UsageBadge({ usage, compact = false }) {
           <p className="text-[10px] font-semibold text-muted uppercase">Completions</p>
           <p className="text-sm font-bold text-fg tabular-nums">
             {usage.completions}
-            <span className="text-muted font-normal"> / {usage.total}</span>
+            <span className="text-muted font-normal" title="Most completions possible: scheduled days × active users"> / {usage.total}</span>
           </p>
         </div>
       </div>
@@ -67,8 +67,8 @@ export default function UsageBadge({ usage, compact = false }) {
           <Users className="w-4 h-4 text-purple-600" />
         </div>
         <div>
-          <p className="text-[10px] font-semibold text-muted uppercase">Active days</p>
-          <p className="text-sm font-bold text-fg tabular-nums">{usage.activeDays}</p>
+          <p className="text-[10px] font-semibold text-muted uppercase">Users</p>
+          <p className="text-sm font-bold text-fg tabular-nums" title={`${usage.addedBy ?? 0} added it to their own tasks`}>{usage.users}</p>
         </div>
       </div>
     </m.div>

@@ -40,6 +40,7 @@ export function useTasks(initialDate = new Date()) {
     }
   }, [date, getTasks]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- loading flag for the fetch this effect starts
   useEffect(() => { load(); }, [load]);
 
   const shiftDate = (delta) => setDate(d => new Date(d.getTime() + delta * 86400000));

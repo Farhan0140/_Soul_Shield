@@ -123,6 +123,27 @@ const MIGRATIONS: { version: number; sql: string }[] = [
       ALTER TABLE sub_tasks ADD COLUMN description TEXT;
     `,
   },
+  {
+    // v3: the server's updated_at as of the last pull/accepted push, kept
+    // apart from updatedAt (which local edits overwrite). Pushes send it as
+    // base_updated_at, so the server detects a real conflict ("the row
+    // changed since this device last saw it") instead of comparing two
+    // devices' clocks. Rows already synced start from their current
+    // updated_at, which is the server's value until edited locally.
+    version: 3,
+    sql: `
+      ALTER TABLE categories ADD COLUMN server_updated_at TEXT;
+      ALTER TABLE tasks ADD COLUMN server_updated_at TEXT;
+      ALTER TABLE sub_tasks ADD COLUMN server_updated_at TEXT;
+      ALTER TABLE task_completions ADD COLUMN server_updated_at TEXT;
+      ALTER TABLE sub_task_completions ADD COLUMN server_updated_at TEXT;
+      UPDATE categories SET server_updated_at = updated_at WHERE synced_at IS NOT NULL;
+      UPDATE tasks SET server_updated_at = updated_at WHERE synced_at IS NOT NULL;
+      UPDATE sub_tasks SET server_updated_at = updated_at WHERE synced_at IS NOT NULL;
+      UPDATE task_completions SET server_updated_at = updated_at WHERE synced_at IS NOT NULL;
+      UPDATE sub_task_completions SET server_updated_at = updated_at WHERE synced_at IS NOT NULL;
+    `,
+  },
 ];
 
 export function runMigrations(db: SQLiteDatabase): void {

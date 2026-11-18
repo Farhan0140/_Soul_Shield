@@ -14,6 +14,30 @@ var (
 	ErrInvalidCredentials = errors.New("Incorrect email or password")
 	ErrTaskNotFound       = errors.New("Task not found")
 
+	ErrCurrentPasswordIncorrect = errors.New("Your current password is incorrect")
+	ErrAdminCannotDeleteAccount = errors.New("Admin accounts can't be deleted from the app")
+	ErrFutureDate               = errors.New("You can't record progress for a future date")
+	ErrTaskHasSubTasks          = errors.New("This task has sub-tasks; complete those instead")
+	ErrTaskNotCompleted         = errors.New("This task isn't completed for that date")
+	ErrFullNameRequired         = errors.New("Please enter your name")
+	ErrFullNameTooLong          = errors.New("Name must be at most 100 characters")
+	ErrInvalidEmail             = errors.New("Please enter a valid email address")
+	// B10: input the database would refuse (CHECK / length), rejected up front as 400.
+	ErrTitleRequired         = errors.New("Title is required")
+	ErrTitleTooLong          = errors.New("Title must be at most 255 characters")
+	ErrInvalidRecurrenceType = errors.New("recurrence_type must be 'daily', 'weekly' or 'custom'")
+	ErrCategoryNameRequired  = errors.New("Name is required")
+	ErrCategoryNameTooLong   = errors.New("Name must be at most 100 characters")
+	ErrInvalidPushToken      = errors.New("token must be an Expo push token")
+	ErrInvalidPlatform       = errors.New("platform must be 'ios', 'android', 'web' or 'unknown'")
+	// ErrInvalidInput: the database refused a value (constraint / data
+	// exception) that the handlers didn't catch. Answered as 400; the details
+	// are logged, not sent.
+	ErrInvalidInput     = errors.New("Some of the values are invalid")
+	ErrPasswordTooShort = errors.New("Password must be at least 6 characters")
+	ErrPasswordTooLong  = errors.New("Password must be at most 72 characters")
+	ErrTooManyAttempts  = errors.New("Too many attempts. Please wait a few minutes and try again.")
+
 	ErrForbidden         = errors.New("You do not have permission to perform this action")
 	ErrInvalidRecurrence = errors.New("recurrence_days cannot be empty for this recurrence_type")
 	ErrTaskNotScheduled  = errors.New("this task is not scheduled for the given date")

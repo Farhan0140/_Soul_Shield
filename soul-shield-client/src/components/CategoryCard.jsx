@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { m, AnimatePresence } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Edit2, Trash2, Check, X, Loader2, Tag } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
-import { useToast } from './Toast';
 import ColorPicker from './ColorPicker';
 import Input from './ui/Input';
 
-export default function CategoryCard({ category, taskCount, onUpdate, onDelete, onRequestDelete }) {
+export default function CategoryCard({ category, taskCount, onUpdate, onRequestDelete }) {
   const { updateCategory } = useApi();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(category.name);

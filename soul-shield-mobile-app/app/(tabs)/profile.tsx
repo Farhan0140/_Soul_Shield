@@ -273,6 +273,23 @@ export default function ProfileScreen() {
     { icon: 'folder.fill', label: t('profile.tools.archived'), onPress: () => router.push('/archived' as never) },
   ];
 
+  const accountRows: {
+    icon: Parameters<typeof IconSymbol>[0]['name'];
+    label: string;
+    onPress: () => void;
+  }[] = [
+    {
+      icon: 'shield.fill',
+      label: t('profile.account.changePassword'),
+      onPress: () => router.push('/account/change-password' as never),
+    },
+    {
+      icon: 'trash',
+      label: t('profile.account.deleteAccount'),
+      onPress: () => router.push('/account/delete-account' as never),
+    },
+  ];
+
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
       <View style={[styles.card, { backgroundColor: cardColor }]}>
@@ -463,6 +480,40 @@ export default function ProfileScreen() {
             onPress={handleCheckConflictDetection}
           />
         ) : null}
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <IconSymbol name="person.fill" size={16} color={mutedColor} />
+          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+            {t('profile.account')}
+          </ThemedText>
+        </View>
+        {accountRows.map((row) => (
+          <Pressable
+            key={row.label}
+            onPress={row.onPress}
+            style={({ pressed }) => [
+              styles.toolRow,
+              { backgroundColor: cardColor, opacity: pressed ? 0.7 : 1 },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={row.label}
+          >
+            <View
+              style={[
+                styles.toolIconCircle,
+                { backgroundColor: `${tintColor}1A` },
+              ]}
+            >
+              <IconSymbol name={row.icon} size={22} color={tintColor} />
+            </View>
+            <ThemedText type="defaultSemiBold" style={styles.toolLabel}>
+              {row.label}
+            </ThemedText>
+            <IconSymbol name="chevron.right" size={18} color={mutedColor} />
+          </Pressable>
+        ))}
       </View>
 
       <PrimaryButton label={t('profile.logout')} variant="destructive" onPress={handleLogout} />

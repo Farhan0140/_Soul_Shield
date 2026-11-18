@@ -11,16 +11,7 @@ func (m *Middleware) RequireRole(roles ...string) Middlewares {
 
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-			role := r.Context().Value("role")
-
-			if role == nil {
-				util.SendError(w, map[string]string{
-					"error": "Forbidden",
-				}, http.StatusForbidden)
-				return
-			}
-
-			userRole := role.(string)
+			userRole := Role(r)
 
 			for _, allowedRole := range roles {
 

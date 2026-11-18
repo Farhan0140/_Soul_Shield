@@ -42,7 +42,11 @@ func (h *Handler) VerifySecurityAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.userRepo.VerifySecurityAnswer(email, answer, util.ClientIP(r))
+	if rejectIfRateLimited(w, rateLimitCheck{h.limiters.verifyAnswerByIP, util.ClientIP(r)}) {
+		return
+	}
+
+	tokenVersion, err := h.userRepo.VerifySecurityAnswer(email, answer, util.ClientIP(r))
 	if err != nil {
 		switch {
 		case errors.Is(err, util.ErrSecurityAnswerLocked):
@@ -70,7 +74,7 @@ func (h *Handler) VerifySecurityAnswer(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	resetToken, err := util.CreateResetPasswordJWT(h.cnf.SecretKey, email)
+	resetToken, err := util.CreateResetPasswordJWT(h.cnf.SecretKey, email, tokenVersion)
 	if err != nil {
 		util.SendError(w, map[string]string{
 			"error": "Internal Server Error",

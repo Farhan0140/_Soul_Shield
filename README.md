@@ -82,6 +82,8 @@ Soul Shield helps you build and keep daily routines — dhikr, prayers, reading,
 **Accounts & security**
 - 🔐 JWT-based authentication
 - 🔑 Security-question password reset flow (no email OTP round-trip)
+- 🔁 Change password while signed in, and self-service account deletion (web + mobile)
+- 🚦 Rate limiting on login, registration and password-reset endpoints (429 + `Retry-After`)
 - 👤 Role-based access (`user` / `admin`)
 
 **Client experience**
@@ -142,7 +144,7 @@ Soul_Shield/
 │   ├── migrations/              # sql-migrate up/down scripts
 │   ├── repo/                    # data access layer
 │   ├── rest/handlers/           # HTTP handlers, grouped by domain
-│   │   ├── user/  task/  category/  opt/
+│   │   ├── user/  task/  category/  sync/  admin/
 │   ├── rest/middlewares/        # JWT auth, CORS, logging, role guards
 │   ├── util/                    # shared errors & constants
 │   └── docs/                    # generated Swagger spec
@@ -161,10 +163,8 @@ Soul_Shield/
     │   ├── (auth)/               # login, register, reset password
     │   ├── (tabs)/                # home, history, categories, profile, admin
     │   └── task/ category/       # create/edit modals
-    ├── components/                # TaskCard, RewardModal, CounterControls, ...
-    ├── hooks/queries/              # TanStack Query hooks per resource
-    ├── components/                 # TaskCard, RewardModal, BLE modal, charts, …
-    ├── hooks/queries/              # TanStack Query hooks per resource
+    ├── components/                # TaskCard, RewardModal, BLE modal, charts, …
+    ├── hooks/queries/             # TanStack Query hooks per resource
     └── lib/
         ├── db/                    # Drizzle schema + repos - the on-device SQLite store
         ├── background-sync/       # delta pull/push, retry policy, sync-status, reminders resync
@@ -185,23 +185,36 @@ Full interactive docs are served at **`/swagger/index.html`** once the backend i
 | `POST` | `/users/verify-security-answer` | Step 1 of password reset |
 | `POST` | `/users/reset-password` | Step 2 of password reset |
 | `GET` | `/users/me` | Current authenticated user |
+| `DELETE` | `/users/me` | Permanently delete the account and all of its data (`{password}`; not available to admins) |
+| `POST` | `/users/change-password` | Change password while signed in (`{current_password, new_password}`). Signs out every other session and returns `{message, token}`: store the new token |
 | `POST` | `/tasks` | Create a task, optionally with `sub_tasks` |
 | `GET` | `/tasks?date=` | List tasks + status for a given day |
-| `GET` | `/tasks/history?from=&to=` | List tasks + status across a date range |
+| `GET` | `/tasks/history?from=&to=` | List tasks + status across a date range (at most 366 days) |
+| `GET` | `/tasks/stats?days=` | Personal stats: completion rate, streak, favourite category, best weekday (default 365 days) |
 | `PATCH` | `/tasks/{id}` | Update a task; `sub_tasks` replaces the sub-task list if provided |
 | `DELETE` | `/tasks/{id}` | Delete a task (cascades its sub-tasks) |
-| `POST` | `/tasks/{id}/complete` | Toggle a normal or timer task complete for a date (timer client auto-calls this at 00:00, or the user calls it manually) |
+| `POST` | `/tasks/{id}/complete` | Mark a normal or timer task complete for a date (not for tasks with sub-tasks; no future dates) |
+| `POST` | `/tasks/{id}/uncomplete` | Undo a completion for a date (idempotent) |
 | `POST` | `/tasks/{id}/increment` | Add progress to a counter task |
 | `POST` | `/tasks/{taskId}/subtasks/{subTaskId}/complete` | Complete a normal or timer sub-task |
 | `POST` | `/tasks/{taskId}/subtasks/{subTaskId}/increment` | Add progress to a counter sub-task |
+| `POST` | `/tasks/{taskId}/subtasks/{subTaskId}/uncomplete` | Undo a sub-task completion |
 | `POST` | `/categories` | Create a category |
 | `GET` | `/categories` | List categories |
 | `PATCH` | `/categories/{id}` | Update a category |
 | `DELETE` | `/categories/{id}` | Delete a category |
 | `GET` | `/sync?since=` | Delta pull — every task/category/sub-task/completion changed (including soft-deleted) since the given cursor, for the mobile app's local-first SQLite store |
-| `POST` | `/sync` | Delta push — a batch of client-side changes (`upsert`/`delete`/`increment`), each resolved by uuid and returned as `accepted`/`superseded`/`rejected`; concurrent counter increments sum instead of overwriting |
+| `POST` | `/sync` | Delta push — a batch of up to 500 client-side changes (`upsert`/`delete`/`increment`), applied in one transaction, each resolved by uuid and returned as `accepted`/`superseded`/`rejected`; concurrent counter increments sum instead of overwriting; `base_updated_at` enables real conflict detection |
+| `GET` | `/admin/stats?days=` | Admins only: real usage across all users (default 30 days) |
+| `GET` | `/healthz` | Liveness check (no auth) |
 
-All routes except registration/login/password-reset require `Authorization: JWT <token>`.
+All routes except registration/login/password-reset and `/healthz` require `Authorization: JWT <token>`.
+
+Request/response conventions:
+
+- **`X-Timezone: <IANA zone>`** (e.g. `Asia/Dhaka`): both clients send it, so "today" (default dates, history ranges, the future-date guard) is the user's day. Without it the server uses UTC and allows dates up to today in UTC+14.
+- **Sessions** last 14 days and slide: once a token is a day old, responses carry a renewed one in **`X-Refreshed-Token`**, which clients store. Changing or resetting the password revokes every existing token.
+- Request bodies are limited to 1 MiB (413); every response carries an **`X-Request-ID`** that matches the server log line.
 
 ## 🗄️ Database
 
@@ -294,20 +307,21 @@ go run main.go
 ```
 
 <details>
-<summary>Required environment variables</summary>
+<summary>Environment variables</summary>
 
 | Variable | Description |
 |---|---|
-| `VERSION`, `SERVICENAME` | App metadata |
-| `HTTPPORT` | Port to listen on |
-| `SECRETKEY` | JWT signing secret |
-| `CONN_STRING_FOR_DB` | Postgres connection string (used for the actual connection) |
-| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_ENABLE_SSL_MODE` | Validated at startup |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_EMAIL`, `SMTP_PASSWORD` | Outbound mail (password reset, etc.) |
+| `SECRETKEY` | **Required.** JWT signing secret (32+ random characters) |
+| `CONN_STRING_FOR_DB` | **Required.** Postgres connection URL (e.g. Neon) |
+| `HTTPPORT` | Optional, default `3000`. Local port; hosts such as Render set `PORT` instead |
+| `CORS_ORIGINS` | Optional. Comma-separated browser origins allowed to call the API (`*` = any). Default: `https://soul-shield.vercel.app` plus the Vite dev/preview ports on localhost |
+| `TRUSTED_PROXY_HOPS` | Optional, default `0`. How many reverse proxies append to `X-Forwarded-For`; used to find the real client IP for rate limits (see `util/request.go`). Check your host's header before setting it |
+| `VERSION`, `SERVICENAME` | Optional. Informational metadata |
+| `TEST_DATABASE_URL` | Tests only. A **disposable** Postgres for `go test ./repo/` (the tests truncate every table) |
 
 </details>
 
-Migrations run automatically on startup. Swagger UI: `http://localhost:<HTTPPORT>/swagger/index.html`.
+Migrations run automatically on startup (fine for one instance; if the API is ever scaled out, run them once from a release step instead). The server shuts down gracefully on `SIGTERM`, finishing in-flight requests first. Swagger UI: `http://localhost:<HTTPPORT>/swagger/index.html`.
 
 ### 2. Web client
 
@@ -343,6 +357,23 @@ open any counter task or counter sub-task → tap the **Bluetooth icon** → tap
 `SoulShield-ESP32` once. Every physical button press now adds **+1** to that
 counter — background and lock-screen included. Full guide:
 `Framework/README.md`.
+
+## 🧪 Tests & CI
+
+```bash
+cd soul-shield && go test ./...                  # API unit tests (database tests skip without TEST_DATABASE_URL)
+cd soul-shield-mobile-app && npm test            # mobile unit tests (Node 22.18+)
+cd soul-shield-mobile-app && npm run typecheck
+```
+
+`shared-test-fixtures/` holds cases that BOTH the Go and the TypeScript implementations are tested against (e.g. parent-task status), so the two ports can't drift apart. GitHub Actions (`.github/workflows/ci.yml`) runs build/vet/tests for the API (including the database integration tests in `soul-shield/repo/integration_test.go`, against a throwaway Postgres 16 service), type-check/lint/tests for mobile, and lint/build for web on every push. Point `TEST_DATABASE_URL` only at a disposable database: those tests truncate every table.
+
+## ⚠️ Known limitations
+
+- **Single API instance.** Rate limiters and the push-notification debounce live in memory, so they reset on restart and aren't shared between instances.
+- **ESP32 button pairing is not authenticated.** Any nearby phone running the app can connect to the counter button over BLE (the button only sends "+1" taps; it holds no account data).
+- **Mobile bundler workaround:** `soul-shield-mobile-app/metro.config.js` aliases `react-native/setup-env` until `@expo/metro-runtime` ships a stable release with the fix (only canary builds after 6.1.2 so far). Remove it then and run `npx expo start --clear`.
+- Removed features: the Quran bookmark/last-read API and the email-OTP endpoints are gone from the server. Their database tables are kept (no destructive migration).
 
 ## 🗺️ Roadmap
 

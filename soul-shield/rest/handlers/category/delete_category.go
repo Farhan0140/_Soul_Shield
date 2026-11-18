@@ -1,7 +1,9 @@
 package category
 
 import (
+	"errors"
 	"net/http"
+	"soulsheld/rest/middlewares"
 	"soulsheld/util"
 	"strconv"
 )
@@ -19,7 +21,7 @@ import (
 // @Failure 404 {object} ErrorResponse
 // @Router /categories/{id} [delete]
 func (h *Handler) DeleteCategory(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserID(r)
+	userID, ok := middlewares.UserID(r)
 	if !ok {
 		unauthorized(w)
 		return
@@ -33,16 +35,18 @@ func (h *Handler) DeleteCategory(w http.ResponseWriter, r *http.Request) {
 
 	err = h.categoryRepo.Delete(id, userID)
 	if err != nil {
-		switch err {
-		case util.ErrCategoryNotFound:
+		switch {
+		case errors.Is(err, util.ErrCategoryNotFound):
 			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusNotFound)
-		case util.ErrForbidden:
+		case errors.Is(err, util.ErrForbidden):
 			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusForbidden)
 		default:
 			util.SendError(w, map[string]string{"error": "Failed to delete category"}, http.StatusInternalServerError)
 		}
 		return
 	}
+
+	h.pushRepo.NotifyDataChange(userID)
 
 	util.SendData(w, map[string]string{"message": "Category deleted successfully"}, http.StatusOK)
 }

@@ -2,11 +2,10 @@ package task
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
+	"soulsheld/rest/middlewares"
 	"soulsheld/util"
 	"strconv"
-	"time"
 )
 
 // IncrementTask godoc
@@ -23,7 +22,7 @@ import (
 // @Failure 400 {object} ErrorResponse
 // @Router /tasks/{id}/increment [post]
 func (h *Handler) IncrementTask(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserID(r)
+	userID, ok := middlewares.UserID(r)
 	if !ok {
 		unauthorized(w)
 		return
@@ -45,29 +44,14 @@ func (h *Handler) IncrementTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	date := time.Now()
-	if req.Date != "" {
-		parsed, err := time.Parse("2006-01-02", req.Date)
-		if err != nil {
-			util.SendError(w, map[string]string{"error": "Invalid date format"}, http.StatusBadRequest)
-			return
-		}
-		date = parsed
+	date, dateOK := actionDate(w, r, req.Date)
+	if !dateOK {
+		return
 	}
 
 	completion, err := h.taskRepo.Increment(id, userID, date, req.Amount)
 	if err != nil {
-		fmt.Println(err)
-		switch err {
-		case util.ErrTaskNotFound:
-			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusNotFound)
-		case util.ErrForbidden:
-			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusForbidden)
-		case util.ErrNotCounterTask, util.ErrTaskNotScheduled:
-			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
-		default:
-			util.SendError(w, map[string]string{"error": "Failed to update progress"}, http.StatusInternalServerError)
-		}
+		sendCompletionError(w, r, err, "Failed to update progress")
 		return
 	}
 

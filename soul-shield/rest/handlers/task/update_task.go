@@ -3,8 +3,11 @@ package task
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
+	"log/slog"
 	"net/http"
 	"soulsheld/repo"
+	"soulsheld/rest/middlewares"
 	"soulsheld/util"
 	"strconv"
 )
@@ -25,12 +28,12 @@ import (
 // @Failure 404 {object} ErrorResponse
 // @Router /tasks/{id} [patch]
 func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserID(r)
+	userID, ok := middlewares.UserID(r)
 	if !ok {
 		unauthorized(w)
 		return
 	}
-	role := getRole(r)
+	role := middlewares.Role(r)
 
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
@@ -42,6 +45,21 @@ func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		util.SendError(w, map[string]string{"error": "Invalid Request Body"}, http.StatusBadRequest)
 		return
+	}
+
+	if req.Title != nil {
+		title, err := validateTitle(*req.Title)
+		if err != nil {
+			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
+			return
+		}
+		req.Title = &title
+	}
+	if req.RecurrenceType != nil {
+		if err := validateRecurrenceType(*req.RecurrenceType); err != nil {
+			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
+			return
+		}
 	}
 
 	if req.ReminderTime != nil && *req.ReminderTime != "" && !reminderTimePattern.MatchString(*req.ReminderTime) {
@@ -87,30 +105,10 @@ func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 		ReminderTime:    req.ReminderTime,
 	}
 
-	updated, err := h.taskRepo.Update(id, updates, userID, role)
-	if err != nil {
-		switch err {
-		case util.ErrTaskNotFound:
-			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusNotFound)
-		case util.ErrForbidden:
-			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusForbidden)
-		case util.ErrInvalidRecurrence:
-			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
-		case util.ErrCategoryNotFound:
-			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
-		case util.ErrInvalidCounterTarget:
-			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
-		case util.ErrInvalidTimerDuration:
-			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
-		default:
-			util.SendError(w, map[string]string{"error": "Failed to update task"}, http.StatusInternalServerError)
-		}
-		return
-	}
-
-	var subTasks []repo.SubTask
+	// nil = "leave the sub-tasks alone"; a non-nil (even empty) list replaces them.
+	var subInputs []repo.SubTask
 	if req.SubTasks != nil {
-		inputs := make([]repo.SubTask, len(*req.SubTasks))
+		subInputs = make([]repo.SubTask, len(*req.SubTasks))
 		for i, st := range *req.SubTasks {
 			stType := st.TaskType
 			if stType == "" {
@@ -120,32 +118,48 @@ func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 			if st.ID != nil {
 				sub.ID = *st.ID
 			}
+			// description follows full-row replace semantics (replaceSubTasksTx
+			// assigns the column directly): the web form always includes it,
+			// absent/null both clear. Matches the /sync push path.
 			if st.Description != nil {
 				sub.Description = sql.NullString{String: *st.Description, Valid: true}
 			}
-			// description follows full-row replace semantics (ReplaceForParent
-			// assigns the column directly): the web form always includes it,
-			// absent/null both clear. Matches the /sync push path.
 			if st.TargetCount != nil {
 				sub.TargetCount = sql.NullInt32{Int32: *st.TargetCount, Valid: true}
 			}
 			if st.DurationSeconds != nil {
 				sub.DurationSeconds = sql.NullInt32{Int32: *st.DurationSeconds, Valid: true}
 			}
-			inputs[i] = sub
+			subInputs[i] = sub
 		}
+	}
 
-		subTasks, err = h.subTaskRepo.ReplaceForParent(id, inputs)
-		if err != nil {
-			switch err {
-			case util.ErrSubTaskTitleRequired, util.ErrInvalidCounterTarget, util.ErrInvalidTimerDuration, util.ErrSubTaskNotFound:
-				util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
-			default:
-				util.SendError(w, map[string]string{"error": "Failed to update sub-tasks"}, http.StatusInternalServerError)
-			}
-			return
+	// Task fields + sub-task list in ONE transaction (B9).
+	updated, subTasks, err := h.taskRepo.UpdateWithSubTasks(id, updates, userID, role, subInputs)
+	if err != nil {
+		switch {
+		case errors.Is(err, util.ErrTaskNotFound):
+			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusNotFound)
+		case errors.Is(err, util.ErrForbidden):
+			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusForbidden)
+		case errors.Is(err, util.ErrInvalidRecurrence),
+			errors.Is(err, util.ErrCategoryNotFound),
+			errors.Is(err, util.ErrInvalidCounterTarget),
+			errors.Is(err, util.ErrInvalidTimerDuration),
+			errors.Is(err, util.ErrSubTaskTitleRequired),
+			errors.Is(err, util.ErrSubTaskNotFound):
+			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
+		case errors.Is(err, util.ErrInvalidInput):
+			slog.Warn("update task: database refused input", "task_id", id, "error", err)
+			util.SendError(w, map[string]string{"error": util.ErrInvalidInput.Error()}, http.StatusBadRequest)
+		default:
+			slog.Error("update task failed", "task_id", id, "error", err)
+			util.SendError(w, map[string]string{"error": "Failed to update task"}, http.StatusInternalServerError)
 		}
-	} else {
+		return
+	}
+
+	if req.SubTasks == nil {
 		byParent, listErr := h.subTaskRepo.ListByParentIDs([]int64{id})
 		if listErr != nil {
 			util.SendError(w, map[string]string{"error": "Failed to load sub-tasks"}, http.StatusInternalServerError)

@@ -9,8 +9,10 @@ import { ActivityIndicator, AppState, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
-import { runForegroundSyncIfDue, runFullBackgroundSync } from '@/lib/background-sync/sync';
+import { runForegroundSyncIfDue } from '@/lib/background-sync/sync';
 import { registerBackgroundSync } from '@/lib/background-sync/task';
+// Side effect: defines + registers the data-only push task at module scope.
+import '@/lib/background-sync/data-change-task';
 import { ensureTimerNotificationChannel } from '@/lib/timer/notifications';
 import { ensureTimerTaskNotificationChannel } from '@/lib/timer-task/notifications';
 import { ArabicFontProvider } from '@/context/arabic-font-context';
@@ -64,6 +66,10 @@ function RootNavigator() {
         <Stack.Screen name="archived" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="timer" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="timer-task" options={{ presentation: 'modal', headerShown: false }} />
+      <Stack.Screen
+          name="account"
+          options={{ presentation: 'modal', headerShown: false }}
+        />
       </Stack.Protected>
     </Stack>
   );
@@ -129,21 +135,12 @@ export default function RootLayout() {
         },
       });
     });
-    // Cross-device sync alerts (#19): a "data-change" push (sent by the API
-    // when tasks change via the web/REST path) triggers an immediate catch-up
-    // sync. Coalescing/single-flight + the online checks live inside
-    // runFullBackgroundSync; on failure the next trigger picks it up, and the
-    // sync status indicator surfaces persistent failures.
-    const dataChangeSubscription = Notifications.addNotificationReceivedListener((notification) => {
-      const data = notification.request.content.data as { type?: string } | undefined;
-      if (data?.type !== 'data-change') return;
-      runFullBackgroundSync(queryClient).catch(() => {});
-    });
+    // Cross-device "data-change" pushes are data-only, so they never reach
+    // a listener here: they run lib/background-sync/data-change-task.ts.
 
     return () => {
       appStateSubscription.remove();
       notificationSubscription.remove();
-      dataChangeSubscription.remove();
     };
   }, []);
 

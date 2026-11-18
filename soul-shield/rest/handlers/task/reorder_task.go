@@ -2,7 +2,9 @@ package task
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"soulsheld/rest/middlewares"
 	"soulsheld/util"
 )
 
@@ -24,7 +26,7 @@ import (
 // @Failure 409 {object} ErrorResponse
 // @Router /tasks/reorder [patch]
 func (h *Handler) ReorderTasks(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserID(r)
+	userID, ok := middlewares.UserID(r)
 	if !ok {
 		unauthorized(w)
 		return
@@ -38,10 +40,10 @@ func (h *Handler) ReorderTasks(w http.ResponseWriter, r *http.Request) {
 
 	reordered, err := h.taskRepo.Reorder(userID, req.CategoryID, req.OrderedIDs)
 	if err != nil {
-		switch err {
-		case util.ErrEmptyOrder:
+		switch {
+		case errors.Is(err, util.ErrEmptyOrder):
 			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
-		case util.ErrOrderMismatch:
+		case errors.Is(err, util.ErrOrderMismatch):
 			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusConflict)
 		default:
 			util.SendError(w, map[string]string{"error": "Failed to reorder tasks"}, http.StatusInternalServerError)
@@ -53,6 +55,8 @@ func (h *Handler) ReorderTasks(w http.ResponseWriter, r *http.Request) {
 	for i := range reordered {
 		response[i] = toTaskResponse(&reordered[i], nil)
 	}
+
+	h.pushRepo.NotifyDataChange(userID)
 
 	util.SendData(w, response, http.StatusOK)
 }

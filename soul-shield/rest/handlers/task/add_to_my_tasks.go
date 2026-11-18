@@ -2,8 +2,10 @@ package task
 
 import (
 	"database/sql"
+	"errors"
 	"net/http"
 	"soulsheld/repo"
+	"soulsheld/rest/middlewares"
 	"soulsheld/util"
 	"strconv"
 )
@@ -25,7 +27,7 @@ import (
 // @Failure 404 {object} ErrorResponse
 // @Router /tasks/{id}/add-to-my-tasks [post]
 func (h *Handler) AddToMyTasks(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserID(r)
+	userID, ok := middlewares.UserID(r)
 	if !ok {
 		unauthorized(w)
 		return
@@ -39,8 +41,8 @@ func (h *Handler) AddToMyTasks(w http.ResponseWriter, r *http.Request) {
 
 	source, err := h.taskRepo.GetByID(sourceID)
 	if err != nil {
-		switch err {
-		case util.ErrTaskNotFound:
+		switch {
+		case errors.Is(err, util.ErrTaskNotFound):
 			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusNotFound)
 		default:
 			util.SendError(w, map[string]string{"error": "Failed to fetch task"}, http.StatusInternalServerError)
@@ -67,7 +69,7 @@ func (h *Handler) AddToMyTasks(w http.ResponseWriter, r *http.Request) {
 // @Failure 404 {object} ErrorResponse
 // @Router /tasks/by-uuid/{uuid}/add-to-my-tasks [post]
 func (h *Handler) AddToMyTasksByUUID(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserID(r)
+	userID, ok := middlewares.UserID(r)
 	if !ok {
 		unauthorized(w)
 		return
@@ -75,8 +77,8 @@ func (h *Handler) AddToMyTasksByUUID(w http.ResponseWriter, r *http.Request) {
 
 	source, err := h.taskRepo.GetByUUID(r.PathValue("uuid"))
 	if err != nil {
-		switch err {
-		case util.ErrTaskNotFound:
+		switch {
+		case errors.Is(err, util.ErrTaskNotFound):
 			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusNotFound)
 		default:
 			util.SendError(w, map[string]string{"error": "Failed to fetch task"}, http.StatusInternalServerError)

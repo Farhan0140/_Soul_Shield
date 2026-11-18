@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
-import { Sparkles, X, ArrowRight } from 'lucide-react';
+import { X, ArrowRight } from 'lucide-react';
 
 const TIPS = [
   {
@@ -38,7 +38,7 @@ export default function OnboardingTooltip() {
     }
   }, []);
 
-  const dismiss = (completed = false) => {
+  const dismiss = () => {
     setShow(false);
     localStorage.setItem('soulshield_onboarding_seen', '1');
   };
@@ -47,7 +47,7 @@ export default function OnboardingTooltip() {
     if (step < TIPS.length - 1) {
       setStep(s => s + 1);
     } else {
-      dismiss(true);
+      dismiss();
     }
   };
 

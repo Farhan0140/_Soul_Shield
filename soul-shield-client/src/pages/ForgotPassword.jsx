@@ -1,12 +1,13 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { m, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, ArrowRight, ArrowLeft, CheckCircle2, KeyRound, ShieldCheck } from 'lucide-react';
+import { Mail, ArrowRight, ArrowLeft, CheckCircle2, KeyRound, ShieldCheck } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { useToast } from '../components/Toast';
 import AuthLayout from './AuthLayout';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
+import { validateNewPassword } from '../utils/validation';
 
 const STEPS = [
   { key: 'email',  title: 'Reset your password',  subtitle: "Enter your email to continue." },
@@ -42,14 +43,12 @@ export default function ForgotPassword() {
 
   const [step, setStep] = useState(0);
   const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [security_answer, setSecurityAnswer] = useState('');
   const [resetToken, setResetToken] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
-  const otpRefs = useRef([]);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -126,7 +125,8 @@ export default function ForgotPassword() {
   const handleReset = async (e) => {
     e.preventDefault();
     if (!password) return setErrors({ password: "Please enter a new password." });
-    if (password.length < 6) return setErrors({ password: "At least 6 characters — keep it safe." });
+    const passwordError = validateNewPassword(password);
+    if (passwordError) return setErrors({ password: passwordError });
     setErrors({});
     setLoading(true);
     try {

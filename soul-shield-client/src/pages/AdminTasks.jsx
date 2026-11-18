@@ -11,7 +11,7 @@ import AdminTaskRow from '../components/AdminTaskRow';
 import TaskFormModal from '../components/TaskFormModal';
 import ConfirmModal from '../components/ConfirmModal';
 import BulkActionBar from '../components/BulkActionBar';
-import LeaderboardPreview from '../components/LeaderboardPreview';
+import CommunityOverview from '../components/CommunityOverview';
 import Button from '../components/ui/Button';
 import SkeletonCard from '../components/SkeletonCard';
 
@@ -36,7 +36,7 @@ const child = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } };
 
 export default function AdminTasks() {
   const toast = useToast();
-  const { tasks, usage, loading, error, reload, updateTask, removeTask } = useAdminTasks();
+  const { tasks, usage, overview, loading, error, reload, updateTask, removeTask } = useAdminTasks();
 
   // UI state
   const [search, setSearch] = useState('');
@@ -168,9 +168,10 @@ export default function AdminTasks() {
   // ---------- Summary stats ----------
   const summaryStats = useMemo(() => {
     const totalCompletions = Object.values(usage).reduce((s, u) => s + u.completions, 0);
-    const avgRate = tasks.length === 0 ? 0 : Math.round(
-      Object.values(usage).reduce((s, u) => s + u.completionRate, 0) / Math.max(1, Object.keys(usage).length)
-    );
+    // Overall rate = all completions / all opportunities (not an unweighted
+    // mean of per-task rates, which let a rarely-scheduled task skew it).
+    const totalOpportunities = Object.values(usage).reduce((s, u) => s + (u.total || 0), 0);
+    const avgRate = totalOpportunities === 0 ? 0 : Math.min(100, Math.round((totalCompletions / totalOpportunities) * 100));
     return {
       totalTasks: tasks.length,
       totalCompletions,
@@ -365,7 +366,7 @@ export default function AdminTasks() {
                 <span className="w-6 h-0.5 bg-border" />
                 Community
               </h2>
-              <LeaderboardPreview />
+              <CommunityOverview overview={overview} />
             </m.div>
           )}
         </>

@@ -79,6 +79,22 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, manager *middlewares.Manage
 	)
 
 	mux.Handle(
+		"GET /tasks/stats",
+		manager.With(
+			http.HandlerFunc(h.PersonalStats),
+			mw.AuthenticateJWT,
+		),
+	)
+
+	mux.Handle(
+		"POST /tasks/{id}/uncomplete",
+		manager.With(
+			http.HandlerFunc(h.UncompleteTask),
+			mw.AuthenticateJWT,
+		),
+	)
+
+	mux.Handle(
 		"POST /tasks/{id}/increment",
 		manager.With(
 			http.HandlerFunc(h.IncrementTask),
@@ -106,6 +122,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, manager *middlewares.Manage
 		"POST /tasks/{taskId}/subtasks/{subTaskId}/complete",
 		manager.With(
 			http.HandlerFunc(h.CompleteSubTask),
+			mw.AuthenticateJWT,
+		),
+	)
+
+	mux.Handle(
+		"POST /tasks/{taskId}/subtasks/{subTaskId}/uncomplete",
+		manager.With(
+			http.HandlerFunc(h.UncompleteSubTask),
 			mw.AuthenticateJWT,
 		),
 	)

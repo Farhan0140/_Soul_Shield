@@ -26,11 +26,11 @@ export function CategoryRow({ category, onPress, onEdit, onDelete }: CategoryRow
         {category.name}
       </ThemedText>
       {/* TODO this button is for editing this category */}
-      <Pressable onPress={onEdit} hitSlop={8} style={styles.actionButton}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Edit category" onPress={onEdit} hitSlop={8} style={styles.actionButton}>
         <IconSymbol name="pencil" size={18} color={mutedColor} />
       </Pressable>
       {/* TODO this button is for deleting this category */}
-      <Pressable onPress={onDelete} hitSlop={8} style={styles.actionButton}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Delete category" onPress={onDelete} hitSlop={8} style={styles.actionButton}>
         <IconSymbol name="trash" size={18} color={dangerColor} />
       </Pressable>
     </Pressable>

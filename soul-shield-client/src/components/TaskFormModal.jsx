@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
-import { X, Loader2, Plus } from 'lucide-react';
+import { X, Plus } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from './Toast';
@@ -42,6 +42,7 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
   useEffect(() => {
     if (open) {
       if (task) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- reset the form when the modal opens
         setForm({
           title: task.title || '',
           description: task.description || '',

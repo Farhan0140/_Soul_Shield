@@ -4,7 +4,7 @@ import { ChevronDown, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { prettyDate, fmtDate } from '../hooks/useTasks';
 import TaskCard from './TaskCard';
 
-export default function DayGroup({ date, tasks, onNavigateToDay }) {
+export default function DayGroup({ date, tasks }) {
   const [open, setOpen] = useState(true);
 
   const completed = tasks.filter(t => t.status === 'completed').length;

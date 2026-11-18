@@ -46,6 +46,7 @@ export default function CategoryDetail() {
 
   useEffect(() => {
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loading flag for the fetch this effect starts
     setLoading(true);
     setError(null);
     getTasks(date)

@@ -386,6 +386,8 @@ export function TaskForm({
                       </View>
                       {/* TODO these buttons move this sub-task draft up/down within the list */}
                       <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Move sub-task up"
                         onPress={() => moveSubTaskDraft(index, -1)}
                         disabled={index === 0}
                         hitSlop={8}
@@ -393,6 +395,8 @@ export function TaskForm({
                         <IconSymbol name="chevron.up" size={18} color={mutedColor} />
                       </Pressable>
                       <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Move sub-task down"
                         onPress={() => moveSubTaskDraft(index, 1)}
                         disabled={index === subTaskDrafts.length - 1}
                         hitSlop={8}
@@ -401,6 +405,8 @@ export function TaskForm({
                       </Pressable>
                       {/* TODO this button is for removing this sub-task draft from the form */}
                       <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Remove sub-task"
                         onPress={() => removeSubTaskDraft(draft.key)}
                         hitSlop={8}
                         style={styles.subTaskRemove}>

@@ -64,8 +64,11 @@ export default function Categories() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loading flag for the fetch this effect starts
     load();
     loadUsageCounts();
+    // load/loadUsageCounts are recreated each render but only use these two (stable) API functions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getCategories, getTasksHistory]);
 
   const handleCreated = (newCat) => {

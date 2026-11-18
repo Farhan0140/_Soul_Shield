@@ -1,7 +1,9 @@
 package task
 
 import (
+	"errors"
 	"net/http"
+	"soulsheld/rest/middlewares"
 	"soulsheld/util"
 	"strconv"
 )
@@ -19,12 +21,12 @@ import (
 // @Failure 404 {object} ErrorResponse
 // @Router /tasks/{id} [delete]
 func (h *Handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserID(r)
+	userID, ok := middlewares.UserID(r)
 	if !ok {
 		unauthorized(w)
 		return
 	}
-	role := getRole(r)
+	role := middlewares.Role(r)
 
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
@@ -34,10 +36,10 @@ func (h *Handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 
 	err = h.taskRepo.Delete(id, userID, role)
 	if err != nil {
-		switch err {
-		case util.ErrTaskNotFound:
+		switch {
+		case errors.Is(err, util.ErrTaskNotFound):
 			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusNotFound)
-		case util.ErrForbidden:
+		case errors.Is(err, util.ErrForbidden):
 			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusForbidden)
 		default:
 			util.SendError(w, map[string]string{"error": "Failed to delete task"}, http.StatusInternalServerError)

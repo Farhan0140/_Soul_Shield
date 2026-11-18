@@ -3,9 +3,12 @@ package task
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"soulsheld/repo"
+	"soulsheld/rest/middlewares"
 	"soulsheld/util"
 )
 
@@ -31,12 +34,12 @@ var reminderTimePattern = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`)
 // @Failure 403 {object} ErrorResponse
 // @Router /tasks [post]
 func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserID(r)
+	userID, ok := middlewares.UserID(r)
 	if !ok {
 		unauthorized(w)
 		return
 	}
-	role := getRole(r)
+	role := middlewares.Role(r)
 
 	var req CreateTaskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -45,8 +48,17 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ---- বেসিক ভ্যালিডেশন ----
-	if req.Title == "" {
-		util.SendError(w, map[string]string{"error": "Title is required"}, http.StatusBadRequest)
+	title, err := validateTitle(req.Title)
+	if err != nil {
+		util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
+		return
+	}
+	req.Title = title
+	if req.RecurrenceType == "" {
+		req.RecurrenceType = util.RecurrenceCustom // the column's default
+	}
+	if err := validateRecurrenceType(req.RecurrenceType); err != nil {
+		util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
 		return
 	}
 
@@ -158,30 +170,10 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	copy(days, req.RecurrenceDays)
 	newTask.RecurrenceDays = days
 
-	// ---- Database এ insert ----
-	created, err := h.taskRepo.Create(newTask)
-	if err != nil {
-		switch err {
-		case util.ErrInvalidRecurrence:
-			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
-		case util.ErrInvalidCounterTarget:
-			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
-		case util.ErrInvalidTimerDuration:
-			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
-		case util.ErrCategoryNotFound:
-			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
-		case util.ErrForbidden:
-			util.SendError(w, map[string]string{"error": "You cannot use this category"}, http.StatusForbidden)
-		default:
-			util.SendError(w, map[string]string{"error": "Failed to create task"}, http.StatusInternalServerError)
-		}
-		return
-	}
-
-	// ---- sub_tasks থাকলে attach করি; ব্যর্থ হলে orphan parent task রেখে দিব না, delete করে দিব ----
-	var createdSubTasks []repo.SubTask
+	// ---- sub-task inputs ----
+	var subInputs []repo.SubTask
 	if len(req.SubTasks) > 0 {
-		inputs := make([]repo.SubTask, len(req.SubTasks))
+		subInputs = make([]repo.SubTask, len(req.SubTasks))
 		for i, st := range req.SubTasks {
 			stType := st.TaskType
 			if stType == "" {
@@ -197,20 +189,30 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 			if st.DurationSeconds != nil {
 				sub.DurationSeconds = sql.NullInt32{Int32: *st.DurationSeconds, Valid: true}
 			}
-			inputs[i] = sub
+			subInputs[i] = sub
 		}
+	}
 
-		createdSubTasks, err = h.subTaskRepo.ReplaceForParent(created.ID, inputs)
-		if err != nil {
-			_ = h.taskRepo.Delete(created.ID, userID, role)
-			switch err {
-			case util.ErrSubTaskTitleRequired, util.ErrInvalidCounterTarget, util.ErrInvalidTimerDuration:
-				util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
-			default:
-				util.SendError(w, map[string]string{"error": "Failed to create sub-tasks"}, http.StatusInternalServerError)
-			}
-			return
+	// ---- Database এ insert (task + sub-tasks in one transaction) ----
+	created, createdSubTasks, err := h.taskRepo.CreateWithSubTasks(newTask, subInputs)
+	if err != nil {
+		switch {
+		case errors.Is(err, util.ErrInvalidRecurrence),
+			errors.Is(err, util.ErrInvalidCounterTarget),
+			errors.Is(err, util.ErrInvalidTimerDuration),
+			errors.Is(err, util.ErrCategoryNotFound),
+			errors.Is(err, util.ErrSubTaskTitleRequired):
+			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
+		case errors.Is(err, util.ErrInvalidInput):
+			slog.Warn("create task: database refused input", "user_id", userID, "error", err)
+			util.SendError(w, map[string]string{"error": util.ErrInvalidInput.Error()}, http.StatusBadRequest)
+		case errors.Is(err, util.ErrForbidden):
+			util.SendError(w, map[string]string{"error": "You cannot use this category"}, http.StatusForbidden)
+		default:
+			slog.Error("create task failed", "user_id", userID, "error", err)
+			util.SendError(w, map[string]string{"error": "Failed to create task"}, http.StatusInternalServerError)
 		}
+		return
 	}
 
 	h.pushRepo.NotifyDataChange(userID)

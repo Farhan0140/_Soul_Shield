@@ -2,6 +2,8 @@ package user
 
 import (
 	"encoding/json"
+	"errors"
+	"log/slog"
 	"net/http"
 	"soulsheld/util"
 )
@@ -18,6 +20,7 @@ import (
 // @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
+// @Failure 429 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /users/reset-password [post]
 func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
@@ -38,36 +41,17 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// The reset_token is only issued after a successful /users/verify-security-answer call
-	// (see verify_security_answer.go), so its presence + validity IS the identity check here —
-	// this replaced the old commented-out OTP-verified check below.
-	// verified, err := h.otpRepo.IsVerified(
-	// 	req.Email,
-	// )
+	// The reset_token is only issued after a successful
+	// /users/verify-security-answer call (see verify_security_answer.go), so
+	// its presence + validity IS the identity check here.
+	if err := util.ValidateNewPassword(req.NewPassword); err != nil {
+		util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
+		return
+	}
 
-	// if err != nil {
-	// 	util.SendError(
-	// 		w,
-	// 		map[string]string{
-	// 			"error": "Email verification required",
-	// 		},
-	// 		http.StatusBadRequest,
-	// 	)
-
-	// 	return
-	// }
-
-	// if !verified {
-	// 	util.SendError(
-	// 		w,
-	// 		map[string]string{
-	// 			"error": "OTP not verified",
-	// 		},
-	// 		http.StatusBadRequest,
-	// 	)
-
-	// 	return
-	// }
+	if rejectIfRateLimited(w, rateLimitCheck{h.limiters.resetPasswordByIP, util.ClientIP(r)}) {
+		return
+	}
 
 	claims, err := util.VerifyResetPasswordJWT(h.cnf.SecretKey, req.ResetToken)
 	if err != nil {
@@ -82,20 +66,19 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.userRepo.Update(
-		claims.Email,
-		req.NewPassword,
-	)
-
-	if err != nil {
-		util.SendError(
-			w,
-			map[string]string{
-				"error": err.Error(),
-			},
-			http.StatusBadRequest,
-		)
-
+	err = h.userRepo.ResetPassword(claims.Email, claims.TokenVersion, req.NewPassword)
+	switch {
+	case err == nil:
+	case errors.Is(err, util.ErrInvalidResetToken):
+		// Already used (the first reset bumped token_version), or the account
+		// changed its password since the token was issued.
+		util.SendError(w, map[string]string{
+			"error": "This reset link has already been used. Please verify your security answer again.",
+		}, http.StatusUnauthorized)
+		return
+	default:
+		slog.Error("reset password failed", "error", err)
+		util.SendError(w, map[string]string{"error": "Internal Server Error"}, http.StatusInternalServerError)
 		return
 	}
 

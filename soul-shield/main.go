@@ -6,8 +6,6 @@
 // @contact.name Farhan
 // @contact.email farhannadim0000@gmail.com
 
-// @license.name MIT
-
 // @host localhost:3000
 // @BasePath /
 // @schemes http

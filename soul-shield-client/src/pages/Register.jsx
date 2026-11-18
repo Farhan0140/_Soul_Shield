@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { m, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, User, ArrowRight, ArrowLeft, ShieldCheck, CheckCircle2, KeyRound } from 'lucide-react';
@@ -8,6 +8,7 @@ import { useToast } from '../components/Toast';
 import AuthLayout from './AuthLayout';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
+import { validateEmail, validateFullName, validateNewPassword } from '../utils/validation';
 
 const STEPS = [
   { key: 'email',    title: "Let's start with your email",  subtitle: "Enter your email to get started." },
@@ -44,14 +45,12 @@ export default function Register() {
 
   const [step, setStep] = useState(0);
   const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [full_name, setFullName] = useState('');
   const [password, setPassword] = useState('');
   const [security_answer, setSecurityAnswer] = useState('');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0); // resend timer
-  const otpRefs = useRef([]);
 
   // Resend cooldown timer
   useEffect(() => {
@@ -63,8 +62,8 @@ export default function Register() {
   // ---------- STEP 1: Continue with email (OTP send removed) ----------
   const handleSendOtp = async (e) => {
     e?.preventDefault?.();
-    if (!email) return setErrors({ email: "We need your email to continue." });
-    if (!/\S+@\S+\.\S+/.test(email)) return setErrors({ email: "That doesn't look like a valid email." });
+    const emailError = validateEmail(email);
+    if (emailError) return setErrors({ email: emailError });
     setErrors({});
     setLoading(true);
     try {
@@ -133,9 +132,10 @@ export default function Register() {
     e.preventDefault();
     const errs = {};
     const trimmedAnswer = security_answer.trim();
-    if (!full_name.trim()) errs.name = "What should we call you?";
-    if (!password) errs.password = "Please choose a password.";
-    else if (password.length < 6) errs.password = "At least 6 characters — keep it safe.";
+    const nameError = validateFullName(full_name);
+    if (nameError) errs.name = nameError;
+    const passwordError = validateNewPassword(password);
+    if (passwordError) errs.password = passwordError;
     if (!trimmedAnswer) errs.security_answer = "Please set a security answer — you'll need it to reset your password.";
     else if (trimmedAnswer.length < 3) errs.security_answer = "At least 3 characters, please.";
     else if (trimmedAnswer.length > 100) errs.security_answer = "Keep it under 100 characters.";
@@ -144,8 +144,8 @@ export default function Register() {
 
     setLoading(true);
     try {
-      await registerUser(full_name, email, password, trimmedAnswer);
-      await login(email, password);
+      await registerUser(full_name.trim(), email.trim(), password, trimmedAnswer);
+      await login(email.trim(), password);
       toast.success("Account created! Welcome to SoulShield 🌟");
       navigate('/', { replace: true });
     } catch (err) {

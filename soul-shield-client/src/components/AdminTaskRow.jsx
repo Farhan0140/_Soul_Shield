@@ -1,5 +1,5 @@
 import { m } from 'framer-motion';
-import { Edit2, Trash2, Shield, Tag, Calendar, Repeat, Check, X } from 'lucide-react';
+import { Edit2, Trash2, Shield, Tag, Calendar, Repeat, Check } from 'lucide-react';
 import UsageBadge from './UsageBadge';
 
 const RECURRENCE_LABELS = {
@@ -35,6 +35,9 @@ export default function AdminTaskRow({ task, usage, selected, onSelect, onEdit, 
         <m.button
           whileTap={{ scale: 0.85 }}
           onClick={() => onSelect(!selected)}
+          role="checkbox"
+          aria-checked={selected}
+          aria-label="Select task"
           className={`mt-1 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all
             ${selected ? 'bg-primary border-primary' : 'border-border hover:border-primary'}
           `}

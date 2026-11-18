@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { m } from 'framer-motion';
 import {
   User, Mail, Shield, LogOut, KeyRound, Target, Flame, Trophy,
-  Sparkles, Calendar, AlertTriangle, Settings, Trash2, Info, Palette
+  Sparkles, Calendar, Trash2, Info, Palette
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
@@ -10,8 +10,8 @@ import { usePersonalStats } from '../hooks/usePersonalStats';
 import AnimatedAvatar from '../components/AnimatedAvatar';
 import StatCard from '../components/StatCard';
 import ChangePasswordModal from '../components/ChangePasswordModal';
+import DeleteAccountModal from '../components/DeleteAccountModal';
 import ConfirmModal from '../components/ConfirmModal';
-import Button from '../components/ui/Button';
 import ThemePicker from '../components/ThemePicker';
 
 const pageVariants = {
@@ -27,6 +27,7 @@ export default function Profile() {
 
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -195,7 +196,7 @@ export default function Profile() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-fg">Change password</p>
-              <p className="text-xs text-muted">We'll send a verification code to your email</p>
+              <p className="text-xs text-muted">Confirm your current password, then pick a new one</p>
             </div>
             <span className="text-xs font-medium text-primary group-hover:translate-x-1 transition-transform">
               Update →
@@ -254,22 +255,26 @@ export default function Profile() {
             </div>
           </button>
 
-          {/* Delete account (placeholder) */}
+          {/* Delete account (admins manage everyone's fixed tasks, so the API refuses self-deletion for them) */}
           <div className="border-t-2 border-danger/20 flex items-center gap-4 p-4 bg-danger/5">
             <div className="w-10 h-10 rounded-xl bg-danger/10 flex items-center justify-center">
               <Trash2 className="w-5 h-5 text-danger" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-fg">Delete account</p>
-              <p className="text-xs text-muted">Permanently remove your account and all data</p>
+              <p className="text-xs text-muted">
+                {isAdmin
+                  ? "Admin accounts can't be deleted from the app"
+                  : 'Permanently remove your account and all data'}
+              </p>
             </div>
             <button
               type="button"
-              disabled
-              className="px-3 py-1.5 rounded-lg bg-danger/10 text-danger/50 text-xs font-semibold cursor-not-allowed"
-              title="Coming soon"
+              disabled={isAdmin}
+              onClick={() => setDeleteModalOpen(true)}
+              className="px-3 py-1.5 rounded-lg bg-danger text-white text-xs font-semibold hover:bg-danger/90 transition-colors disabled:bg-danger/10 disabled:text-danger/50 disabled:cursor-not-allowed"
             >
-              Coming soon
+              Delete…
             </button>
           </div>
         </div>
@@ -287,6 +292,11 @@ export default function Profile() {
       <ChangePasswordModal
         open={passwordModalOpen}
         onClose={() => setPasswordModalOpen(false)}
+      />
+
+      <DeleteAccountModal
+        open={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
       />
 
       <ConfirmModal

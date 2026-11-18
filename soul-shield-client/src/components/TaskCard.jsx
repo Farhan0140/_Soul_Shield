@@ -17,7 +17,7 @@ import TaskDetailsInline from './TaskDetailsInline';
 // action (see CategoryDetail.jsx's 'fixed' pseudo-category).
 export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isReadOnly = false, variant = 'full' }) {
   const { user } = useAuth();
-  const { completeTask, deleteTask, addTaskToMyTasks } = useApi();
+  const { completeTask, uncompleteTask, deleteTask, addTaskToMyTasks } = useApi();
   const toast = useToast();
   const navigate = useNavigate();
   const [completing, setCompleting] = useState(false);
@@ -66,9 +66,15 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
   const opensTimerPage = !isTemplate && isTimer && !hasSubTasks;
 
   const handleToggleComplete = async () => {
-    if (isCounter || isTimer || hasSubTasks || isCompleted || isMissed) return;
+    if (isCounter || isTimer || hasSubTasks || isMissed) return;
     setCompleting(true);
     try {
+      if (isCompleted) {
+        // Tapped by mistake: undo it.
+        const res = await uncompleteTask(task.task_id, fmtDate(date));
+        onUpdate({ ...res, status: 'pending' });
+        return;
+      }
       const res = await completeTask(task.task_id, fmtDate(date));
       onUpdate({ ...res, status: 'completed', reward_text: res.reward_text });
       if (res.reward_text) setRewardText(res.reward_text);
@@ -120,7 +126,8 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
           <m.button
             whileTap={{ scale: 0.85 }}
             onClick={handleToggleComplete}
-            disabled={isCompleted || isMissed || completing || isReadOnly}
+            disabled={isMissed || completing || isReadOnly}
+            aria-label={isCompleted ? `Mark "${task.title}" as not done` : `Mark "${task.title}" as done`}
             className={`mt-0.5 flex-shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all
               ${isCompleted ? 'bg-success border-success' : 'border-border hover:border-primary'}
               disabled:cursor-not-allowed`}

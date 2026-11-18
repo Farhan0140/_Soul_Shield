@@ -2,6 +2,7 @@ package task
 
 import (
 	"net/http"
+	"soulsheld/rest/middlewares"
 	"soulsheld/util"
 )
 
@@ -19,7 +20,7 @@ import (
 // @Failure 401 {object} ErrorResponse
 // @Router /tasks/mine [get]
 func (h *Handler) ListMyTasks(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserID(r)
+	userID, ok := middlewares.UserID(r)
 	if !ok {
 		unauthorized(w)
 		return

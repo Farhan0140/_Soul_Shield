@@ -2,8 +2,8 @@ package task
 
 import (
 	"net/http"
+	"soulsheld/rest/middlewares"
 	"soulsheld/util"
-	"time"
 )
 
 // ListTasks godoc
@@ -18,30 +18,25 @@ import (
 // @Failure 400 {object} ErrorResponse
 // @Router /tasks [get]
 func (h *Handler) ListTasks(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserID(r)
+	userID, ok := middlewares.UserID(r)
 	if !ok {
 		unauthorized(w)
 		return
 	}
 
 	dateStr := r.URL.Query().Get("date")
-	date := time.Now()
-	if dateStr != "" {
-		parsed, err := time.Parse("2006-01-02", dateStr)
-		if err != nil {
-			util.SendError(w, map[string]string{"error": "Invalid date format, use YYYY-MM-DD"}, http.StatusBadRequest)
-			return
-		}
-		date = parsed
+	date, dateOK := viewDate(w, r, dateStr)
+	if !dateOK {
+		return
 	}
 
-	tasks, err := h.taskRepo.ListForDate(userID, date)
+	tasks, err := h.taskRepo.ListForDate(userID, date, util.RequestToday(r))
 	if err != nil {
 		util.SendError(w, map[string]string{"error": "Failed to fetch tasks"}, http.StatusInternalServerError)
 		return
 	}
 
-	if err := h.attachSubTasksForDate(tasks, userID, date); err != nil {
+	if err := h.attachSubTasksForDate(tasks, userID, date, util.RequestToday(r)); err != nil {
 		util.SendError(w, map[string]string{"error": "Failed to fetch tasks"}, http.StatusInternalServerError)
 		return
 	}

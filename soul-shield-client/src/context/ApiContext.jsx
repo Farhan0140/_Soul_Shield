@@ -15,11 +15,18 @@ const getTasksHistory = (fromStr, toStr) => api.get(`/tasks/history?from=${fromS
 const createTask = (payload) => api.post('/tasks', payload);
 const updateTask = (id, payload) => api.patch(`/tasks/${id}`, payload);
 const deleteTask = (id) => api.delete(`/tasks/${id}`);
-const incrementCounter = (taskId, dateStr, incrementValue) => api.post(`/tasks/${taskId}/increment`, { date: dateStr, amount: incrementValue });
+const incrementCounter = (taskId, dateStr, incrementValue, opts) => api.post(`/tasks/${taskId}/increment`, { date: dateStr, amount: incrementValue }, opts);
 const completeTask = (taskId, dateStr) => api.post(`/tasks/${taskId}/complete`, { date: dateStr });
 const addTaskToMyTasks = (taskId) => api.post(`/tasks/${taskId}/add-to-my-tasks`, {});
 const completeSubTask = (taskId, subTaskId, dateStr) => api.post(`/tasks/${taskId}/subtasks/${subTaskId}/complete`, { date: dateStr });
 const incrementSubTask = (taskId, subTaskId, dateStr, incrementValue) => api.post(`/tasks/${taskId}/subtasks/${subTaskId}/increment`, { date: dateStr, amount: incrementValue });
+// Undo a completion (normal/timer tasks; counters are reset by their own flow).
+const uncompleteTask = (taskId, dateStr) => api.post(`/tasks/${taskId}/uncomplete`, { date: dateStr });
+const uncompleteSubTask = (taskId, subTaskId, dateStr) => api.post(`/tasks/${taskId}/subtasks/${subTaskId}/uncomplete`, { date: dateStr });
+// Server-computed personal stats (rate, streak, favourite category, best weekday).
+const getPersonalStats = (days = 365) => api.get(`/tasks/stats?days=${days}`);
+// Admin only: real usage across all users.
+const getAdminStats = (days = 30) => api.get(`/admin/stats?days=${days}`);
 
 // Auth APIs
 // Password reset is a two-step flow: verifySecurityAnswer proves identity and returns a
@@ -28,7 +35,14 @@ const registerUser = (full_name, email, password, security_answer) => api.post('
 const verifySecurityAnswer = (email, security_answer) => api.post('/users/verify-security-answer', { email, security_answer }, { auth: false });
 const resetPassword = (reset_token, new_password) => api.post('/users/reset-password', { reset_token, new_password }, { auth: false });
 const getMe = () => api.get('/users/me');
-const loginUser = (email, password) => api.post('/users/login', { email, password });
+// auth: false - a wrong password must not look like an expired session. retry:
+// logging in is safe to repeat, so it rides through a server cold start.
+const loginUser = (email, password) => api.post('/users/login', { email, password }, { auth: false, retry: true });
+// Signed-in account management. A wrong password answers 400 (not 401).
+// changePassword signs out every other session and returns { message, token }:
+// the caller must store the new token (see ChangePasswordModal).
+const changePassword = (current_password, new_password) => api.post('/users/change-password', { current_password, new_password });
+const deleteAccount = (password) => api.delete('/users/me', { body: { password } });
 
 // Stable across renders — no component state involved — so context consumers
 // (effects, callbacks) don't see a new function identity on every render.
@@ -47,17 +61,24 @@ const apiValue = {
   addTaskToMyTasks,
   completeSubTask,
   incrementSubTask,
+  uncompleteTask,
+  uncompleteSubTask,
+  getPersonalStats,
+  getAdminStats,
   registerUser,
   verifySecurityAnswer,
   resetPassword,
   getMe,
   loginUser,
+  changePassword,
+  deleteAccount,
 };
 
 export function ApiProvider({ children }) {
   return <ApiContext.Provider value={apiValue}>{children}</ApiContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- the provider's hook lives beside it
 export const useApi = () => {
   const context = useContext(ApiContext);
   if (!context) {

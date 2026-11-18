@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { m } from 'framer-motion';
 import { CalendarDays, AlertCircle, Inbox } from 'lucide-react';
 import { useHistory } from '../hooks/useHistory';

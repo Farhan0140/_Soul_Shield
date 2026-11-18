@@ -64,6 +64,32 @@ export function resetPassword(resetToken: string, newPassword: string) {
   return apiPost<void>('/users/reset-password', { reset_token: resetToken, new_password: newPassword });
 }
 
+/** Changes the signed-in user's password (requires the current one). A wrong
+ * current password answers 400, not 401, so it never triggers the global
+ * "session expired" sign-out. Success revokes every existing session (other
+ * devices are signed out) and returns this device's replacement `token`,
+ * which the caller must store. */
+export function changePassword(
+  currentPassword: string,
+  newPassword: string,
+  authToken?: string | null,
+) {
+  return apiPost<{ message: string; token?: string }>(
+    '/users/change-password',
+    { current_password: currentPassword, new_password: newPassword },
+    authToken,
+  );
+}
+
+/** Permanently deletes the signed-in account and all of its server data. */
+export function deleteAccount(password: string, authToken?: string | null) {
+  return apiDeleteWithBody<{ message: string }>(
+    '/users/me',
+    { password },
+    authToken,
+  );
+}
+
 /** Cross-device sync alerts (#19): register/delete this device's Expo push
  * token against the signed-in user. The backend fans a short "data changed"
  * push to all of the user's tokens whenever tasks change via the REST path

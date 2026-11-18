@@ -7,7 +7,7 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 function CloseButton() {
   const color = useThemeColor({}, 'text');
   return (
-    <Pressable onPress={() => router.back()} hitSlop={8}>
+    <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => router.back()} hitSlop={8}>
       <IconSymbol name="xmark" size={22} color={color} />
     </Pressable>
   );

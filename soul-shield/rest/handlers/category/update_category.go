@@ -2,8 +2,11 @@ package category
 
 import (
 	"encoding/json"
+	"errors"
+	"log/slog"
 	"net/http"
 	"soulsheld/repo"
+	"soulsheld/rest/middlewares"
 	"soulsheld/util"
 	"strconv"
 )
@@ -24,7 +27,7 @@ import (
 // @Failure 404 {object} ErrorResponse
 // @Router /categories/{id} [patch]
 func (h *Handler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserID(r)
+	userID, ok := middlewares.UserID(r)
 	if !ok {
 		unauthorized(w)
 		return
@@ -43,6 +46,15 @@ func (h *Handler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Name != nil {
+		name, err := validateName(*req.Name)
+		if err != nil {
+			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
+			return
+		}
+		req.Name = &name
+	}
+
 	// color_hex দিলে ফরম্যাট ঠিক আছে কিনা চেক করছি
 	if req.ColorHex != nil && !hexColorRegex.MatchString(*req.ColorHex) {
 		util.SendError(w, map[string]string{"error": "Invalid hex color format"}, http.StatusBadRequest)
@@ -56,16 +68,23 @@ func (h *Handler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 
 	updated, err := h.categoryRepo.Update(id, updates, userID)
 	if err != nil {
-		switch err {
-		case util.ErrCategoryNotFound:
+		switch {
+		case errors.Is(err, util.ErrCategoryNotFound):
 			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusNotFound)
-		case util.ErrForbidden:
+		case errors.Is(err, util.ErrForbidden):
 			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusForbidden)
+		case errors.Is(err, util.ErrCategoryExists):
+			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusConflict)
+		case errors.Is(err, util.ErrInvalidInput):
+			util.SendError(w, map[string]string{"error": util.ErrInvalidInput.Error()}, http.StatusBadRequest)
 		default:
+			slog.Error("update category failed", "category_id", id, "error", err)
 			util.SendError(w, map[string]string{"error": "Failed to update category"}, http.StatusInternalServerError)
 		}
 		return
 	}
+
+	h.pushRepo.NotifyDataChange(userID)
 
 	util.SendData(w, CategoryResponse{
 		ID:       updated.ID,

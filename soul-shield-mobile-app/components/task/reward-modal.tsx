@@ -117,7 +117,7 @@ export function RewardModal({ visible, text, taskTitle, onClose }: RewardModalPr
             <ConfettiBurst key={burstKey} seed={burstKey} colors={[success, tint, warning]} />
           ) : null}
 
-          <Pressable onPress={onClose} hitSlop={10} style={styles.closeButton}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} hitSlop={10} style={styles.closeButton}>
             <IconSymbol name="xmark" size={20} color={mutedColor} />
           </Pressable>
 

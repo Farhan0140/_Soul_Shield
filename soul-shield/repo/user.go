@@ -2,8 +2,8 @@ package repo
 
 import (
 	"database/sql"
-	// "errors"
-	"fmt"
+	"errors"
+	"log/slog"
 	"soulsheld/util"
 	"strings"
 	"time"
@@ -13,16 +13,38 @@ import (
 )
 
 const (
-	maxSecurityAnswerAttempts  = 5
-	securityAnswerLockDuration = 24 * time.Hour
+	// S10b: failures are counted per email AND caller IP, so a stranger
+	// guessing 5 times locks out only their own IP, not the account owner.
+	// A higher per-email ceiling (all IPs together) still caps brute force
+	// spread over many addresses. Counts cover the last
+	// securityAnswerLockDuration, reset by a successful answer.
+	maxSecurityAnswerAttempts         = 5
+	maxSecurityAnswerAttemptsPerEmail = 20
+	securityAnswerLockDuration        = 24 * time.Hour
 )
 
 type UserRepo interface {
 	Create(user User) (*User, error)
 	Find(email, password string) (*User, error)
 	GetByID(id int64) (*User, error)
-	Update(email string, password string) error
-	VerifySecurityAnswer(email, answer, ipAddress string) error
+	// SessionState is the live role + token_version AuthenticateJWT checks
+	// every session token against. ErrUserNotFound if the account is gone.
+	SessionState(userID int64) (role string, tokenVersion int, err error)
+	// ResetPassword stores newPassword for email, but only if the account's
+	// token_version still equals expectedVersion (the version baked into the
+	// reset token). It bumps the version, so the reset token is single-use and
+	// every existing session is signed out. ErrInvalidResetToken otherwise.
+	ResetPassword(email string, expectedVersion int, newPassword string) error
+	// VerifySecurityAnswer returns the account's current token_version on
+	// success (embedded in the reset token).
+	VerifySecurityAnswer(email, answer, ipAddress string) (tokenVersion int, err error)
+	// ChangePassword re-verifies currentPassword before storing newPassword,
+	// bumps token_version (signing out every other device) and returns the
+	// updated user so the caller can issue the current device a new token.
+	ChangePassword(userID int64, currentPassword, newPassword string) (*User, error)
+	// DeleteAccount re-verifies password, then permanently deletes the user
+	// and (via ON DELETE CASCADE) everything they own.
+	DeleteAccount(userID int64, password string) error
 }
 
 type userRepo struct {
@@ -53,25 +75,6 @@ func (r *userRepo) Create(user User) (*User, error) {
 	}
 
 	defer tx.Rollback()
-
-	// var verified bool
-
-	// err = tx.QueryRow(`
-	// 	SELECT verified
-	// 	FROM email_otps
-	// 	WHERE email = $1
-	// `, user.Email).Scan(&verified)
-
-	// if err != nil {
-	// 	if errors.Is(err, sql.ErrNoRows) {
-	// 		return nil, util.ErrOTPNotFound
-	// 	}
-	// 	return nil, err
-	// }
-
-	// if !verified {
-	// 	return nil, util.ErrEmailNotVerified
-	// }
 
 	hashedPassword, err := bcrypt.GenerateFromPassword(
 		[]byte(user.Password),
@@ -136,14 +139,13 @@ func (r *userRepo) Find(email, password string) (*User, error) {
 	email = normalizeEmail(email)
 	var user User
 	query := `
-		SELECT id, full_name, email, password, role
+		SELECT id, full_name, email, password, role, token_version
 		FROM users
 		WHERE email = $1
 		LIMIT 1
 	`
 	err := r.db.Get(&user, query, email)
 	if err != nil {
-		fmt.Println(err)
 		if err == sql.ErrNoRows {
 			return nil, util.ErrUserNotFound
 		}
@@ -183,134 +185,234 @@ func (r *userRepo) GetByID(id int64) (*User, error) {
 	return &user, nil
 }
 
-func (r *userRepo) Update(email string, password string) error {
+func (r *userRepo) SessionState(userID int64) (string, int, error) {
+	var row struct {
+		Role         string `db:"role"`
+		TokenVersion int    `db:"token_version"`
+	}
+	err := r.db.Get(&row, `SELECT role, token_version FROM users WHERE id = $1`, userID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", 0, util.ErrUserNotFound
+		}
+		return "", 0, err
+	}
+	return row.Role, row.TokenVersion, nil
+}
+
+func (r *userRepo) ResetPassword(email string, expectedVersion int, newPassword string) error {
 	email = normalizeEmail(email)
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
 
 	tx, err := r.db.Beginx()
 	if err != nil {
 		return err
 	}
-
 	defer tx.Rollback()
 
-	hashedPassword, err := bcrypt.GenerateFromPassword(
-		[]byte(password),
-		bcrypt.DefaultCost,
-	)
-
-	if err != nil {
-		return err
-	}
-
+	// The token_version guard makes the reset token single-use: the first
+	// successful reset bumps the version, so a replay matches no row.
 	result, err := tx.Exec(`
 		UPDATE users
-		SET password=$1
-		WHERE email=$2
-	`,
-		string(hashedPassword),
-		email,
-	)
-
+		SET password = $1, token_version = token_version + 1
+		WHERE email = $2 AND token_version = $3
+	`, string(hashedPassword), email, expectedVersion)
 	if err != nil {
 		return err
 	}
-
-	rowsAffected, _ := result.RowsAffected()
-
-	if rowsAffected == 0 {
-		return util.ErrUserNotFound
+	if n, _ := result.RowsAffected(); n == 0 {
+		return util.ErrInvalidResetToken
 	}
 
-	_, err = tx.Exec(`
-		UPDATE email_otps
-		SET verified=false
-		WHERE email=$1
-	`,
-		email,
-	)
-
-	if err != nil {
+	if _, err := tx.Exec(`UPDATE email_otps SET verified = false WHERE email = $1`, email); err != nil {
 		return err
 	}
 
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-
-	return nil
+	return tx.Commit()
 }
 
-// VerifySecurityAnswer checks the supplied answer against the stored hash for email.
-// It always logs the attempt (success or failure) and enforces a lockout after
-// maxSecurityAnswerAttempts consecutive failures. Errors are deliberately generic at the
-// handler layer (same message for "no such user" / "no answer set" / "wrong answer") so this
-// endpoint can't be used to enumerate registered emails or confirm partial answers.
-func (r *userRepo) VerifySecurityAnswer(email, answer, ipAddress string) error {
-	email = normalizeEmail(email)
+// credentialsByID loads the fields needed to re-verify a signed-in user.
+func (r *userRepo) credentialsByID(q sqlx.Queryer, userID int64) (*User, error) {
 	var u User
-	err := r.db.Get(&u, `
-		SELECT id, email, security_answer_hash, security_answer_attempts, security_answer_locked_until
-		FROM users
-		WHERE email = $1
-		LIMIT 1
-	`, email)
-
+	err := sqlx.Get(q, &u, `SELECT id, email, password, role FROM users WHERE id = $1`, userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			r.logSecurityAnswerAttempt(email, false, ipAddress)
+			return nil, util.ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &u, nil
+}
+
+func (r *userRepo) ChangePassword(userID int64, currentPassword, newPassword string) (*User, error) {
+	u, err := r.credentialsByID(r.db, userID)
+	if err != nil {
+		return nil, err
+	}
+	if bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(currentPassword)) != nil {
+		return nil, util.ErrCurrentPasswordIncorrect
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+	// The password-hash guard makes a concurrent change (another device, same
+	// moment) fail cleanly instead of silently overwriting it.
+	var updated User
+	err = r.db.Get(&updated, `
+		UPDATE users SET password = $1, token_version = token_version + 1
+		WHERE id = $2 AND password = $3
+		RETURNING id, full_name, email, role, token_version
+	`, string(hashed), userID, u.Password)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, util.ErrCurrentPasswordIncorrect
+		}
+		return nil, err
+	}
+	return &updated, nil
+}
+
+func (r *userRepo) DeleteAccount(userID int64, password string) error {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// FOR UPDATE: serialize against a concurrent request for the same account.
+	var u User
+	err = tx.Get(&u, `SELECT id, email, password, role FROM users WHERE id = $1 FOR UPDATE`, userID)
+	if err != nil {
+		if err == sql.ErrNoRows {
 			return util.ErrUserNotFound
 		}
 		return err
 	}
-
-	if u.SecurityAnswerLockedUntil.Valid && u.SecurityAnswerLockedUntil.Time.After(time.Now()) {
-		r.logSecurityAnswerAttempt(email, false, ipAddress)
-		return util.ErrSecurityAnswerLocked
+	if bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)) != nil {
+		return util.ErrCurrentPasswordIncorrect
+	}
+	// Admins author the global (fixed) tasks every user sees; tasks.created_by
+	// has no ON DELETE action, so deleting an admin would either fail or (if
+	// that ever changed) remove everyone's fixed tasks. Not self-service.
+	if u.Role == "admin" {
+		return util.ErrAdminCannotDeleteAccount
 	}
 
-	if !u.SecurityAnswerHash.Valid || u.SecurityAnswerHash.String == "" {
-		r.logSecurityAnswerAttempt(email, false, ipAddress)
-		return util.ErrSecurityAnswerNotSet
+	// Email-keyed rows have no FK to users, so remove them explicitly.
+	if _, err := tx.Exec(`DELETE FROM email_otps WHERE email = $1`, u.Email); err != nil {
+		return err
 	}
-
-	if err := bcrypt.CompareHashAndPassword([]byte(u.SecurityAnswerHash.String), []byte(answer)); err != nil {
-		r.logSecurityAnswerAttempt(email, false, ipAddress)
-
-		attempts := u.SecurityAnswerAttempts + 1
-		if attempts >= maxSecurityAnswerAttempts {
-			_, uErr := r.db.Exec(`
-				UPDATE users
-				SET security_answer_attempts = $1, security_answer_locked_until = $2
-				WHERE email = $3
-			`, attempts, time.Now().Add(securityAnswerLockDuration), email)
-			if uErr != nil {
-				return uErr
-			}
-			return util.ErrSecurityAnswerLocked
-		}
-
-		_, uErr := r.db.Exec(`
-			UPDATE users SET security_answer_attempts = $1 WHERE email = $2
-		`, attempts, email)
-		if uErr != nil {
-			return uErr
-		}
-
-		return util.ErrSecurityAnswerMismatch
+	if _, err := tx.Exec(`DELETE FROM security_answer_attempt_logs WHERE email = $1`, u.Email); err != nil {
+		return err
 	}
-
-	_, err = r.db.Exec(`
-		UPDATE users
-		SET security_answer_attempts = 0, security_answer_locked_until = NULL
-		WHERE email = $1
-	`, email)
-	if err != nil {
+	// Everything else (categories, tasks -> sub_tasks, completions, quran
+	// data, push tokens) is ON DELETE CASCADE from users.
+	if _, err := tx.Exec(`DELETE FROM users WHERE id = $1`, userID); err != nil {
 		return err
 	}
 
-	r.logSecurityAnswerAttempt(email, true, ipAddress)
+	return tx.Commit()
+}
 
-	return nil
+// VerifySecurityAnswer checks the supplied answer against the stored hash for email and
+// returns the account's token version (for the single-use reset token). Every attempt is
+// logged; after maxSecurityAnswerAttempts failures from one IP (or
+// maxSecurityAnswerAttemptsPerEmail from all IPs) within securityAnswerLockDuration, further
+// attempts answer ErrSecurityAnswerLocked. The user row is locked (FOR UPDATE) while counting,
+// so parallel guesses can't slip past the limit. Errors are deliberately generic at the
+// handler layer (same message for "no such user" / "no answer set" / "wrong answer") so this
+// endpoint can't be used to enumerate registered emails or confirm partial answers.
+func (r *userRepo) VerifySecurityAnswer(email, answer, ipAddress string) (int, error) {
+	email = normalizeEmail(email)
+
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	var u User
+	err = tx.Get(&u, `
+		SELECT id, email, security_answer_hash, token_version
+		FROM users
+		WHERE email = $1
+		FOR UPDATE
+	`, email)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			r.logSecurityAnswerAttempt(email, false, ipAddress)
+			return 0, util.ErrUserNotFound
+		}
+		return 0, err
+	}
+
+	// Failures since the last success, within the lock window.
+	var counts struct {
+		FromIP int `db:"from_ip"`
+		Total  int `db:"total"`
+	}
+	err = tx.Get(&counts, `
+		SELECT
+			count(*) FILTER (WHERE ip_address = $2) AS from_ip,
+			count(*)                                AS total
+		FROM security_answer_attempt_logs
+		WHERE email = $1 AND NOT success
+		  AND created_at > GREATEST(
+			now() - make_interval(secs => $3),
+			COALESCE((SELECT max(created_at) FROM security_answer_attempt_logs WHERE email = $1 AND success), '-infinity')
+		  )
+	`, email, ipAddress, securityAnswerLockDuration.Seconds())
+	if err != nil {
+		return 0, err
+	}
+
+	fail := func(result error) (int, error) {
+		if _, err := tx.Exec(`
+			INSERT INTO security_answer_attempt_logs (email, success, ip_address) VALUES ($1, false, $2)
+		`, email, ipAddress); err != nil {
+			return 0, err
+		}
+		if err := tx.Commit(); err != nil {
+			return 0, err
+		}
+		return 0, result
+	}
+
+	if counts.FromIP >= maxSecurityAnswerAttempts || counts.Total >= maxSecurityAnswerAttemptsPerEmail {
+		return fail(util.ErrSecurityAnswerLocked)
+	}
+	if !u.SecurityAnswerHash.Valid || u.SecurityAnswerHash.String == "" {
+		return fail(util.ErrSecurityAnswerNotSet)
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(u.SecurityAnswerHash.String), []byte(answer)); err != nil {
+		// This failure is the one that reaches a limit: say "locked" now.
+		if counts.FromIP+1 >= maxSecurityAnswerAttempts || counts.Total+1 >= maxSecurityAnswerAttemptsPerEmail {
+			return fail(util.ErrSecurityAnswerLocked)
+		}
+		return fail(util.ErrSecurityAnswerMismatch)
+	}
+
+	if _, err := tx.Exec(`
+		INSERT INTO security_answer_attempt_logs (email, success, ip_address) VALUES ($1, true, $2)
+	`, email, ipAddress); err != nil {
+		return 0, err
+	}
+	// The legacy per-account counters are no longer used; clear any old lock.
+	if _, err := tx.Exec(`
+		UPDATE users SET security_answer_attempts = 0, security_answer_locked_until = NULL WHERE id = $1
+	`, u.ID); err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return u.TokenVersion, nil
 }
 
 func (r *userRepo) logSecurityAnswerAttempt(email string, success bool, ipAddress string) {
@@ -319,6 +421,6 @@ func (r *userRepo) logSecurityAnswerAttempt(email string, success bool, ipAddres
 		VALUES ($1, $2, $3)
 	`, email, success, ipAddress)
 	if err != nil {
-		fmt.Println("failed to log security answer attempt:", err)
+		slog.Error("failed to log security answer attempt", "error", err)
 	}
 }

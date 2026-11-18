@@ -28,13 +28,13 @@ export function DateNavHeader({ date, onPrev, onNext, onToday }: DateNavHeaderPr
       </View>
       <SyncProgressBar />
       <View style={styles.row}>
-        <Pressable onPress={onPrev} hitSlop={8} style={styles.arrow}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Previous day" onPress={onPrev} hitSlop={8} style={styles.arrow}>
           <IconSymbol name="chevron.left" size={20} color={tint} />
         </Pressable>
         <ThemedText type="defaultSemiBold" style={styles.date}>
           {formatDisplayDate(date)}
         </ThemedText>
-        <Pressable onPress={onNext} hitSlop={8} style={styles.arrow}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Next day" onPress={onNext} hitSlop={8} style={styles.arrow}>
           <IconSymbol name="chevron.right" size={20} color={tint} />
         </Pressable>
         {showToday ? (

@@ -83,7 +83,7 @@ export interface SyncSnapshot {
   sub_task_completions: SyncSubTaskCompletion[];
 }
 
-export type SyncResource = 'tasks' | 'categories' | 'sub_tasks' | 'task_completions' | 'sub_task_completions';
+export type SyncResource = | 'tasks' | 'categories' | 'sub_tasks' | 'task_completions' | 'sub_task_completions';
 export type SyncOp = 'upsert' | 'delete' | 'increment';
 
 /** One queued local edit being pushed - mirrors repo.SyncChange
@@ -95,6 +95,10 @@ export interface SyncChange {
   op: SyncOp;
   uuid: string;
   client_updated_at: string;
+  /** The server's updated_at this edit was based on (last pulled/accepted
+   * version). Lets the server tell a real conflict from clock skew; omitted
+   * for rows the server has never seen. */
+  base_updated_at?: string;
   data: Record<string, unknown>;
 }
 

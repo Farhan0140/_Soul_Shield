@@ -7,7 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { KeyboardAvoidingScrollView } from '@/components/ui/keyboard-avoiding-scroll-view';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { TextField } from '@/components/ui/text-field';
-import { getErrorMessage } from '@/lib/errors';
+import { getErrorMessage } from '@/lib/errors'; import { PASSWORD_MIN, validateNewPassword } from '@/lib/validation';
 
 type Step = 'email' | 'verify' | 'new';
 
@@ -46,6 +46,11 @@ export default function ResetPasswordScreen() {
 
   const handleReset = async () => {
     setError(null);
+    const invalid = validateNewPassword(password);
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
     setLoading(true);
     try {
       await resetPassword(resetToken, password);
@@ -137,6 +142,8 @@ export default function ResetPasswordScreen() {
             <TextField
               label="New Password"
               secureTextEntry
+              autoComplete="new-password"
+              hint={`At least ${PASSWORD_MIN} characters.`}
               value={password}
               onChangeText={setPassword}
               placeholder="••••••••"

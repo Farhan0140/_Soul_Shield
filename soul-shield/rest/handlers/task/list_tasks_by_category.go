@@ -3,9 +3,9 @@ package task
 import (
 	"net/http"
 	"soulsheld/repo"
+	"soulsheld/rest/middlewares"
 	"soulsheld/util"
 	"strconv"
-	"time"
 )
 
 const defaultTaskPageSize = 10
@@ -26,7 +26,7 @@ const maxTaskPageSize = 100
 // @Failure 400 {object} ErrorResponse
 // @Router /categories/{categoryId}/tasks [get]
 func (h *Handler) ListTasksByCategory(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserID(r)
+	userID, ok := middlewares.UserID(r)
 	if !ok {
 		unauthorized(w)
 		return
@@ -39,14 +39,9 @@ func (h *Handler) ListTasksByCategory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dateStr := r.URL.Query().Get("date")
-	date := time.Now()
-	if dateStr != "" {
-		parsed, err := time.Parse("2006-01-02", dateStr)
-		if err != nil {
-			util.SendError(w, map[string]string{"error": "Invalid date format, use YYYY-MM-DD"}, http.StatusBadRequest)
-			return
-		}
-		date = parsed
+	date, dateOK := viewDate(w, r, dateStr)
+	if !dateOK {
+		return
 	}
 
 	page := 1
@@ -69,17 +64,25 @@ func (h *Handler) ListTasksByCategory(w http.ResponseWriter, r *http.Request) {
 		pageSize = parsed
 	}
 
-	tasks, err := h.taskRepo.ListForDateByCategory(userID, date, categoryID)
+	tasks, err := h.taskRepo.ListForDateByCategory(userID, date, categoryID, util.RequestToday(r))
 	if err != nil {
 		util.SendError(w, map[string]string{"error": "Failed to fetch tasks"}, http.StatusInternalServerError)
 		return
 	}
 
-	if err := h.attachSubTasksForDate(tasks, userID, date); err != nil {
+	if err := h.attachSubTasksForDate(tasks, userID, date, util.RequestToday(r)); err != nil {
 		util.SendError(w, map[string]string{"error": "Failed to fetch tasks"}, http.StatusInternalServerError)
 		return
 	}
 
+	// C4: pagination happens in memory, after loading every task in the
+	// category. That's deliberate: a task's status (and so its place in the
+	// order below) is only known once completions AND sub-task aggregation
+	// are applied, which SQL alone doesn't do. It is cheap at this app's
+	// sizes (one user's tasks in one category, typically tens). If a category
+	// ever holds thousands of tasks, move the status computation into the
+	// query (or cache it) and paginate with LIMIT/OFFSET there.
+	//
 	// Completed tasks stay in the list but sort after every active one, so a
 	// category page reads "what's left" first without losing what's already
 	// done - split-then-recombine here (after attachSubTasksForDate, since a

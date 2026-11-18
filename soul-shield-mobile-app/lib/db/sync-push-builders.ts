@@ -14,12 +14,20 @@ type SubTaskRow = typeof subTasks.$inferSelect;
 type TaskCompletionRow = typeof taskCompletions.$inferSelect;
 type SubTaskCompletionRow = typeof subTaskCompletions.$inferSelect;
 
+/** base_updated_at for a row: the server version this local edit was made on
+ * top of (null/absent for rows never synced). */
+function baseOf(row: { serverUpdatedAt?: string | null }): {
+  base_updated_at?: string;
+} {
+  return row.serverUpdatedAt ? { base_updated_at: row.serverUpdatedAt } : {};
+}
+
 export function taskUpsertChange(row: TaskRow): SyncChange {
   return {
     resource: 'tasks',
     op: 'upsert',
     uuid: row.uuid,
-    client_updated_at: row.updatedAt,
+    client_updated_at: row.updatedAt, ...baseOf(row),
     data: {
       title: row.title,
       description: row.description,
@@ -38,8 +46,8 @@ export function taskUpsertChange(row: TaskRow): SyncChange {
   };
 }
 
-export function taskDeleteChange(uuid: string, updatedAt: string): SyncChange {
-  return { resource: 'tasks', op: 'delete', uuid, client_updated_at: updatedAt, data: {} };
+export function taskDeleteChange(uuid: string, updatedAt: string, serverUpdatedAt?: string | null): SyncChange {
+  return { resource: 'tasks', op: 'delete', uuid, client_updated_at: updatedAt, ...baseOf({ serverUpdatedAt }), data: {} };
 }
 
 export function categoryUpsertChange(row: CategoryRow): SyncChange {
@@ -48,12 +56,13 @@ export function categoryUpsertChange(row: CategoryRow): SyncChange {
     op: 'upsert',
     uuid: row.uuid,
     client_updated_at: row.updatedAt,
+    ...baseOf(row),
     data: { name: row.name, color_hex: row.colorHex, position: row.position },
   };
 }
 
-export function categoryDeleteChange(uuid: string, updatedAt: string): SyncChange {
-  return { resource: 'categories', op: 'delete', uuid, client_updated_at: updatedAt, data: {} };
+export function categoryDeleteChange(uuid: string, updatedAt: string, serverUpdatedAt?: string | null): SyncChange {
+  return { resource: 'categories', op: 'delete', uuid, client_updated_at: updatedAt, ...baseOf({ serverUpdatedAt }), data: {} };
 }
 
 export function subTaskUpsertChange(row: SubTaskRow): SyncChange {
@@ -61,7 +70,7 @@ export function subTaskUpsertChange(row: SubTaskRow): SyncChange {
     resource: 'sub_tasks',
     op: 'upsert',
     uuid: row.uuid,
-    client_updated_at: row.updatedAt,
+    client_updated_at: row.updatedAt, ...baseOf(row),
     data: {
       parent_task_uuid: row.parentTaskUuid,
       title: row.title,
@@ -77,8 +86,8 @@ export function subTaskUpsertChange(row: SubTaskRow): SyncChange {
   };
 }
 
-export function subTaskDeleteChange(uuid: string, updatedAt: string): SyncChange {
-  return { resource: 'sub_tasks', op: 'delete', uuid, client_updated_at: updatedAt, data: {} };
+export function subTaskDeleteChange(uuid: string, updatedAt: string, serverUpdatedAt?: string | null): SyncChange {
+  return { resource: 'sub_tasks', op: 'delete', uuid, client_updated_at: updatedAt, ...baseOf({ serverUpdatedAt }), data: {} };
 }
 
 export function taskCompletionUpsertChange(row: TaskCompletionRow): SyncChange {
@@ -86,7 +95,7 @@ export function taskCompletionUpsertChange(row: TaskCompletionRow): SyncChange {
     resource: 'task_completions',
     op: 'upsert',
     uuid: row.uuid,
-    client_updated_at: row.updatedAt,
+    client_updated_at: row.updatedAt, ...baseOf(row),
     data: { task_uuid: row.taskUuid, task_date: row.taskDate, status: row.status },
   };
 }
@@ -107,6 +116,7 @@ export function subTaskCompletionUpsertChange(row: SubTaskCompletionRow): SyncCh
     op: 'upsert',
     uuid: row.uuid,
     client_updated_at: row.updatedAt,
+    ...baseOf(row),
     data: {
       sub_task_uuid: row.subTaskUuid,
       parent_task_uuid: row.parentTaskUuid,

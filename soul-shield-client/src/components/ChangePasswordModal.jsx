@@ -1,124 +1,74 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
-import { X, Lock, KeyRound, Mail, ArrowRight, ArrowLeft, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { X, Lock, KeyRound, ArrowRight } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
+import { setToken } from '../services/api';
+import { validateNewPassword } from '../utils/validation';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from './Toast';
 import Input from './ui/Input';
 import Button from './ui/Button';
 
-const STEPS = [
-  { key: 'send',  title: 'Change your password',     subtitle: "Set a new password for your account." },
-  // { key: 'otp',   title: 'Enter the code',           subtitle: "A 6-digit code just landed in your inbox." },
-  { key: 'new',   title: 'Pick a new password',      subtitle: "Choose something strong — and different from the last one." },
-];
 
+// 4xx bodies carry a specific reason ("Your current password is incorrect");
+// show it. For anything else, keep the friendly generic message.
+const clientErrorMessage = (err) =>
+  (err.status >= 400 && err.status < 500 && err.raw?.error) || err.message;
+
+const EMPTY_FORM = { current: '', next: '', confirm: '' };
+
+/**
+ * Change password while signed in: POST /users/change-password with the
+ * current password + the new one. (The old version of this modal called the
+ * forgot-password endpoint with the email as the "reset token", so it always
+ * failed.)
+ */
 export default function ChangePasswordModal({ open, onClose }) {
   const { user } = useAuth();
-  const { /* sendOtp, verifyOtp, */ resetPassword } = useApi();
+  const { changePassword } = useApi();
   const toast = useToast();
 
-  const [step, setStep] = useState(0);
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [password, setPassword] = useState('');
+  const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
-  const otpRefs = useRef([]);
 
   useEffect(() => {
-    if (cooldown <= 0) return;
-    const t = setTimeout(() => setCooldown(c => c - 1), 1000);
-    return () => clearTimeout(t);
-  }, [cooldown]);
-
-  // Reset on open
-  useEffect(() => {
-    if (open) {
-      setStep(0);
-      setOtp(['', '', '', '', '', '']);
-      setPassword('');
-      setErrors({});
-      setCooldown(0);
-    }
+    if (!open) return;
+    // Reset the form each time the modal opens.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setForm(EMPTY_FORM);
+    setErrors({});
   }, [open]);
 
-  // Step 1: Send OTP (removed)
-  const handleSendOtp = async () => {
-    setErrors({});
-    setLoading(true);
-    try {
-      // await sendOtp(user.email);
-      // toast.success("Code sent! Check your inbox 📬");
-      setStep(1);
-      // setCooldown(60);
-      // setTimeout(() => otpRefs.current[0]?.focus(), 100);
-    } catch (err) {
-      setErrors({ form: err.message });
-    } finally {
-      setLoading(false);
-    }
+  const setField = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+
+  const validate = () => {
+    if (!form.current) return { current: 'Please enter your current password.' };
+    const passwordError = validateNewPassword(form.next);
+    if (passwordError) return { next: passwordError };
+    if (form.next === form.current) return { next: 'Choose something different from your current password.' };
+    if (form.next !== form.confirm) return { confirm: "The passwords don't match." };
+    return null;
   };
 
-  // Step 2: OTP handlers (removed)
-  // const handleOtpChange = (i, val) => {
-  //   if (!/^\d?$/.test(val)) return;
-  //   const next = [...otp];
-  //   next[i] = val;
-  //   setOtp(next);
-  //   if (val && i < 5) otpRefs.current[i + 1]?.focus();
-  // };
-  // const handleOtpKeyDown = (i, e) => {
-  //   if (e.key === 'Backspace' && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
-  // };
-  // const handlePaste = (e) => {
-  //   e.preventDefault();
-  //   const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-  //   const next = [...otp];
-  //   pasted.split('').forEach((ch, i) => (next[i] = ch));
-  //   setOtp(next);
-  //   otpRefs.current[Math.min(pasted.length, 5)]?.focus();
-  // };
+  const handleSubmit = async (e) => {
+    e?.preventDefault();
+    const invalid = validate();
+    if (invalid) return setErrors(invalid);
 
-  // const handleVerifyOtp = async () => {
-  //   const code = otp.join('');
-  //   if (code.length !== 6) return setErrors({ otp: "Please enter all 6 digits." });
-  //   setErrors({});
-  //   setLoading(true);
-  //   try {
-  //     await verifyOtp(user.email, code);
-  //     toast.success("Verified! Now set your new password 🔐");
-  //     setStep(2);
-  //   } catch (err) {
-  //     setErrors({ otp: err.message });
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-  // const handleResend = async () => {
-  //   if (cooldown > 0) return;
-  //   try {
-  //     await sendOtp(user.email);
-  //     toast.success("New code sent!");
-  //     setCooldown(60);
-  //   } catch (err) {
-  //     toast.error(err.message);
-  //   }
-  // };
-
-  // Step 3: Set new password
-  const handleReset = async () => {
-    if (!password) return setErrors({ password: "Please enter a new password." });
-    if (password.length < 6) return setErrors({ password: "At least 6 characters — keep it safe." });
     setErrors({});
     setLoading(true);
     try {
-      await resetPassword(user.email, password);
-      toast.success("Password updated! You're all set 🎉");
+      const { token } = await changePassword(form.current, form.next);
+      // Changing the password revokes every existing session, this one
+      // included; the response carries this device's replacement token.
+      if (token) setToken(token);
+      toast.success("Password updated! Other devices have been signed out.");
       onClose();
     } catch (err) {
-      setErrors({ password: err.message });
+      const msg = clientErrorMessage(err);
+      if (/current password/i.test(msg)) setErrors({ current: msg });
+      else setErrors({ form: msg });
     } finally {
       setLoading(false);
     }
@@ -133,6 +83,9 @@ export default function ChangePasswordModal({ open, onClose }) {
           onClick={onClose}
         >
           <m.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="change-password-title"
             initial={{ scale: 0.95, y: 20, opacity: 0 }}
             animate={{ scale: 1, y: 0, opacity: 1 }}
             exit={{ scale: 0.95, y: 20, opacity: 0 }}
@@ -140,11 +93,10 @@ export default function ChangePasswordModal({ open, onClose }) {
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-md bg-surface rounded-2xl shadow-2xl overflow-hidden"
           >
-            {/* Header */}
             <div className="px-6 pt-6 pb-4 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold text-fg">{STEPS[step].title}</h2>
-                <p className="text-xs text-muted mt-0.5">{STEPS[step].subtitle}</p>
+                <h2 id="change-password-title" className="text-lg font-bold text-fg">Change your password</h2>
+                <p className="text-xs text-muted mt-0.5">For {user?.email}</p>
               </div>
               <button
                 type="button"
@@ -156,125 +108,31 @@ export default function ChangePasswordModal({ open, onClose }) {
               </button>
             </div>
 
-            {/* Step indicator */}
-            <div className="flex items-center justify-center gap-2 px-6 pb-4">
-              {STEPS.map((s, i) => (
-                <div key={s.key} className="flex items-center gap-2">
-                  <m.div
-                    animate={{ scale: i === step ? 1.1 : 1 }}
-                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors
-                      ${i < step ? 'bg-success text-white' : i === step ? 'bg-primary text-white' : 'bg-bg text-muted'}`}
-                  >
-                    {i < step ? <CheckCircle2 className="w-3.5 h-3.5" /> : i + 1}
-                  </m.div>
-                  {i < STEPS.length - 1 && (
-                    <div className={`w-6 h-0.5 ${i < step ? 'bg-success' : 'bg-border'}`} />
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <div className="px-6 pb-6">
-              <AnimatePresence mode="wait">
-                {/* Step 1: Confirm (OTP send removed) */}
-                {step === 0 && (
-                  <m.div
-                    key="send"
-                    initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-                    className="space-y-4"
-                  >
-                    <div className="p-3 rounded-xl bg-primary/5 border border-primary/10 flex items-center gap-3">
-                      <Mail className="w-5 h-5 text-primary flex-shrink-0" />
-                      <p className="text-sm text-primary">
-                        Changing password for <strong>{user?.email}</strong>
-                      </p>
-                    </div>
-                    {errors.form && (
-                      <m.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-danger">
-                        {errors.form}
-                      </m.p>
-                    )}
-                    <Button onClick={handleSendOtp} loading={loading} className="w-full">
-                      Continue <ArrowRight className="w-4 h-4" />
-                    </Button>
-                  </m.div>
-                )}
-
-                {/* Step 2: OTP (removed)
-                {step === 1 && (
-                  <m.div
-                    key="otp"
-                    initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-                    className="space-y-4"
-                  >
-                    <div className="flex justify-center gap-2" onPaste={handlePaste}>
-                      {otp.map((d, i) => (
-                        <input
-                          key={i}
-                          ref={(el) => (otpRefs.current[i] = el)}
-                          type="text" inputMode="numeric" maxLength={1}
-                          value={d}
-                          onChange={(e) => handleOtpChange(i, e.target.value)}
-                          onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                          className={`w-11 h-13 text-center text-xl font-bold rounded-xl border-2 outline-none transition-all
-                            ${errors.otp ? 'border-rose-400' : 'border-slate-200 focus:border-indigo-500'}
-                            focus:shadow-sm focus:shadow-indigo-100`}
-                        />
-                      ))}
-                    </div>
-                    {errors.otp && (
-                      <m.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center text-sm text-rose-500">
-                        {errors.otp}
-                      </m.p>
-                    )}
-                    <div className="text-center text-sm text-slate-500">
-                      Didn't get it?{' '}
-                      {cooldown > 0 ? (
-                        <span className="text-slate-400">Resend in {cooldown}s</span>
-                      ) : (
-                        <button type="button" onClick={handleResend} className="text-indigo-600 font-semibold hover:text-indigo-700">
-                          Resend code
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="secondary" onClick={() => setStep(0)} className="flex-1">
-                        <ArrowLeft className="w-4 h-4" /> Back
-                      </Button>
-                      <Button onClick={handleVerifyOtp} loading={loading} className="flex-1">
-                        Verify <ArrowRight className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </m.div>
-                )}
-                */}
-
-                {/* Step 2: New password */}
-                {step === 1 && (
-                  <m.div
-                    key="new"
-                    initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-                    className="space-y-4"
-                  >
-                    <Input
-                      label="New password" type="password" icon={KeyRound}
-                      value={password} error={errors.password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleReset()}
-                      autoFocus
-                    />
-                    <div className="flex gap-2">
-                      <Button variant="secondary" onClick={() => setStep(0)} className="flex-1">
-                        <ArrowLeft className="w-4 h-4" /> Back
-                      </Button>
-                      <Button onClick={handleReset} loading={loading} className="flex-1">
-                        Update password <ArrowRight className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </m.div>
-                )}
-              </AnimatePresence>
-            </div>
+            <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4">
+              <Input
+                label="Current password" type="password" icon={Lock}
+                autoComplete="current-password"
+                value={form.current} error={errors.current}
+                onChange={setField('current')}
+                autoFocus
+              />
+              <Input
+                label="New password" type="password" icon={KeyRound}
+                autoComplete="new-password"
+                value={form.next} error={errors.next}
+                onChange={setField('next')}
+              />
+              <Input
+                label="Confirm new password" type="password" icon={KeyRound}
+                autoComplete="new-password"
+                value={form.confirm} error={errors.confirm}
+                onChange={setField('confirm')}
+              />
+              {errors.form && <p className="text-sm text-danger">{errors.form}</p>}
+              <Button type="submit" loading={loading} className="w-full">
+                Update password <ArrowRight className="w-4 h-4" />
+              </Button>
+            </form>
           </m.div>
         </m.div>
       )}

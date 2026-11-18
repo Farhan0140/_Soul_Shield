@@ -3,9 +3,9 @@ package task
 import (
 	"encoding/json"
 	"net/http"
+	"soulsheld/rest/middlewares"
 	"soulsheld/util"
 	"strconv"
-	"time"
 )
 
 // CompleteTask godoc
@@ -24,7 +24,7 @@ import (
 // @Failure 404 {object} ErrorResponse
 // @Router /tasks/{id}/complete [post]
 func (h *Handler) CompleteTask(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserID(r)
+	userID, ok := middlewares.UserID(r)
 	if !ok {
 		unauthorized(w)
 		return
@@ -40,28 +40,14 @@ func (h *Handler) CompleteTask(w http.ResponseWriter, r *http.Request) {
 	// body না থাকলেও (empty POST) সমস্যা যেন না হয়, তাই error ignore করছি যদি EOF হয়
 	_ = json.NewDecoder(r.Body).Decode(&req)
 
-	date := time.Now()
-	if req.Date != "" {
-		parsed, err := time.Parse("2006-01-02", req.Date)
-		if err != nil {
-			util.SendError(w, map[string]string{"error": "Invalid date format, use YYYY-MM-DD"}, http.StatusBadRequest)
-			return
-		}
-		date = parsed
+	date, dateOK := actionDate(w, r, req.Date)
+	if !dateOK {
+		return
 	}
 
 	completion, err := h.taskRepo.Complete(id, userID, date)
 	if err != nil {
-		switch err {
-		case util.ErrTaskNotFound:
-			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusNotFound)
-		case util.ErrForbidden:
-			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusForbidden)
-		case util.ErrTaskNotScheduled:
-			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
-		default:
-			util.SendError(w, map[string]string{"error": "Failed to complete task"}, http.StatusInternalServerError)
-		}
+		sendCompletionError(w, r, err, "Failed to complete task")
 		return
 	}
 

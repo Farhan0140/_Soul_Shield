@@ -93,7 +93,7 @@ export function DurationInput({ selection, onChange, disabled }: DurationInputPr
                 Set Duration
               </ThemedText>
               {/* TODO this button is for closing the duration picker modal without saving */}
-              <Pressable onPress={handleClose} hitSlop={10}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={handleClose} hitSlop={10}>
                 <IconSymbol name="xmark" size={20} color={mutedColor} />
               </Pressable>
             </View>

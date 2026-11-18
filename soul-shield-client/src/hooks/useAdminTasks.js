@@ -2,12 +2,16 @@ import { useState, useEffect, useCallback } from 'react';
 import { useApi } from '../context/ApiContext';
 import { fmtDate } from './useTasks';
 
+const USAGE_WINDOW_DAYS = 30;
+
 export function useAdminTasks() {
   const [tasks, setTasks] = useState([]);
-  const [usage, setUsage] = useState({}); // { taskId: { users: N, completions: N } }
+  // { [task_id]: { completions, total, completionRate, users, addedBy } }
+  const [usage, setUsage] = useState({});
+  const [overview, setOverview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { getTasks, getTasksHistory } = useApi();
+  const { getTasks, getAdminStats } = useApi();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -20,48 +24,43 @@ export function useAdminTasks() {
       const globalTasks = (Array.isArray(data) ? data : []).filter(t => t.is_global);
       setTasks(globalTasks);
 
-      // Fetch usage stats from last 30 days of history
+      // Real usage across ALL users over the last 30 days (GET /admin/stats).
+      // This used to be derived from the admin's OWN history, so every
+      // number on the page described one person. Best-effort: the task list
+      // still works if stats fail.
       try {
-        const to = new Date();
-        const from = new Date();
-        from.setDate(to.getDate() - 30);
-        const history = await getTasksHistory(fmtDate(from), fmtDate(to));
-        const items = Array.isArray(history) ? history : [];
-
+        const stats = await getAdminStats(USAGE_WINDOW_DAYS);
         const usageMap = {};
-        items.forEach(t => {
-          if (!t.is_global || !t.task_id) return;
-          if (!usageMap[t.task_id]) {
-            usageMap[t.task_id] = { users: new Set(), completions: 0, total: 0 };
-          }
-          usageMap[t.task_id].total++;
-          if (t.status === 'completed') {
-            usageMap[t.task_id].completions++;
-            // We don't have user_id in history, so estimate unique users by dates
-            usageMap[t.task_id].users.add(t.date);
-          }
-        });
-
-        const finalUsage = {};
-        Object.entries(usageMap).forEach(([id, u]) => {
-          finalUsage[id] = {
-            completions: u.completions,
-            total: u.total,
-            completionRate: u.total === 0 ? 0 : Math.round((u.completions / u.total) * 100),
-            activeDays: u.users.size,
+        (stats.tasks || []).forEach((t) => {
+          usageMap[t.task_id] = {
+            completions: t.completions,
+            // Scheduled days x active users: the most completions possible.
+            total: t.opportunities,
+            completionRate: t.completion_rate,
+            users: t.users,
+            addedBy: t.added_by,
           };
         });
-        setUsage(finalUsage);
+        setUsage(usageMap);
+        setOverview({
+          totalUsers: stats.total_users,
+          newUsers: stats.new_users,
+          activeToday: stats.active_today,
+          activeUsers: stats.active_users,
+          days: stats.days,
+        });
       } catch {
-        // Usage stats are best-effort
+        setUsage({});
+        setOverview(null);
       }
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [getTasks, getTasksHistory]);
+  }, [getTasks, getAdminStats]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- loading flag for the fetch this effect starts
   useEffect(() => { load(); }, [load]);
 
   const updateTask = (taskId, patch) => {
@@ -76,5 +75,5 @@ export function useAdminTasks() {
     setTasks(prev => [...prev, task]);
   };
 
-  return { tasks, usage, loading, error, reload: load, updateTask, removeTask, addTask };
+  return { tasks, usage, overview, loading, error, reload: load, updateTask, removeTask, addTask };
 }

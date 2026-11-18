@@ -16,11 +16,14 @@ import CategoryDetail from './pages/CategoryDetail';
 import AppLayout from './components/AppLayout';
 import NotFound from './pages/NotFound';
 import OnboardingTooltip from './components/OnboardingTooltip';
+import ServerWakeBanner from './components/ServerWakeBanner';
 
 export default function App() {
   const { user, loading } = useAuth();
 
-  if (loading) return null; // AuthProvider handles its own loader
+  // The initial /users/me check can sit through a server cold start: keep the
+  // wake-up banner visible instead of a blank page.
+  if (loading) return <ServerWakeBanner />;
 
   return (
     <>
@@ -41,11 +44,12 @@ export default function App() {
           <Route path="admin/tasks" element={<ProtectedRoute adminOnly><AdminTasks /></ProtectedRoute>} />
         </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Unknown URLs show the 404 page (it links back home). */}
         <Route path="*" element={<NotFound />} />
       </Routes>
       
       <OnboardingTooltip />
+      <ServerWakeBanner />
     </>
   );
 }

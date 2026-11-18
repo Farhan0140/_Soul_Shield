@@ -8,7 +8,7 @@ import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, sessionExpired } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
 
@@ -44,6 +44,11 @@ export default function Login() {
   return (
     <AuthLayout title="Welcome back" subtitle="Sign in to continue guarding your day">
       <form onSubmit={handleSubmit} className="space-y-4">
+        {sessionExpired && (
+          <p role="status" className="text-sm rounded-xl px-3 py-2 bg-warning/10 text-warning border border-warning/20">
+            Your session expired. Please sign in again.
+          </p>
+        )}
         <Input
           label="Email address"
           type="email"

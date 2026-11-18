@@ -1,5 +1,5 @@
 import { m, AnimatePresence } from 'framer-motion';
-import { CheckSquare, Trash2, X } from 'lucide-react';
+import { Trash2, X } from 'lucide-react';
 import Button from './ui/Button';
 
 export default function BulkActionBar({ count, onClear, onDeleteSelected }) {

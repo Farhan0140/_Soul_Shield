@@ -1,0 +1,13 @@
+{
+  "description": "Shared cases for computeParentStatus. Tested by BOTH soul-shield/rest/handlers/task/subtask_merge_test.go (Go) and soul-shield-mobile-app/tests/parent-status.test.mjs (TypeScript), so the two implementations can't drift apart. Add a case here whenever the rule changes.",
+  "cases": [
+    { "name": "all sub-tasks completed", "statuses": ["completed", "completed"], "date": "2026-11-10", "today": "2026-11-18", "expected": "completed" },
+    { "name": "single completed sub-task", "statuses": ["completed"], "date": "2026-11-18", "today": "2026-11-18", "expected": "completed" },
+    { "name": "some completed today", "statuses": ["completed", "pending", "pending"], "date": "2026-11-18", "today": "2026-11-18", "expected": "partially_completed" },
+    { "name": "some completed in the past stays partial, not missed", "statuses": ["missed", "completed"], "date": "2026-11-01", "today": "2026-11-18", "expected": "partially_completed" },
+    { "name": "none completed today", "statuses": ["pending", "pending"], "date": "2026-11-18", "today": "2026-11-18", "expected": "pending" },
+    { "name": "none completed in the past", "statuses": ["missed", "missed"], "date": "2026-11-17", "today": "2026-11-18", "expected": "missed" },
+    { "name": "none completed in the future", "statuses": ["pending"], "date": "2026-11-19", "today": "2026-11-18", "expected": "pending" },
+    { "name": "year boundary compares as dates", "statuses": ["pending"], "date": "2025-12-31", "today": "2026-01-01", "expected": "missed" }
+  ]
+}

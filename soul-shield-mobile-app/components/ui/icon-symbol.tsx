@@ -61,12 +61,14 @@ const MAPPING = {
   'line.3.horizontal': 'reorder',
   'chevron.up': 'keyboard-arrow-up',
   'chevron.down': 'keyboard-arrow-down',
-  'textformat': 'text-fields',
+  textformat: 'text-fields',
   globe: 'language',
   'archivebox.fill': 'archive',
   'doc.on.doc.fill': 'content-copy',
   'b.circle': 'bluetooth',
   'b.circle.fill': 'bluetooth-connected',
+  eye: 'visibility',
+  'eye.slash': 'visibility-off',
 } as IconMapping;
 
 /**

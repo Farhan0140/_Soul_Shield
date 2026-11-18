@@ -2,9 +2,11 @@ package category
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"regexp"
 	"soulsheld/repo"
+	"soulsheld/rest/middlewares"
 	"soulsheld/util"
 )
 
@@ -21,7 +23,7 @@ var hexColorRegex = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
 // @Failure 400 {object} ErrorResponse
 // @Router /categories [post]
 func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value("userID").(int64)
+	userID, ok := middlewares.UserID(r)
 	if !ok {
 		util.SendError(w, map[string]string{"error": "Unauthorize"}, http.StatusUnauthorized)
 		return
@@ -32,10 +34,12 @@ func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 		util.SendError(w, map[string]string{"error": "Invalid Request Body"}, http.StatusBadRequest)
 		return
 	}
-	if req.Name == "" {
-		util.SendError(w, map[string]string{"error": "Name is required"}, http.StatusBadRequest)
+	name, err := validateName(req.Name)
+	if err != nil {
+		util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
 		return
 	}
+	req.Name = name
 	if req.ColorHex == "" {
 		req.ColorHex = "#CCCCCC"
 	} else if !hexColorRegex.MatchString(req.ColorHex) {
@@ -49,13 +53,15 @@ func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 		OwnerID:  int64(userID),
 	})
 	if err != nil {
-		if err == util.ErrCategoryExists {
+		if errors.Is(err, util.ErrCategoryExists) {
 			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusConflict)
 			return
 		}
 		util.SendError(w, map[string]string{"error": "Failed to create category"}, http.StatusInternalServerError)
 		return
 	}
+
+	h.pushRepo.NotifyDataChange(userID)
 
 	util.SendData(w, CategoryResponse{ID: created.ID, UUID: created.UUID, Name: created.Name, ColorHex: created.ColorHex, Position: created.Position}, http.StatusCreated)
 }

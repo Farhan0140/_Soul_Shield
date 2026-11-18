@@ -24,6 +24,11 @@ let cached: ExpoSQLiteDatabase<typeof schema> | null | undefined;
 export function clearLocalDatabase(): void {
   const db = getLocalDb();
   if (!db) return;
+  // One transaction (C8): a crash or error halfway used to leave, say, tasks
+  // without their categories - and a cleared cursor with rows still present.
+  // drizzle's expo-sqlite type doesn't expose $client (same cast as pull.ts).
+  const client = (db as unknown as { $client: SQLite.SQLiteDatabase }).$client;
+  client.withTransactionSync(() => {
   db.delete(schema.subTaskCompletions).run();
   db.delete(schema.taskCompletions).run();
   db.delete(schema.subTasks).run();
@@ -31,6 +36,25 @@ export function clearLocalDatabase(): void {
   db.delete(schema.categories).run();
   db.delete(schema.syncConflicts).run();
   db.delete(schema.syncState).run();
+});
+}
+
+/** Whether the local store holds ANY user data (live or tombstoned rows).
+ * Used to decide whether data of an unknown owner is present on sign-in
+ * (see lib/local-owner.ts). */
+export function localDatabaseHasData(): boolean {
+  const db = getLocalDb();
+  if (!db) return false;
+  const tables = [
+    schema.categories,
+    schema.tasks,
+    schema.subTasks,
+    schema.taskCompletions,
+    schema.subTaskCompletions,
+  ];
+  return tables.some(
+    (table) => db.select().from(table).limit(1).all().length > 0,
+  );
 }
 
 export function getLocalDb(): ExpoSQLiteDatabase<typeof schema> | null {

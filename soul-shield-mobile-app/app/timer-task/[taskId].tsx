@@ -96,7 +96,7 @@ export default function TimerTaskScreen() {
         <ThemedText type="defaultSemiBold" style={{ color: mutedColor }}>
           Timer
         </ThemedText>
-        <Pressable onPress={() => router.back()} hitSlop={10} style={styles.closeButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => router.back()} hitSlop={10} style={styles.closeButton}>
           <IconSymbol name="xmark" size={24} color={textColor} />
         </Pressable>
       </View>

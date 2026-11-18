@@ -41,7 +41,7 @@ export default function ArchivedTasksScreen() {
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8} accessibilityRole="button">
+        <Pressable accessibilityLabel="Back" onPress={() => router.back()} hitSlop={8} accessibilityRole="button">
           <IconSymbol name="chevron.left" size={22} color={tint} />
         </Pressable>
         <ThemedText type="title">{t('archived.title')}</ThemedText>

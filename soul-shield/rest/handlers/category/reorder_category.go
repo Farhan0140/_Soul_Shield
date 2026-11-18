@@ -2,7 +2,9 @@ package category
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"soulsheld/rest/middlewares"
 	"soulsheld/util"
 )
 
@@ -22,7 +24,7 @@ import (
 // @Failure 409 {object} ErrorResponse
 // @Router /categories/reorder [patch]
 func (h *Handler) ReorderCategories(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserID(r)
+	userID, ok := middlewares.UserID(r)
 	if !ok {
 		unauthorized(w)
 		return
@@ -36,10 +38,10 @@ func (h *Handler) ReorderCategories(w http.ResponseWriter, r *http.Request) {
 
 	reordered, err := h.categoryRepo.Reorder(userID, req.OrderedIDs)
 	if err != nil {
-		switch err {
-		case util.ErrEmptyOrder:
+		switch {
+		case errors.Is(err, util.ErrEmptyOrder):
 			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
-		case util.ErrOrderMismatch:
+		case errors.Is(err, util.ErrOrderMismatch):
 			util.SendError(w, map[string]string{"error": err.Error()}, http.StatusConflict)
 		default:
 			util.SendError(w, map[string]string{"error": "Failed to reorder categories"}, http.StatusInternalServerError)
@@ -51,6 +53,8 @@ func (h *Handler) ReorderCategories(w http.ResponseWriter, r *http.Request) {
 	for i, c := range reordered {
 		response[i] = CategoryResponse{ID: c.ID, UUID: c.UUID, Name: c.Name, ColorHex: c.ColorHex, Position: c.Position}
 	}
+
+	h.pushRepo.NotifyDataChange(userID)
 
 	util.SendData(w, response, http.StatusOK)
 }

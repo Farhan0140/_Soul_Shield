@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
 import { Check, AlertCircle } from 'lucide-react';
 
@@ -11,9 +11,13 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
   const [error, setError] = useState('');
   const inputRef = useRef(null);
 
-  useEffect(() => {
-    if (value && value !== hex) setHex(value);
-  }, [value]);
+  // Follow the controlled value when the parent changes it (adjusting state
+  // during render, React's recommended alternative to a syncing effect).
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
+    if (value) setHex(value);
+  }
 
   const handleHexChange = (v) => {
     let clean = v.trim();
