@@ -57,19 +57,20 @@ F:\Soul_Shield\
 | `migrations/000001_init_schema.sql` | Single baseline schema (replaced 20 legacy migrations). **Never edit once applied — append `000002_...`** |
 | `migrations/000002_add_sub_task_description.sql` | Adds nullable `sub_tasks.description` TEXT (2026-10-23, sub-task descriptions feature) |
 | `migrations/000003_user_push_tokens.sql` | `user_push_tokens` (user FK, UNIQUE token, platform) for cross-device sync-alert pushes (2026-10-24) |
+| `migrations/000004_token_version.sql` | `users.token_version INT NOT NULL DEFAULT 0`: bumped on password change/reset, revokes older JWTs (2026-11-18) |
 | `repo/` | Data access layer, one file per aggregate (see §5) |
 | `rest/server.go` | Global middleware chain + `http.ServeMux` registration + Swagger route + ListenAndServe (port = env `PORT` → fallback `HTTPPORT`) |
 | `rest/middlewares/` | `Manager` (compose chain), `Preflight`, `Cors`, `Logger`, `AuthenticateJWT`, `RequireRole` (⚠ defined but never used), `middleware.go` (struct) |
 | `rest/handlers/user/` | register / login / verify-security-answer / reset-password / me |
-| `rest/handlers/opt/` | ⚠ package name is a typo of "otp": `POST /send-otp`, `POST /verify-otp` (unauthenticated, vestigial — see §12) |
+| ~~`rest/handlers/opt/`~~ | **Removed 2026-11-18** (S2): the unauthenticated `/send-otp` + `/verify-otp` routes could send unlimited email to any address. The leftover `repo/otp.go`, `util/mail.go`, `util/otp.go` (and gomail) were deleted in the Low pass (C6) |
 | `rest/handlers/task/` | 14 files: routes, create/update/delete, list (date), history, list-by-category (paginated), mine (flat), reorder, complete, increment, sub-task complete/increment, sub-task merge/derive, add-to-my-tasks (id + by-uuid), mapper, dto |
 | `rest/handlers/category/` | CRUD + reorder |
-| `rest/handlers/quran/` | last-read upsert/get, bookmarks CRUD (not in README) |
+| ~~`rest/handlers/quran/`~~ | **Removed 2026-11-18** (B20): no client used it (the mobile daily verse reads the external quranapi.pages.dev). `repo/quran.go` deleted too; the `quran_*` tables are kept (no destructive migration) |
 | `rest/handlers/sync/` | pull/push handlers + DTO passthrough |
-| `util/` | `jwt.go` (auth 30-day JWT + scoped 15-min reset JWT), `errors.go` (sentinel errors), `send_data.go` (JSON writers), `constants.go` (recurrence/status consts), `mail.go` (gomail OTP email), `otp.go` (crypto-random 6-digit), `request.go` (ClientIP for audit logs) |
+| `util/` | `jwt.go` (auth 30-day JWT + scoped 15-min reset JWT), `errors.go` (sentinel errors), `send_data.go` (JSON writers), `constants.go` (recurrence/status consts), `request.go` (`ClientIP`: `TRUSTED_PROXY_HOPS`-aware, see §4) |
 | `docs/` | **Generated** Swagger spec (swaggo) — don't hand-edit |
 | `.env` | Real config, present locally (values NOT recorded anywhere in analysis) |
-| `.env.example` | Template: `VERSION, SERVICENAME, HTTPPORT, SECRETKEY, DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DB_ENABLE_SSL_MODE, CONN_STRING_FOR_DB, SMTP_HOST, SMTP_PORT, SMTP_EMAIL, SMTP_PASSWORD` |
+| `.env.example` | Template: `SECRETKEY, CONN_STRING_FOR_DB` (required); `HTTPPORT, CORS_ORIGINS, TRUSTED_PROXY_HOPS, VERSION, SERVICENAME` (optional); `TEST_DATABASE_URL` (tests) |
 
 ### Web — `soul-shield-client/`
 | Path | Purpose |
@@ -77,13 +78,13 @@ F:\Soul_Shield\
 | `vite.config.js` | react + tailwindcss plugins, nothing custom |
 | `vercel.json` | SPA rewrite `/.* → /index.html` |
 | `src/main.jsx` | Provider tree: BrowserRouter → ThemeProvider → ApiProvider → AuthProvider → ToastProvider → LazyMotion/MotionConfig → App |
-| `src/App.jsx` | Route table (⚠ duplicate catch-all, see §12) |
-| `src/services/api.js` | Fetch wrapper: base `VITE_API_URL` (default localhost:3000), token from `localStorage['soulshield_token']`, 15s timeout, error humanization maps |
+| `src/App.jsx` | Route table (unknown URLs → `NotFound`; the duplicate catch-all was removed in the Low pass, B12) |
+| `src/services/api.js` | Fetch wrapper: base `VITE_API_URL` (default localhost:3000), token from `localStorage['soulshield_token']`, sends `X-Timezone`, stores `X-Refreshed-Token`, 401 → `soulshield:session-expired` event, cold-start retries (idempotent requests) + wake-up status for `ServerWakeBanner`, error humanization maps |
 | `src/context/` | `ApiContext.jsx` (all endpoint wrappers), `AuthContext.jsx` (session), `ThemeContext.jsx` + `themes.js` (10 themes via `data-theme`) |
 | `src/hooks/` | `useTasks` (day list + date nav), `useCounter` (debounced counter batching), `useTimerTask` (web timer, localStorage), `useHistory`, `useAdminTasks`, `usePersonalStats` |
 | `src/pages/` | Dashboard, History, Categories, CategoryDetail, Profile, AdminTasks, TaskTimer, Login/Register/ForgotPassword/AuthLayout, NotFound |
 | `src/components/` | TaskCard, TaskFormModal (create/edit + sub-tasks incl. descriptions), SubTaskList (paginated + collapsible completed section), ExpandableText, CounterWidget, RewardModal, CategoryRow/Card/FormModal, ProgressSummary, Heatmap, ChangePasswordModal, ConfirmModal, Toast, Sidebar/MobileBottomNav/AppLayout, ui/Button+Input |
-| `dist/` | Built output (committed in tree; not source) |
+| `dist/` | Local build output (git-ignored, not committed; Vercel builds from source) |
 
 ### Mobile — `soul-shield-mobile-app/`
 | Path | Purpose |
@@ -114,17 +115,19 @@ build** (`npx expo run:android`) because `expo-sqlite`/`expo-crypto` don't work 
 | Framework | `net/http` + Go 1.22 method-pattern ServeMux | React 19 + Vite 8 + react-router-dom v7 | Expo SDK 54, expo-router v6, RN 0.81 |
 | Data | PostgreSQL (Neon) via `sqlx` + `pgx/v5`; migrations `rubenv/sql-migrate` | none (API-only) | `expo-sqlite` + `drizzle-orm` (local store); TanStack Query v5 (+ AsyncStorage persister) |
 | Auth | `golang-jwt/v5` (HS256); bcrypt (`golang.org/x/crypto`) | JWT in `localStorage` | JWT + cached profile in `expo-secure-store` |
-| UI extras | swaggo/http-swagger docs; gomail (SMTP) | Tailwind CSS 4 (`@tailwindcss/vite`), Framer Motion, lucide-react | Reanimated 4, expo-notifications (local only), expo-background-task/WorkManager, netinfo, haptics, svg, reanimated-worklets |
-| Tests | none | none | none (dev-only `contract-check.ts` diagnostic) |
+| UI extras | swaggo/http-swagger docs | Tailwind CSS 4 (`@tailwindcss/vite`), Framer Motion, lucide-react | Reanimated 4, expo-notifications (local only), expo-background-task/WorkManager, netinfo, haptics, svg, reanimated-worklets |
+| Tests | `go test ./...` (handlers/user, util, repo/pgerr, task parent-status) | none (lint + build in CI) | `npm test` (Node test runner: parent-status, local-owner rule) + dev-only `contract-check.ts` |
 
 ---
 
 ## 4. Configuration & environment ✅
 
-**Backend required env** (validated at startup, process exits if missing):
-`VERSION, SERVICENAME, HTTPPORT, SECRETKEY, DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD,
-DB_ENABLE_SSL_MODE (bool), CONN_STRING_FOR_DB` + optional `SMTP_*`. `.env` loaded only when
-`ENV != "production"`. Runtime listen port: env `PORT` (Render) → fallback `HTTPPORT`.
+**Backend env** (`config/config.go`; the process exits with a message if a required one is
+missing or invalid): required `SECRETKEY`, `CONN_STRING_FOR_DB`; optional `HTTPPORT` (default
+3000), `CORS_ORIGINS` (comma list, `*` = any; default the Vercel site + localhost:5173/4173),
+`TRUSTED_PROXY_HOPS` (default 0 = leftmost `X-Forwarded-For`, spoofable; set only after checking
+the host's header layout), `VERSION`/`SERVICENAME` (informational). The old `DB_*`/`SMTP_*` vars
+are no longer read (Low pass, C6). `.env` loaded only when `ENV != "production"`. Runtime listen port: env `PORT` (Render) → fallback `HTTPPORT`.
 DB pool: max open 10 / idle 5 / lifetime 5 min.
 
 **Web**: `VITE_API_URL` (default `http://localhost:3000`), `localStorage['soulshield_token']`,
@@ -142,22 +145,31 @@ theme in `localStorage['soulshield_theme']`.
 
 ### 5.1 Boot sequence (`cmd/serve.go`)
 `config` → `db.NewConnection(CONN_STRING_FOR_DB)` → `db.MigrateDB` → construct repos
-(user, otp, task, subTask, category, quran, sync) → handlers (user takes cnf+repos+middlewares;
-task takes task+subTask+category repos) → `rest.NewServer(...).Start()`.
+(user, task, subTask, category, push, sync, admin stats) → handlers (user takes cnf+repos+middlewares;
+task takes task+subTask+category+push repos; category takes category+push) →
+`rest.NewServer(...).Start()`, which shuts down gracefully on SIGTERM/SIGINT (25 s drain).
+Migrations run on every boot (fine for the single Render instance).
 
 ### 5.2 Auth & security model
-- JWT HS256, **30-day expiry** (commit 43b386d). Claims: `ID, Full_Name, Email, Role` +
-  registered claims. Header scheme is `Authorization: JWT <token>` (not Bearer).
+- JWT HS256 (alg pinned), **14-day sliding sessions** (2026-11-18; was 30 days). Claims: `ID,
+  Full_Name, Email, Role, ver (token_version), typ="auth"` + registered claims. Header scheme is
+  `Authorization: JWT <token>` (not Bearer). Tokens older than 24h get a renewed one in the
+  `X-Refreshed-Token` response header (both clients store it). `AuthenticateJWT` checks the
+  token's `ver` against `users.token_version` (DB) and takes the **role from the DB**, not the
+  token; a DB error answers 503 (never 401, which would sign clients out). Reset tokens
+  (`purpose=password_reset`) are refused as sessions and are single-use (`ResetPassword` bumps
+  `token_version` with a compare-and-set).
 - `AuthenticateJWT` middleware puts `userID` (int64) and `role` (string) into request context.
 - `RequireRole` middleware: **defined, never used** (dead code). Instead each handler checks
   role where needed (`CreateTask` rejects non-admin `is_global`; `checkOwnership` in repo allows
   admin to edit/delete anything).
-- Passwords & security answers & OTPs are bcrypt-hashed (`DefaultCost`). OTP stored bcrypt-hashed
-  with 5-minute expiry in `email_otps` (unique email, upsert).
+- Passwords & security answers are bcrypt-hashed (`DefaultCost`).
 - **Password reset flow**: `POST /users/verify-security-answer` → `userRepo.VerifySecurityAnswer`
-  (5 failed attempts → 24h `security_answer_locked_until`; every attempt logged to
-  `security_answer_attempt_logs` with IP via `util.ClientIP` which trusts `X-Forwarded-For`;
-  deliberately generic error messages to prevent enumeration) → returns 15-min
+  (S10b, Low pass: failures are counted from `security_answer_attempt_logs` per email+IP —
+  5 from one IP or 20 from all IPs within 24h → locked — under a `FOR UPDATE` row lock, so a
+  stranger can't lock the owner out and parallel guesses can't skip the count; a success resets
+  the count. The old `users.security_answer_*` counters are now unused. Deliberately generic
+  error messages to prevent enumeration) → returns 15-min
   `ResetPasswordClaims` JWT (`purpose=password_reset`) → `POST /users/reset-password` redeems it
   (verifies purpose+email, then `userRepo.Update` rehashes and resets otp flag). No email/OTP.
 - **Registration**: `POST /users/register` requires `security_answer` (3–100 chars). Email
@@ -171,25 +183,41 @@ task takes task+subTask+category repos) → `rest.NewServer(...).Start()`.
 ### 5.3 Complete route table ✅ (from `routes.go` files, Go 1.22 patterns)
 
 Unauthenticated: `POST /users/register`, `POST /users/login`,
-`POST /users/verify-security-answer`, `POST /users/reset-password`, `POST /send-otp`,
-`POST /verify-otp` (opt handlers do their own method checks and respond with plain text errors).
-Global (all routes): Preflight → Cors → Logger. Swagger: `/swagger/`.
+`POST /users/verify-security-answer`, `POST /users/reset-password`. (The OTP routes were
+removed 2026-11-18.)
+
+**Auth hardening (2026-11-18):** in-memory sliding-window rate limits (`util/ratelimit.go`,
+wired in `rest/handlers/user/handler.go`): login 30/15min per IP + 10/15min per email,
+register 10/h per IP, verify-security-answer 20/15min per IP, reset-password 10/15min per IP,
+change-password 10/15min and delete-account 5/15min per user → **429** + `Retry-After`.
+Per-process state (single Render instance); move to a shared store if ever scaled out.
+Login answers the SAME 401 "Incorrect email or password" for an unknown email (was a 500).
+Register returns a `RegisterResponse` DTO `{id, full_name, email}`; `repo.User.Password` is
+`json:"-"` (it used to leak the bcrypt hash). `POST /users/change-password`
+`{current_password,new_password}` and `DELETE /users/me` `{password}` (hard delete; all user
+data cascades; email-keyed `email_otps` / attempt logs deleted explicitly; **admins refused with
+403** because `tasks.created_by` of global tasks has no ON DELETE). Wrong password on both →
+**400, never 401** (mobile signs out on any 401). New passwords: 6–72 chars
+(`util.ValidateNewPassword`, change-password only so far).
+Global (all routes): Preflight → Cors (allow-list from `CORS_ORIGINS`) → LimitBody → Recover → RequestLogger. Swagger: `/swagger/`.
 
 **Login contract (fixed 2026-10-24):** wrong password now returns **401**
 `{"error": "Incorrect email or password"}` via `util.ErrInvalidCredentials` (previously a
 misleading 400 "Internal Server Error"); success returns **200** (was 201). The mobile login
 screen already mapped 400/401 to friendly copy via `lib/errors.ts`'s CONTEXT_MESSAGES.
 
-**Push tokens (2026-10-24, #19):** `POST /users/push-token` `{token, platform}` (upsert by
+**Push tokens (2026-10-24, #19; reworked 2026-11-18, B5):** `POST /users/push-token` `{token, platform}` (upsert by
 unique token) and `DELETE /users/push-token` — registered devices are stored in
 `user_push_tokens` (repo/push.go). Every successful REST **task** mutation (complete, increment,
 create, update, delete, sub-task complete/increment, add-to-my-tasks) fires
 `pushRepo.NotifyDataChange(userID)` — an async best-effort fan-out to Expo
 (`exp.host/--/api/v2/push/send`, "data changed" payload `data.type = 'data-change'`) telling the
-user's OTHER devices to catch-up-sync; the mobile app listens for that push
-(app/_layout.tsx) and runs `runFullBackgroundSync`. Mobile-to-device latency for web edits
-drops from next-app-open to seconds. v1 is unbatched (one push per REST mutation) and
-best-effort (failures are logged, never surfaced).
+user's OTHER devices to catch-up-sync. Since 2026-11-18 the push is **data-only** (no
+title/body, `priority: high`, `_contentAvailable`, TTL 1h) and **debounced to one per user per
+30 s** with a trailing send (in-memory). Data-only pushes never reach JS listeners, so the
+mobile app handles them in a `Notifications.registerTaskAsync` task
+(`lib/background-sync/data-change-task.ts`, imported by app/_layout.tsx) that runs
+`runFullBackgroundSync`. Best-effort (failures are logged, never surfaced).
 
 JWT-protected:
 
@@ -214,8 +242,6 @@ JWT-protected:
 | `PATCH /categories/reorder` | exact ID-set match → 409 |
 | `PATCH /categories/{id}` | owner-only update |
 | `DELETE /categories/{id}` | soft delete + `UPDATE tasks SET category_id = NULL WHERE category_id = $1` (uncategorize) |
-| `GET/PUT /quran/last-read` | per-user single row upsert |
-| `GET/POST /quran/bookmarks`, `PATCH/DELETE /quran/bookmarks/{id}` | unique per (owner,surah,ayah) → 409 on dup |
 | `GET /sync?since=RFC3339` | delta pull (below) |
 | `POST /sync` | delta push (below) |
 
@@ -251,7 +277,7 @@ JWT-protected:
   creates a personal category with the admin category's name/color, sets `source_task_id`.
 - **Reorder**: full ordered-ID contract; exact set match else 409 (`sameIDSet` helper shared by
   category + task repos).
-- **Soft delete everywhere** (except quran bookmarks, which hard-delete): tasks cascade
+- **Soft delete everywhere**: tasks cascade
   soft-delete to sub_tasks; deleting a category nulls `tasks.category_id`; completions keep
   snapshot titles and `task_id SET NULL` only via historical hard deletes.
 
@@ -274,6 +300,10 @@ JWT-protected:
   (resource-specific failure with `error` text; does NOT abort the batch). Data-rule failures
   (SQLSTATE class 23) are per-change rejections naming the constraint; infrastructure errors
   abort the whole request. Each `pushOne` autocommits (no batch transaction — by design).
+- **Per-change rejection (2026-11-18)**: SQLSTATE class 22 (data exception: bad date, malformed
+  uuid, out-of-range number) is now treated like class 23 → that change is `rejected`
+  (`isRejectableDataError` in `repo/pgerr.go`) instead of failing the whole batch with 500,
+  which used to make the client retry the same poisoned batch forever.
 - **Idempotency**: unique violation on `*_uuid_key` = same change already landed → treated as
   accepted success.
 - **Conflict rule**: LWW via `client_updated_at.Before(existing.UpdatedAt)` for everything
@@ -297,7 +327,7 @@ timestamps `TIMESTAMPTZ`.
 
 Tables & relationships:
 - `users` (email lower/trim CHECK + UNIQUE, role `user|admin`, security answer hash/attempts/lock)
-- `email_otps` (unique email, bcrypt otp, `verified` flag — currently unused by flows)
+- `email_otps` (unique email, bcrypt otp, `verified` flag — no code uses it since the OTP removal; kept)
 - `security_answer_attempt_logs` (email, success, ip, indexed by email)
 - `categories` (owner FK CASCADE, partial-unique `(owner_id, name) WHERE deleted_at IS NULL`,
   position) — the partial unique index is why delete-then-recreate a same-named category works
@@ -312,8 +342,8 @@ Tables & relationships:
   `was_global_snapshot`; `progress_count >= 0` CHECK
 - `sub_task_completions` — UNIQUE `(sub_task_id, user_id, task_date)`, plus `parent_task_id` FK
   CASCADE and `(parent_task_id, user_id, task_date)` index
-- `quran_last_read` (PK user_id), `quran_bookmarks` (UNIQUE owner+verse, note) — **not part of
-  the sync protocol**; bookmarks hard-delete
+- `quran_last_read` (PK user_id), `quran_bookmarks` (UNIQUE owner+verse, note) — **orphaned**:
+  the API that used them was removed (B20); tables kept
 
 Ops notes: deleting a category sets `tasks.category_id = NULL` explicitly in app code (soft
 delete can't fire the FK's ON DELETE); deleting a task soft-cascades sub-tasks explicitly.
@@ -367,8 +397,8 @@ local state with `updateTask/removeTask/addTask` patch helpers.
 - **AdminTasks**: admin-only page (client-side guard `ProtectedRoute adminOnly`; server enforces
   again on each mutation). Lists today's `is_global` tasks; usage stats approximated from the
   admin's *own* 30-day history (see §12).
-- **Auth pages**: Register (2-step email→account; OTP UI commented out; calls `registerUser`
-  with all 4 args directly), ForgotPassword (verifySecurityAnswer → resetPassword two-step).
+- **Auth pages**: Register (2-step email→account; calls `registerUser` with all 4 args
+  directly — the unused `AuthContext.register` wrapper was removed, B13), ForgotPassword (verifySecurityAnswer → resetPassword two-step).
 
 ---
 
@@ -540,8 +570,9 @@ separate.
     @expo/metro-runtime ships ≥ 6.1.3 stable**, then `npx expo start --clear`.
   - **Push registration (#19 client)**: Profile → "Cross-device sync alerts" toggle — permission
     + `getExpoPushTokenAsync({projectId from app.json extra.eas})` → POST /users/push-token;
-    disable/logout DELETE it. Registered pushes arrive as `data.type='data-change'` → catch-up
-    sync (app/_layout.tsx listener).
+    disable/logout DELETE it. Registered pushes arrive as data-only `type='data-change'` → catch-up
+    sync (`lib/background-sync/data-change-task.ts`; iOS needs `enableBackgroundRemoteNotifications`,
+    set in app.json).
 - **Counter responsiveness + anti-revert** (fixed 2026-10-24, #counter-performance):
   - **Instant UI everywhere**: sub-task increments/toggles now optimistically patch the query
     caches (day list AND every cached `taskHistory` window) via the new
@@ -608,7 +639,20 @@ separate.
     "Control this task" switch (no reconnect needed).
 - 401 anywhere → global handler → logout(**keepLocalData** — offline edits survive; re-login as
   same user pushes them). Explicit logout (Profile) wipes SQLite + reminders.
-- `clearLocalDatabase` also runs at sign-out because the store is **not user-scoped**.
+- **Local data ownership (2026-11-18, B1)**: the store has no per-row owner, so `lib/local-owner.ts`
+  records which user id the on-device data belongs to (AsyncStorage `soulshield_local_owner_user_id`).
+  `login()` calls `prepareLocalDataForUser(me.id)` BEFORE storing the new token: same user → keep
+  (offline edits survive a 401 re-login); different user, or unknown owner with data present →
+  `wipeAccountLocalData` (SQLite incl. sync cursor + conflicts, query cache + persisted copy incl.
+  paused mutations, reminders, rejected-changes list, BLE active task, user-scoped AsyncStorage keys
+  such as pending increments / timer-task state / push registration). Explicit logout and account
+  deletion use the same wipe. Pure rule in `lib/local-owner-decision.ts` (unit-tested).
+  Signed-in users from before this change get their id recorded on next launch
+  (`ensureLocalOwnerRecorded`). **When adding new per-user AsyncStorage keys, add them to
+  `USER_SCOPED_KEYS`/`USER_SCOPED_PREFIXES` in `lib/local-owner.ts`.**
+- Account screens: `app/account/change-password.tsx`, `app/account/delete-account.tsx` (modal
+  stack, linked from Profile → Account). Web: `ChangePasswordModal.jsx` (fixed, now uses
+  `/users/change-password`), `DeleteAccountModal.jsx` (password + type DELETE).
 - Dev diagnostics: Profile → contract check (`checkDerivedTasksAgainstServer`) comparing on-device
   derivation vs `GET /tasks` per date — no test framework exists; this is the drift alarm for the
   TS port of the Go derivation logic.
@@ -664,7 +708,8 @@ separate.
 - `soul-shield/repo/sync.go` + `repo/sync_push.go` ↔ `soul-shield-mobile-app/api/sync-types.ts` +
   `lib/db/sync-push-builders.ts` — every field added/renamed must move on **both** sides.
 - `soul-shield/rest/handlers/task/subtask_merge.go` (`computeParentStatus`) ↔
-  `soul-shield-mobile-app/lib/db/tasks-repo.ts` (`computeParentStatus`) — duplicated derivation
+  `soul-shield-mobile-app/lib/db/parent-status.ts` (`computeParentStatus`, re-exported by tasks-repo.ts;
+  both tested against `shared-test-fixtures/parent-status.json` — add a case there when the rule changes) — duplicated derivation
   logic; mobile has `contract-check.ts` as the drift detector. Use it after touching either.
 - Backend `migrations/000001_*.sql` — append-only. Mobile `lib/db/migrations.ts` — append-only,
   tied to `PRAGMA user_version`.
@@ -696,7 +741,7 @@ mutation-defaults.ts` (mobile), `src/pages/Dashboard.jsx` + `components/TaskCard
 ## 12. Verified issues, risks & observations (all confirmed in code)
 
 **Confirmed functional bug**
-1. **Web "Change Password" modal is broken** (`src/components/ChangePasswordModal.jsx`):
+1. ~~**Web "Change Password" modal is broken**~~ **FIXED 2026-11-18** (new `/users/change-password`). (`src/components/ChangePasswordModal.jsx`):
    `handleReset` calls `resetPassword(user.email, password)`, but the backend expects
    `{reset_token, new_password}` where `reset_token` is the JWT from `/users/verify-security-answer`.
    An email is never a valid token ⇒ this modal always fails with 401 "Invalid or expired reset
@@ -707,7 +752,7 @@ mutation-defaults.ts` (mobile), `src/pages/Dashboard.jsx` + `components/TaskCard
 2. `AuthContext.register(full_name, email, password)` drops `security_answer` — would always
    400 — but is dead code (Register.jsx calls `registerUser` from ApiContext directly with all
    4 args).
-3. `rest/handlers/opt` (`/send-otp`, `/verify-otp`) are unauthenticated, still live, and
+3. ~~`rest/handlers/opt`~~ **REMOVED 2026-11-18.** (Was:) `/send-otp`, `/verify-otp` are unauthenticated, still live, and
    vestigial: registration no longer requires email verification (checks commented out); still
    sends SMTP mail if invoked. OTP endpoints answer with plain-text errors (client.ts has a
    fallback for this).
@@ -745,16 +790,18 @@ mutation-defaults.ts` (mobile), `src/pages/Dashboard.jsx` + `components/TaskCard
 **Security considerations (documented, not "fixed" — no changes made yet)**
 17. CORS `Access-Control-Allow-Origin: *` with `Authorization` allowed (tokens, not cookies ⇒
     no CSRF; but any origin can call the API).
-18. JWTs live 30 days and are **not invalidated** on password change/reset — a stolen token
-    survives a password reset.
-19. No rate limiting on login/register (only the security-answer lockout + attempt logs exist).
+18. ~~JWTs live 30 days and are not invalidated on password change/reset~~ **FIXED 2026-11-18**
+    (`token_version`, 14-day sliding sessions; see §5.2).
+19. ~~No rate limiting on login/register~~ **FIXED 2026-11-18** (see §5.3 auth hardening).
 20. `util.ClientIP` trusts the first `X-Forwarded-For` hop blindly (audit log only).
 21. Web stores the JWT in `localStorage` (XSS exposure); mobile uses SecureStore.
 22. `email_otps.otp` bcrypt-hashed (good) but the OTP flow itself is dormant.
 
 **Operational**
 23. Backend has no graceful shutdown; `ListenAndServe` + `os.Exit(1)` on error.
-24. No tests anywhere in the monorepo; mobile relies on the dev-only contract check.
+24. ~~No tests anywhere~~ — **2026-11-18**: first Go + mobile unit tests and GitHub Actions CI
+    (`.github/workflows/ci.yml`). Coverage is still thin (no DB-backed repo/sync tests yet); web lint
+    is non-blocking in CI until its pre-existing errors are fixed.
 25. Render free-tier cold start is expected; the mobile retry policy (5 attempts, ≤15s backoff)
     and the `isRetryableError` set (0/502/503/504) are tuned for it — keep in sync.
 26. `docs/` Swagger is generated; if handlers change, regenerate (`swag`) or docs drift.
@@ -784,8 +831,66 @@ Verified at the level of API usage/import graph, structure and call sites, but n
 changes; add tests (none exist); decide fate of the OTP/`opt` package and the broken
 ChangePasswordModal.
 
+## 14. 2026-11-18 Medium-priority pass (see PROJECT_ANALYSIS.md §12)
+
+- **Timezone:** `util/clock.go`: `X-Timezone` (IANA) → `RequestToday(r)`; read endpoints default
+  to the user's today; write endpoints reject dates after `RequestLatestDate(r)` (UTC+14 bound
+  without the header). Repos take an explicit `asOf` date instead of `CURRENT_DATE`.
+- **New endpoints:** `GET /healthz`, `GET /tasks/stats`, `POST /tasks/{id}/uncomplete`,
+  `POST /tasks/{taskId}/subtasks/{subTaskId}/uncomplete`, `GET /admin/stats` (admin only).
+- **Rules on the server:** tasks with sub-tasks can't be completed directly; increments only on
+  counters; no future dates (REST and `/sync`). Task create/update with sub-tasks is one
+  transaction (`CreateWithSubTasks` / `UpdateWithSubTasks`).
+- **Sync push:** one transaction per batch, uuid prefetch, savepoints only when the fast path
+  hits a rejectable error; ≤ 500 changes per request (413). Conflicts use `base_updated_at`
+  when sent (mobile SQLite v3 `server_updated_at`), else client time capped at server time.
+  Pull cursor is capped at the oldest open transaction's start so in-flight pushes aren't skipped.
+- **Ops:** slog JSON logs with `X-Request-ID`, panic recovery, 1 MiB body limit, http.Server
+  timeouts. DB integration tests: `repo/integration_test.go` (needs `TEST_DATABASE_URL`, CI runs
+  Postgres 16).
+- **Web:** session-expired redirect, cold-start banner, strict CSP (`vercel.json`: update
+  `connect-src` if the API origin changes), shared form validation, lint is blocking in CI,
+  admin page uses real stats (mock leaderboard removed).
+- **Mobile:** sends `X-Timezone`, adopts `X-Refreshed-Token` (`api/client.ts` →
+  `onRefreshedToken`), change-password stores the returned token, pushes chunked at 200.
+
 ---
 
 *Created by the 2026-10-23 full-repository analysis (backend ~45 Go files, web ~55 JSX files,
 mobile ~130 TS files read directly, plus config/schema/migrations). Update this document with
 any future change — especially the invariants in §11.*
+
+## 15. 2026-11-18 Low-priority pass (see PROJECT_ANALYSIS.md)
+
+Backend:
+- **Removed** the Quran API (B20) and the leftover OTP/mail code + gomail; tables kept.
+- **Config** (C6): only `SECRETKEY`/`CONN_STRING_FOR_DB` required; `CORS_ORIGINS` allow-list (S7,
+  `middlewares.Cors`, exposes `X-Refreshed-Token`/`Retry-After`/`X-Request-ID`); graceful shutdown;
+  `infra/db` logs via slog.
+- **Context keys** (C6): `middlewares.WithUser` / `UserID(r)` / `Role(r)` with a private key type
+  replace the string keys and the per-package `getUserID` helpers.
+- **Input errors** (B10): title (≤255 runes) / category name (≤100) / recurrence type validated in
+  handlers; remaining SQLSTATE 22xxx/23xxx (non-unique) map to `util.ErrInvalidInput` → 400.
+  Category rename onto an existing name → 409. Handlers use `errors.Is`.
+- **Push** (B14/B17): category create/update/delete/reorder and task reorder now send the
+  data-change push; tokens are sent in batches of 100 and `DeviceNotRegistered` tokens deleted.
+  Push token format validated (`ExponentPushToken[...]`); a token registered to another account is
+  deliberately reassigned (S10c, documented on `UpsertToken`).
+- **ClientIP** (S10a): `TRUSTED_PROXY_HOPS`; default unchanged until Render's header layout is
+  verified on a deployed request.
+- **Security-answer lockout** per email+IP (S10b, see §5).
+- Tests: cors, ParseOrigins, validateTitle/RecurrenceType, push-token pattern, Expo ticket parsing,
+  ClientIP, + integration tests for the per-IP lockout and category rename conflict.
+
+Web: single `*` → NotFound route (B12); unused `register` removed (B13); counter taps flushed with
+`fetch(..., { keepalive: true })` on tab hide / `pagehide` (B15); admin row checkbox labelled (U9).
+Every page already had a loading skeleton (U10).
+
+Mobile: `api/client.ts` message fallback uses `||` (B18); `clearLocalDatabase` runs in one
+transaction; the overnight sync window uses device-local time instead of Asia/Dhaka (stored key
+`lastSuccessDhakaDate` keeps its name) (C8); `TextField` has a password show/hide toggle + `hint`
+(rules shown on register / reset / change password) (U6); 31 icon-only buttons got
+`accessibilityRole`/`accessibilityLabel` (checkboxes report checked state) (U9).
+
+Deferred: features F6/F7/F9–F14, U7 (i18n), U8 (conflict UI), U11, S10d (BLE pairing auth), S10e (needs email reset F1), B22
+(metro alias waits on an upstream release), C8 large-file splits, PERSIST_BUSTER snapshot test.
