@@ -153,11 +153,29 @@ func TestPushChangesIsIdempotentOnReplay(t *testing.T) {
 	batch := []SyncChange{change("tasks", "upsert", taskUUID, time.Now(), map[string]any{
 		"title": "Dhikr", "recurrence_type": "daily", "recurrence_days": []int{0, 1, 2, 3, 4, 5, 6}, "task_type": "normal",
 	})}
-	for i := 0; i < 2; i++ {
-		results, err := repo.PushChanges(u.ID, batch, util.TodayIn(time.UTC))
-		if err != nil || results[0].Status != "accepted" {
-			t.Fatalf("attempt %d: %v %+v", i, err, results)
+	results, err := repo.PushChanges(u.ID, batch, util.TodayIn(time.UTC))
+	if err != nil || results[0].Status != "accepted" {
+		t.Fatalf("first push: %v %+v", err, results)
+	}
+
+	// The replay (a retry after a lost response) carries the same
+	// client_updated_at, which is now older than the row's server-set
+	// updated_at, so last-write-wins may answer "superseded" - with the
+	// server row, which is exactly what was pushed. Either answer is
+	// correct; what idempotency requires is no error and no duplicate row.
+	results, err = repo.PushChanges(u.ID, batch, util.TodayIn(time.UTC))
+	if err != nil {
+		t.Fatalf("replay: %v", err)
+	}
+	switch r := results[0]; r.Status {
+	case "accepted":
+	case "superseded":
+		row, ok := r.ServerRow.(*SyncTask)
+		if !ok || row == nil || row.Title != "Dhikr" {
+			t.Fatalf("replay superseded with unexpected server row: %+v", r.ServerRow)
 		}
+	default:
+		t.Fatalf("replay: %+v", r)
 	}
 	var n int
 	db.Get(&n, `SELECT count(*) FROM tasks WHERE uuid = $1`, taskUUID)
