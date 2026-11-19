@@ -1,8 +1,12 @@
+import { useId, useMemo } from 'react';
 import { Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
+import Svg, { Defs, Line, Path, Pattern } from 'react-native-svg';
 
 import { ThemedText } from '@/components/themed-text';
 import { Fonts } from '@/constants/theme';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useUIStyle } from '@/hooks/use-ui-style';
+import { annularSectorPath, sizeSeed, sketchCirclePath } from '@/lib/ui-style/sketch';
 
 interface TimerRingProps {
   remainingMs: number;
@@ -28,6 +32,8 @@ export function TimerRing({ remainingMs }: TimerRingProps) {
   const cardColor = useThemeColor({}, 'card');
   const textColor = useThemeColor({}, 'text');
   const tintColor = useThemeColor({}, 'tint');
+  const { uiStyle, tokens } = useUIStyle();
+  const pencil = uiStyle === 'pencil';
 
   const outerSize = Math.min(width * 0.72, 300);
   const innerSize = outerSize * 0.78;
@@ -37,7 +43,9 @@ export function TimerRing({ remainingMs }: TimerRingProps) {
       style={[
         styles.outer,
         { width: outerSize, height: outerSize, borderRadius: outerSize / 2, backgroundColor: borderColor },
+        pencil && styles.clear,
       ]}>
+      {pencil ? <PencilFrame outerSize={outerSize} innerSize={innerSize} ink={tokens.ink} hatch={tokens.hatch} /> : null}
       <View
         style={[
           styles.inner,
@@ -48,6 +56,7 @@ export function TimerRing({ remainingMs }: TimerRingProps) {
             backgroundColor: cardColor,
             shadowColor: tintColor,
           },
+          pencil && styles.flatInner,
         ]}>
         <ThemedText style={[styles.digits, { color: textColor, fontFamily: Fonts.mono }]}>
           {formatHHMMSS(remainingMs)}
@@ -57,7 +66,51 @@ export function TimerRing({ remainingMs }: TimerRingProps) {
   );
 }
 
+/** Pencil style: the solid band becomes a hand-sketched double circle with
+ * the gap between shaded in graphite — a plain frame, so a single sparse
+ * hatch (cross-hatching is reserved for actual progress fills). */
+function PencilFrame({
+  outerSize,
+  innerSize,
+  ink,
+  hatch,
+}: {
+  outerSize: number;
+  innerSize: number;
+  ink: string;
+  hatch: string;
+}) {
+  const patternId = `frame${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+  const c = outerSize / 2;
+  const rOuter = c - 2;
+  // Just outside the (opaque) inner face drawn on top, so the whole stroke shows.
+  const rInner = innerSize / 2 + 1.5;
+  const paths = useMemo(() => {
+    const seed = sizeSeed(outerSize, innerSize, 5);
+    return {
+      outer: sketchCirclePath(c, c, rOuter, seed),
+      inner: sketchCirclePath(c, c, rInner, seed + 1),
+      band: annularSectorPath(c, c, rOuter - 1, rInner + 1, 1),
+    };
+  }, [outerSize, innerSize, c, rOuter, rInner]);
+
+  return (
+    <Svg width={outerSize} height={outerSize} style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Defs>
+        <Pattern id={patternId} patternUnits="userSpaceOnUse" width={6} height={6} patternTransform="rotate(-45)">
+          <Line x1={0} y1={0} x2={0} y2={6} stroke={hatch} strokeWidth={1} />
+        </Pattern>
+      </Defs>
+      <Path d={paths.band} fill={`url(#${patternId})`} />
+      <Path d={paths.outer} stroke={ink} strokeWidth={2.5} strokeLinecap="round" fill="none" />
+      <Path d={paths.inner} stroke={ink} strokeWidth={2.5} strokeLinecap="round" fill="none" />
+    </Svg>
+  );
+}
+
 const styles = StyleSheet.create({
+  clear: { backgroundColor: 'transparent' },
+  flatInner: { shadowOpacity: 0, elevation: 0 },
   outer: { alignItems: 'center', justifyContent: 'center' },
   inner: {
     alignItems: 'center',

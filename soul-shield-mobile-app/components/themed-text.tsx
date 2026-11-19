@@ -1,6 +1,8 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 
+import { HAND_FONTS } from '@/constants/ui-style';
 import { useArabicFont } from '@/context/arabic-font-context';
+import { useAppTheme } from '@/context/theme-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { containsArabic } from '@/lib/arabic';
 
@@ -20,6 +22,7 @@ export function ThemedText({
 }: ThemedTextProps) {
   const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
   const { fontFamily: arabicFontFamily } = useArabicFont();
+  const { styleTokens } = useAppTheme();
   // Auto-detects Arabic script (e.g. a task title/description written in
   // Arabic) and switches to the user's chosen Arabic font for it (see
   // context/arabic-font-context.tsx) — unless the caller already asked for a
@@ -55,6 +58,25 @@ export function ThemedText({
     : undefined;
   const arabicFontStyle = arabicApplies ? { fontFamily: arabicFontFamily } : undefined;
 
+  // Paper/Pencil UI styles: handwritten Latin text (constants/ui-style.ts) —
+  // Patrick Hand for body text, Caveat for title/subtitle. Same precedence
+  // rules as the Arabic font above: the user's Arabic-font choice still
+  // wins for Arabic text, and a caller's explicit fontFamily (e.g. the mono
+  // timer digits) still wins over both. Bengali-script strings keep the
+  // system font, since neither handwritten family has Bengali glyphs. Like
+  // the Arabic font, these families ship a single weight per name, so
+  // fontWeight is reset (Android would otherwise drop the custom font).
+  const isBengali = typeof children === 'string' && BENGALI_SCRIPT_PATTERN.test(children);
+  const handApplies = styleTokens.handDrawn && !isArabic && !isBengali && !callerStyle?.fontFamily;
+  const isHeading = type === 'title' || type === 'subtitle';
+  // Caveat's x-height runs ~25% smaller than system text at the same size.
+  const headingSize = baseFontSize * 1.25;
+  const handOverride = handApplies
+    ? isHeading
+      ? { fontFamily: HAND_FONTS.heading, fontWeight: 'normal' as const, fontSize: headingSize, lineHeight: headingSize * 1.15 }
+      : { fontFamily: HAND_FONTS.body, fontWeight: 'normal' as const }
+    : undefined;
+
   return (
     <Text
       style={[
@@ -67,12 +89,16 @@ export function ThemedText({
         arabicFontStyle,
         style,
         arabicOverride,
+        handOverride,
       ]}
       {...rest}>
       {children}
     </Text>
   );
 }
+
+/** Bengali block (U+0980–U+09FF). */
+const BENGALI_SCRIPT_PATTERN = /[ঀ-৿]/;
 
 const styles = StyleSheet.create({
   default: {

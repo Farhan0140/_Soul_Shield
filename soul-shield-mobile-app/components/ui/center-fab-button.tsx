@@ -2,7 +2,9 @@ import { Platform, Pressable, StyleSheet } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useOnAccent, useSurface, useUIStyle } from '@/hooks/use-ui-style';
 
 interface CenterFabButtonProps {
   onPress: () => void;
@@ -15,6 +17,9 @@ interface CenterFabButtonProps {
 export function CenterFabButton({ onPress }: CenterFabButtonProps) {
   const tint = useThemeColor({}, 'tint');
   const background = useThemeColor({}, 'background');
+  const surface = useSurface();
+  const onAccent = useOnAccent();
+  const { handDrawn } = useUIStyle();
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
@@ -32,9 +37,12 @@ export function CenterFabButton({ onPress }: CenterFabButtonProps) {
       hitSlop={8}
       accessibilityRole="button"
       accessibilityLabel="Create">
-      <Animated.View style={[styles.halo, { backgroundColor: background }, animatedStyle]}>
-        <Animated.View style={[styles.circle, { backgroundColor: tint }]}>
-          <IconSymbol name="plus" size={30} color="#fff" />
+      {/* Paper/Pencil: no halo ring — the circle itself carries the outline. */}
+      <Animated.View
+        style={[styles.halo, { backgroundColor: handDrawn ? 'transparent' : background }, handDrawn && styles.haloFlat, animatedStyle]}>
+        <Animated.View style={[styles.circle, { backgroundColor: tint }, surface('fab')]}>
+          <ThemeDecor kind="fab" hatch={tint} />
+          <IconSymbol name="plus" size={30} color={onAccent} />
         </Animated.View>
       </Animated.View>
     </Pressable>
@@ -61,6 +69,7 @@ const styles = StyleSheet.create({
       android: { elevation: 8 },
     }),
   },
+  haloFlat: { elevation: 0, shadowOpacity: 0 },
   circle: {
     width: 60,
     height: 60,

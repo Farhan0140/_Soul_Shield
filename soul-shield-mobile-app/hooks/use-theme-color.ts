@@ -10,11 +10,13 @@ export function useThemeColor(
   props: { light?: string; dark?: string },
   colorName: keyof typeof Colors.softPaperLight
 ) {
-  const { resolvedTheme } = useAppTheme();
+  const { resolvedTheme, palette } = useAppTheme();
   const colorFromProps = props[ThemeScheme[resolvedTheme]];
 
   if (colorFromProps) {
     return colorFromProps;
   }
-  return Colors[resolvedTheme][colorName];
+  // `palette` is Colors[resolvedTheme] as the active UI style renders it
+  // (identical to it under the Normal style — see lib/ui-style/palette.ts).
+  return palette[colorName];
 }

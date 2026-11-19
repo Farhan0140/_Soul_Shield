@@ -3,7 +3,9 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useOnAccent, useSurface } from '@/hooks/use-ui-style';
 import type { TaskTimerStatus } from '@/lib/timer-task/store';
 
 interface TimerTaskControlsProps {
@@ -30,6 +32,8 @@ export function TimerTaskControls({ status, disabled, onStart, onPause, onResume
   const tint = useThemeColor({}, 'tint');
   const muted = useThemeColor({}, 'muted');
   const success = useThemeColor({}, 'success');
+  const surface = useSurface();
+  const onAccent = useOnAccent();
   const scale = useSharedValue(1);
   const completeScale = useSharedValue(1);
 
@@ -68,9 +72,11 @@ export function TimerTaskControls({ status, disabled, onStart, onPause, onResume
             style={[
               styles.playButton,
               { backgroundColor: disabled || isCompleted ? muted : tint, opacity: disabled ? 0.6 : 1 },
+              surface('fab'),
               animatedStyle,
             ]}>
-            <IconSymbol name={iconName} size={30} color="#fff" />
+            <ThemeDecor kind="fab" hatch={disabled || isCompleted ? muted : tint} />
+            <IconSymbol name={iconName} size={30} color={onAccent} />
           </Animated.View>
         </Pressable>
       </View>
@@ -92,7 +98,15 @@ export function TimerTaskControls({ status, disabled, onStart, onPause, onResume
           disabled={disabled}
           accessibilityRole="button"
           accessibilityLabel="Complete task now">
-          <Animated.View style={[styles.completeButton, { borderColor: success, opacity: disabled ? 0.5 : 1 }, completeAnimatedStyle]}>
+          <Animated.View
+            style={[
+              styles.completeButton,
+              { borderColor: success, opacity: disabled ? 0.5 : 1 },
+              surface('button'),
+              surface('button') && { borderColor: success },
+              completeAnimatedStyle,
+            ]}>
+            <ThemeDecor kind="button" stroke={success} />
             <IconSymbol name="checkmark" size={16} color={success} />
             <ThemedText style={[styles.completeLabel, { color: success }]}>Complete</ThemedText>
           </Animated.View>

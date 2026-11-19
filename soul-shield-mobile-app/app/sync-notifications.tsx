@@ -6,7 +6,9 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { useSyncNotifications } from '@/context/sync-notifications-context';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 import {
   clearRejectedChanges,
   listRejectedChanges,
@@ -23,6 +25,7 @@ export default function SyncNotificationsScreen() {
   const warningColor = useThemeColor({}, 'warning');
   const missedTint = useThemeColor({}, 'missedTint');
   const cardColor = useThemeColor({}, 'card');
+  const surface = useSurface();
   const mutedColor = useThemeColor({}, 'muted');
 
   const [rejected, setRejected] = useState<RejectedChange[]>(() => listRejectedChanges());
@@ -59,7 +62,8 @@ export default function SyncNotificationsScreen() {
           <PrimaryButton label={t('common.clearAll')} variant="secondary" onPress={dismissAll} />
           <View style={styles.list}>
             {items.map((item) => (
-              <View key={item.id} style={[styles.row, { backgroundColor: missedTint }]}>
+              <View key={item.id} style={[styles.row, { backgroundColor: missedTint }, surface('note')]}>
+                <ThemeDecor kind="note" />
                 <View style={styles.rowTitle}>
                   <IconSymbol name="exclamationmark.triangle.fill" size={20} color={dangerColor} />
                   <ThemedText style={[styles.timestamp, { color: mutedColor }]}>
@@ -93,7 +97,8 @@ export default function SyncNotificationsScreen() {
           />
           <View style={styles.list}>
             {rejected.map((item) => (
-              <View key={`${item.resource}-${item.uuid}`} style={[styles.row, { backgroundColor: cardColor }]}>
+              <View key={`${item.resource}-${item.uuid}`} style={[styles.row, { backgroundColor: cardColor }, surface('card')]}>
+                <ThemeDecor kind="card" />
                 <View style={styles.rowTitle}>
                   <IconSymbol name="xmark.circle.fill" size={18} color={warningColor} />
                   <ThemedText style={[styles.timestamp, { color: mutedColor }]}>
@@ -123,7 +128,8 @@ export default function SyncNotificationsScreen() {
           />
           <View style={styles.list}>
             {conflicts.slice(0, 20).map((row) => (
-              <View key={row.id} style={[styles.row, { backgroundColor: cardColor }]}>
+              <View key={row.id} style={[styles.row, { backgroundColor: cardColor }, surface('card')]}>
+                <ThemeDecor kind="card" />
                 <View style={styles.rowTitle}>
                   <IconSymbol name="arrow.counterclockwise" size={18} color={mutedColor} />
                   <ThemedText style={[styles.timestamp, { color: mutedColor }]}>

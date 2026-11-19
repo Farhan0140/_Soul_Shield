@@ -3,7 +3,9 @@ import { StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { PrimaryButton } from '@/components/ui/primary-button';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 
 interface ErrorStateProps {
   message: string;
@@ -13,9 +15,11 @@ interface ErrorStateProps {
 export function ErrorState({ message, onRetry }: ErrorStateProps) {
   const dangerColor = useThemeColor({}, 'danger');
   const missedTint = useThemeColor({}, 'missedTint');
+  const surface = useSurface();
 
   return (
-    <View style={[styles.container, { backgroundColor: missedTint }]}>
+    <View style={[styles.container, { backgroundColor: missedTint }, surface('note')]}>
+      <ThemeDecor kind="note" stroke={dangerColor} />
       <IconSymbol name="exclamationmark.triangle.fill" size={22} color={dangerColor} />
       <ThemedText selectable style={[styles.message, { color: dangerColor }]}>
         {message}

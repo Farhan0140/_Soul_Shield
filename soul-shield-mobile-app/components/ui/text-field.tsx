@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, type TextInputProps, type TextStyle, View } from 'react-native';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useScrollToFocusedInput } from '@/components/ui/keyboard-avoiding-scroll-view';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { hexToRgba } from '@/lib/color';
+import { useHandFont, useSurface, useUIStyle } from '@/hooks/use-ui-style';
 
 interface TextFieldProps extends TextInputProps {
   label?: string;
@@ -39,12 +42,26 @@ export function TextField({
   const cardColor = useThemeColor({}, 'card');
   const tintColor = useThemeColor({}, 'tint');
 
+  const surface = useSurface();
+  const handFont = useHandFont();
+  const { tokens } = useUIStyle();
+
   const activeBorderColor = error ? dangerColor : focused ? tintColor : borderColor;
+  const inputSurface = surface('input') as TextStyle | undefined;
 
   return (
     <View style={styles.container}>
-      {label ? <Text style={[styles.label, { color: mutedColor }]}>{label}</Text> : null}
+      {label ? <Text style={[styles.label, { color: mutedColor }, handFont.body]}>{label}</Text> : null}
       <View>
+        {/* Pencil: sketched outline, colored for focus/error like the native
+            border, over the reference's hatched field — cleared while focused. */}
+        <ThemeDecor
+          kind="input"
+          stroke={error || focused ? activeBorderColor : undefined}
+          hatch={focused ? undefined : hexToRgba(tokens.hatch, 0.6)}
+          hatchSpacing={5}
+          hatchWidth={1}
+        />
         <TextInput
           placeholderTextColor={mutedColor}
           accessibilityLabel={label}
@@ -65,6 +82,10 @@ export function TextField({
               borderColor: activeBorderColor,
               borderWidth: focused || error ? 2 : 1.5,
             },
+            inputSurface,
+            // Paper keeps the focus/error border color over its ink outline.
+            inputSurface && (error || focused) ? { borderColor: activeBorderColor } : null,
+            handFont.body,
             isPassword && styles.inputWithToggle,
             style,
           ]}
@@ -83,11 +104,11 @@ export function TextField({
         ) : null}
       </View>
       {error ? (
-        <Text selectable style={[styles.error, { color: dangerColor }]}>
+        <Text selectable style={[styles.error, { color: dangerColor }, handFont.body]}>
           {error}
         </Text>
       ) : hint ? (
-        <Text style={[styles.hint, { color: mutedColor }]}>{hint}</Text>
+        <Text style={[styles.hint, { color: mutedColor }, handFont.body]}>{hint}</Text>
       ) : null}
     </View>
   );

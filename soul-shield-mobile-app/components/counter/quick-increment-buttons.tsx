@@ -1,7 +1,9 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 
 const AMOUNTS = [5, 10];
 
@@ -19,6 +21,7 @@ export function QuickIncrementButtons({ onAdd, onCustom, disabled }: QuickIncrem
   const tint = useThemeColor({}, 'tint');
   const card = useThemeColor({}, 'card');
   const border = useThemeColor({}, 'border');
+  const surface = useSurface();
 
   return (
     <View style={styles.row}>
@@ -30,7 +33,9 @@ export function QuickIncrementButtons({ onAdd, onCustom, disabled }: QuickIncrem
           style={({ pressed }) => [
             styles.button,
             { backgroundColor: card, borderColor: border, opacity: disabled ? 0.5 : pressed ? 0.7 : 1 },
+            surface('button'),
           ]}>
+          <ThemeDecor kind="button" stroke={tint} />
           <ThemedText style={[styles.label, { color: tint }]}>+{amount}</ThemedText>
         </Pressable>
       ))}
@@ -40,7 +45,9 @@ export function QuickIncrementButtons({ onAdd, onCustom, disabled }: QuickIncrem
         style={({ pressed }) => [
           styles.button,
           { backgroundColor: card, borderColor: border, opacity: disabled ? 0.5 : pressed ? 0.7 : 1 },
+          surface('button'),
         ]}>
+        <ThemeDecor kind="button" stroke={tint} />
         <ThemedText style={[styles.label, { color: tint }]}>Custom</ThemedText>
       </Pressable>
     </View>

@@ -1,6 +1,8 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useHandFont, useOnAccent, useSurface } from '@/hooks/use-ui-style';
 
 interface PrimaryButtonProps {
   label: string;
@@ -21,11 +23,14 @@ export function PrimaryButton({
   const danger = useThemeColor({}, 'danger');
   const card = useThemeColor({}, 'card');
   const text = useThemeColor({}, 'text');
+  const surface = useSurface();
+  const onAccent = useOnAccent();
+  const handFont = useHandFont();
   const isDisabled = disabled || loading;
 
   const backgroundColor =
     variant === 'primary' ? tint : variant === 'destructive' ? danger : card;
-  const textColor = variant === 'secondary' ? text : '#fff';
+  const textColor = variant === 'secondary' ? text : onAccent;
 
   return (
     <Pressable
@@ -34,11 +39,14 @@ export function PrimaryButton({
       style={({ pressed }) => [
         styles.button,
         { backgroundColor, opacity: isDisabled ? 0.6 : pressed ? 0.85 : 1 },
+        surface('button'),
       ]}>
+      {/* Pencil: filled buttons get colored-pencil shading. */}
+      <ThemeDecor kind="button" hatch={variant === 'secondary' ? undefined : backgroundColor} />
       {loading ? (
         <ActivityIndicator color={textColor} />
       ) : (
-        <Text style={[styles.label, { color: textColor }]}>{label}</Text>
+        <Text style={[styles.label, { color: textColor }, handFont.body]}>{label}</Text>
       )}
     </Pressable>
   );

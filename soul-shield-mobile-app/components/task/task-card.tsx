@@ -11,7 +11,9 @@ import { SubTaskList } from '@/components/task/sub-task-list';
 import { TaskDetailsInline } from '@/components/task/task-details-inline';
 import { ExpandableText } from '@/components/ui/expandable-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useOnAccent, useSurface, useUIStyle } from '@/hooks/use-ui-style';
 import { isToday } from '@/lib/date';
 import { hapticLight } from '@/lib/feedback';
 
@@ -70,6 +72,9 @@ export function TaskCard({
   const missedTint = useThemeColor({}, 'missedTint');
   const partiallyCompletedTint = useThemeColor({}, 'partiallyCompletedTint');
   const categoryFallback = useThemeColor({}, 'categoryFallback');
+  const surface = useSurface();
+  const onAccent = useOnAccent();
+  const { uiStyle } = useUIStyle();
 
   const isTemplate = variant === 'template';
   const isMissed = task.status === 'missed';
@@ -115,7 +120,19 @@ export function TaskCard({
     <Pressable
       disabled={!openPageHandler}
       onPress={openPageHandler ?? undefined}
-      style={[styles.card, { backgroundColor, borderLeftColor: accentColor }]}>
+      style={[
+        styles.card,
+        { backgroundColor, borderLeftColor: accentColor },
+        surface('note'),
+        uiStyle === 'pencil' && styles.noAccentBorder,
+      ]}>
+      <ThemeDecor kind="note" />
+      {/* Pencil: the category accent stripe, shaded in its colored pencil. */}
+      {uiStyle === 'pencil' ? (
+        <View pointerEvents="none" style={styles.accentBand}>
+          <ThemeDecor kind="track" hatch={accentColor} hatchSpacing={4} outline={false} />
+        </View>
+      ) : null}
       <View style={styles.headerRow}>
         {!isTemplate && !isCounter && !isTimer && !hasSubTasks ? (
           // TODO this button is for toggling completion of a normal type task
@@ -205,12 +222,14 @@ export function TaskCard({
       {!openPageHandler && detailsExpanded ? <TaskDetailsInline task={task} /> : null}
 
       {task.category_name ? (
-        <View style={[styles.categoryChip, { borderColor: accentColor }]}>
+        <View style={[styles.categoryChip, { borderColor: accentColor }, surface('chip'), surface('chip') && { borderColor: accentColor }]}>
+          <ThemeDecor kind="chip" stroke={accentColor} />
           <View style={[styles.dot, { backgroundColor: accentColor }]} />
           <ThemedText style={styles.categoryLabel}>{task.category_name}</ThemedText>
         </View>
       ) : showCategoryBadge && !task.is_global ? (
-        <View style={[styles.categoryChip, { borderColor: categoryFallback }]}>
+        <View style={[styles.categoryChip, { borderColor: categoryFallback }, surface('chip'), surface('chip') && { borderColor: categoryFallback }]}>
+          <ThemeDecor kind="chip" stroke={categoryFallback} />
           <View style={[styles.dot, { backgroundColor: categoryFallback }]} />
           <ThemedText style={styles.categoryLabel}>Uncategorized</ThemedText>
         </View>
@@ -264,14 +283,16 @@ export function TaskCard({
             style={[
               styles.addButton,
               { backgroundColor: alreadyAdded ? `${successColor}1A` : tintColor },
+              surface('button'),
             ]}>
+            <ThemeDecor kind="button" hatch={alreadyAdded ? undefined : tintColor} />
             <IconSymbol
               name={alreadyAdded ? 'checkmark.circle.fill' : 'plus.circle.fill'}
               size={18}
-              color={alreadyAdded ? successColor : '#fff'}
+              color={alreadyAdded ? successColor : onAccent}
             />
             <ThemedText
-              style={[styles.addButtonLabel, { color: alreadyAdded ? successColor : '#fff' }]}>
+              style={[styles.addButtonLabel, { color: alreadyAdded ? successColor : onAccent }]}>
               {alreadyAdded ? 'Already Added' : isAdding ? 'Adding…' : 'Add to Your Own Tasks'}
             </ThemedText>
           </Pressable>
@@ -283,7 +304,13 @@ export function TaskCard({
               accessibilityLabel="Delete fixed task"
               onPress={onDelete}
               hitSlop={8}
-              style={[styles.templateDeleteButton, { borderColor: `${dangerColor}4D` }]}>
+              style={[
+                styles.templateDeleteButton,
+                { borderColor: `${dangerColor}4D` },
+                surface('button'),
+                surface('button') && { borderColor: dangerColor },
+              ]}>
+              <ThemeDecor kind="button" stroke={dangerColor} />
               <IconSymbol name="trash" size={18} color={dangerColor} />
             </Pressable>
           ) : null}
@@ -307,6 +334,8 @@ export function TaskCard({
 }
 
 const styles = StyleSheet.create({
+  noAccentBorder: { borderLeftWidth: 0 },
+  accentBand: { position: 'absolute', left: 3, top: 3, bottom: 3, width: 12 },
   card: {
     borderRadius: 16,
     borderCurve: 'continuous',

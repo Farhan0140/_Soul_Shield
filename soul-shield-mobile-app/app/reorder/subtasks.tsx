@@ -14,7 +14,9 @@ import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { useReorderMySubTasks } from '@/hooks/queries/use-task-mutations';
 import { useMyTasksQuery } from '@/hooks/queries/use-tasks';
 import { useNetworkStatus } from '@/hooks/use-network-status';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 import { getErrorMessage } from '@/lib/errors';
 
 function toSubTaskInput(s: ManageableSubTask): SubTaskInput {
@@ -37,6 +39,7 @@ export default function ReorderSubTasksScreen() {
   const myTasksQuery = useMyTasksQuery();
   const { isOnline } = useNetworkStatus();
   const cardColor = useThemeColor({}, 'card');
+  const surface = useSurface();
   const mutedColor = useThemeColor({}, 'muted');
   const insets = useSafeAreaInsets();
 
@@ -122,7 +125,8 @@ export default function ReorderSubTasksScreen() {
           <Pressable
             key={task.id}
             onPress={() => setSelectedTaskId(task.id)}
-            style={({ pressed }) => [styles.pickRow, { backgroundColor: cardColor, opacity: pressed ? 0.7 : 1 }]}>
+            style={({ pressed }) => [styles.pickRow, { backgroundColor: cardColor, opacity: pressed ? 0.7 : 1 }, surface('card')]}>
+            <ThemeDecor kind="card" />
             <ThemedText type="defaultSemiBold" style={styles.pickLabel} numberOfLines={1}>
               {task.title}
             </ThemedText>

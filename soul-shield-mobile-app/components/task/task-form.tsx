@@ -23,7 +23,9 @@ import { PrimaryButton } from '@/components/ui/primary-button';
 import { TapShadowButton } from '@/components/ui/tap-shadow-button';
 import { TextField } from '@/components/ui/text-field';
 import { useCategoriesQuery } from '@/hooks/queries/use-categories';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface, useUIStyle } from '@/hooks/use-ui-style';
 import { secondsToSelection, selectionToSeconds } from '@/lib/timer/duration';
 import type { TimerSelection } from '@/lib/timer/store';
 
@@ -97,6 +99,11 @@ export function TaskForm({
   const mutedColor = useThemeColor({}, 'muted');
   const cardColor = useThemeColor({}, 'card');
   const borderColor = useThemeColor({}, 'border');
+  const surface = useSurface();
+  const { handDrawn } = useUIStyle();
+  // Grey frame around each task-type button. Paper/Pencil buttons already
+  // draw their own outline, so the extra frame is dropped there.
+  const typeOptionWrap = handDrawn ? styles.typeOptionPlain : styles.typeOptionFramed;
   const isEditMode = Boolean(initialTask);
   const headerHeight = useHeaderHeight();
 
@@ -307,7 +314,7 @@ export function TaskForm({
         <ThemedText type="defaultSemiBold">Task Type</ThemedText>
         <View style={styles.typeRow}>
           {/* TODO this button is for setting the task type to normal (simple checkbox completion) */}
-          <View style={{ flex: 1, borderWidth:1, borderColor: '#c7c7c7', borderRadius: 16 }}>
+          <View style={typeOptionWrap}>
             <PrimaryButton
               label="Normal"
               variant={taskType === 'normal' ? 'primary' : 'secondary'}
@@ -316,7 +323,7 @@ export function TaskForm({
           </View>
 
           {/* TODO this button is for setting the task type to counter (progress towards a target count) */}
-          <View style={{ flex: 1, borderWidth:1, borderColor: '#c7c7c7', borderRadius: 16 }}>
+          <View style={typeOptionWrap}>
             <PrimaryButton
               label="Counter"
               variant={taskType === 'counter' ? 'primary' : 'secondary'}
@@ -325,7 +332,7 @@ export function TaskForm({
           </View>
 
           {/* TODO this button is for setting the task type to timer (completes once a set duration elapses) */}
-          <View style={{ flex: 1, borderWidth:1, borderColor: '#c7c7c7', borderRadius: 16 }}>
+          <View style={typeOptionWrap}>
             <PrimaryButton
               label="Timer"
               variant={taskType === 'timer' ? 'primary' : 'secondary'}
@@ -374,7 +381,8 @@ export function TaskForm({
                   <Animated.View
                     key={draft.key}
                     layout={LinearTransition.duration(220)}
-                    style={[styles.subTaskRow, { backgroundColor: cardColor, borderColor }]}>
+                    style={[styles.subTaskRow, { backgroundColor: cardColor, borderColor }, surface('card')]}>
+                    <ThemeDecor kind="card" />
                     <View style={styles.subTaskRowHeader}>
                       <View style={{ flex: 1 }}>
                         <TextField
@@ -425,7 +433,7 @@ export function TaskForm({
 
                       <View style={styles.typeRow}>
                         {/* TODO this button is for setting this sub-task's type to normal */}
-                        <View style={{ flex: 1, borderWidth: 1, borderColor: '#c7c7c7', borderRadius: 16 }}>
+                        <View style={typeOptionWrap}>
                           <PrimaryButton
                             label="Normal"
                             variant={draft.task_type === 'normal' ? 'primary' : 'secondary'}
@@ -434,7 +442,7 @@ export function TaskForm({
                         </View>
 
                         {/* TODO this button is for setting this sub-task's type to counter */}
-                        <View style={{ flex: 1, borderWidth: 1, borderColor: '#c7c7c7', borderRadius: 16 }}>
+                        <View style={typeOptionWrap}>
                           <PrimaryButton
                             label="Counter"
                             variant={draft.task_type === 'counter' ? 'primary' : 'secondary'}
@@ -443,7 +451,7 @@ export function TaskForm({
                         </View>
 
                         {/* TODO this button is for setting this sub-task's type to timer */}
-                        <View style={{ flex: 1, borderWidth: 1, borderColor: '#c7c7c7', borderRadius: 16 }}>
+                        <View style={typeOptionWrap}>
                           <PrimaryButton
                             label="Timer"
                             variant={draft.task_type === 'timer' ? 'primary' : 'secondary'}
@@ -548,6 +556,8 @@ export function TaskForm({
 }
 
 const styles = StyleSheet.create({
+  typeOptionFramed: { flex: 1, borderWidth: 1, borderColor: '#c7c7c7', borderRadius: 16 },
+  typeOptionPlain: { flex: 1 },
   content: { padding: 20, gap: 20 },
   field: { gap: 10 },
   durationField: { gap: 8 },

@@ -3,7 +3,9 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 
 const MENU_ITEMS: {
   key: string;
@@ -37,6 +39,7 @@ const MENU_ITEMS: {
 
 export default function ReorderHubScreen() {
   const cardColor = useThemeColor({}, 'card');
+  const surface = useSurface();
   const tintColor = useThemeColor({}, 'tint');
   const mutedColor = useThemeColor({}, 'muted');
 
@@ -49,8 +52,10 @@ export default function ReorderHubScreen() {
         <Pressable
           key={item.key}
           onPress={() => router.push(item.route)}
-          style={({ pressed }) => [styles.row, { backgroundColor: cardColor, opacity: pressed ? 0.7 : 1 }]}>
-          <View style={[styles.iconCircle, { backgroundColor: `${tintColor}1A` }]}>
+          style={({ pressed }) => [styles.row, { backgroundColor: cardColor, opacity: pressed ? 0.7 : 1 }, surface('card')]}>
+          <ThemeDecor kind="card" />
+          <View style={[styles.iconCircle, { backgroundColor: `${tintColor}1A` }, surface('iconCircle')]}>
+            <ThemeDecor kind="iconCircle" stroke={tintColor} />
             <IconSymbol name={item.icon} size={22} color={tintColor} />
           </View>
           <View style={styles.rowText}>

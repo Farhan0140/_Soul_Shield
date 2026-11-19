@@ -7,7 +7,9 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { TextField } from '@/components/ui/text-field';
 import { useLocale } from '@/context/locale-context';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 import { decodeIntArray } from '@/lib/db/json-array';
 import { searchOwnTasksLocal } from '@/lib/db/tasks-repo';
 import { addDays, todayISODate, weekdayIndex } from '@/lib/date';
@@ -25,6 +27,7 @@ export default function SearchScreen() {
   const [queryText, setQueryText] = useState('');
 
   const cardColor = useThemeColor({}, 'card');
+  const surface = useSurface();
   const tint = useThemeColor({}, 'tint');
   const mutedColor = useThemeColor({}, 'muted');
 
@@ -82,7 +85,9 @@ export default function SearchScreen() {
               style={({ pressed }) => [
                 styles.row,
                 { backgroundColor: cardColor, opacity: pressed ? 0.8 : 1 },
+                surface('card'),
               ]}>
+              <ThemeDecor kind="card" />
               <View style={styles.rowText}>
                 <ThemedText type="defaultSemiBold" numberOfLines={1}>
                   {row.title}

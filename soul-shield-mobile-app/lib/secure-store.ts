@@ -7,6 +7,7 @@ const REMEMBERED_EMAIL_KEY = 'soulshield_remembered_email';
 const THEME_KEY = 'soulshield_theme';
 const CACHED_USER_KEY = 'soulshield_cached_user';
 const ARABIC_FONT_KEY = 'soulshield_arabic_font';
+const UI_STYLE_KEY = 'soulshield_ui_style';
 
 export const tokenStore = {
   getToken: () => SecureStore.getItemAsync(TOKEN_KEY),
@@ -40,6 +41,13 @@ export const rememberedEmailStore = {
 export const themePreferenceStore = {
   get: () => SecureStore.getItemAsync(THEME_KEY),
   set: (theme: string) => SecureStore.setItemAsync(THEME_KEY, theme),
+};
+
+/** The visual UI style (normal / paper / pencil) — separate from the color
+ * palette stored under THEME_KEY, so changing one never resets the other. */
+export const uiStyleStore = {
+  get: () => SecureStore.getItemAsync(UI_STYLE_KEY),
+  set: (style: string) => SecureStore.setItemAsync(UI_STYLE_KEY, style),
 };
 
 export const arabicFontStore = {

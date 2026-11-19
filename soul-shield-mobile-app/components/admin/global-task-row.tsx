@@ -3,7 +3,9 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import type { Task } from '@/api/types';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 
 interface GlobalTaskRowProps {
   task: Task;
@@ -22,9 +24,11 @@ export function GlobalTaskRow({ task, onEdit, onDelete }: GlobalTaskRowProps) {
   const mutedColor = useThemeColor({}, 'muted');
   const dangerColor = useThemeColor({}, 'danger');
   const categoryFallback = useThemeColor({}, 'categoryFallback');
+  const surface = useSurface();
 
   return (
-    <View style={[styles.row, { backgroundColor: cardColor }]}>
+    <View style={[styles.row, { backgroundColor: cardColor }, surface('card')]}>
+      <ThemeDecor kind="card" />
       <View style={[styles.dot, { backgroundColor: task.category_color ?? categoryFallback }]} />
       <View style={styles.info}>
         <ThemedText type="defaultSemiBold" numberOfLines={1}>

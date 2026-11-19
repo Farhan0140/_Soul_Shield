@@ -5,7 +5,9 @@ import { Alert, Pressable, StyleSheet, Text } from 'react-native';
 
 import { useQuery } from '@tanstack/react-query';
 import { useLocale } from '@/context/locale-context';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useHandFont, useSurface } from '@/hooks/use-ui-style';
 import { listOwnCompletedDatesInRange } from '@/lib/db/tasks-repo';
 import { addDays, todayISODate } from '@/lib/date';
 
@@ -26,6 +28,8 @@ export function StreakChip() {
   const cardColor = useThemeColor({}, 'card');
   const warningColor = useThemeColor({}, 'warning');
   const mutedColor = useThemeColor({}, 'muted');
+  const surface = useSurface();
+  const handFont = useHandFont();
 
   const today = todayISODate();
   const from = addDays(today, -(STREAK_WINDOW_DAYS - 1));
@@ -100,10 +104,12 @@ export function StreakChip() {
       style={({ pressed }) => [
         styles.chip,
         { backgroundColor: cardColor, opacity: pressed ? 0.8 : 1, borderColor: `${warningColor}55` },
+        surface('chip'),
       ]}>
+      <ThemeDecor kind="chip" stroke={warningColor} />
       <Text style={styles.flame}>🔥</Text>
-      <Text style={[styles.count, { color: tint }]}>{current}</Text>
-      <Text style={[styles.label, { color: mutedColor }]}>{t('home.streakDays')}</Text>
+      <Text style={[styles.count, { color: tint }, handFont.body]}>{current}</Text>
+      <Text style={[styles.label, { color: mutedColor }, handFont.body]}>{t('home.streakDays')}</Text>
     </Pressable>
   );
 }

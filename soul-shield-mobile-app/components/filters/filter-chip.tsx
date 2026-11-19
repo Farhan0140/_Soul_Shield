@@ -1,7 +1,9 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useHandFont, useOnAccent, useSurface } from '@/hooks/use-ui-style';
 
 interface FilterChipProps {
   label: string;
@@ -18,8 +20,11 @@ export function FilterChip({ label, active, onPress, accentColor, icon }: Filter
   const border = useThemeColor({}, 'border');
   const muted = useThemeColor({}, 'muted');
 
+  const surface = useSurface();
+  const onAccent = useOnAccent();
+  const handFont = useHandFont();
   const activeColor = accentColor ?? tint;
-  const foreground = active ? '#fff' : text;
+  const foreground = active ? onAccent : text;
 
   return (
     <Pressable
@@ -31,11 +36,13 @@ export function FilterChip({ label, active, onPress, accentColor, icon }: Filter
           borderColor: active ? activeColor : border,
           opacity: pressed ? 0.8 : 1,
         },
+        surface('chip'),
       ]}>
+      <ThemeDecor kind="chip" hatch={active ? activeColor : undefined} />
       {icon ? (
-        <IconSymbol name={icon} size={14} color={active ? '#fff' : muted} />
+        <IconSymbol name={icon} size={14} color={active ? onAccent : muted} />
       ) : null}
-      <Text style={[styles.label, { color: foreground }]}>{label}</Text>
+      <Text style={[styles.label, { color: foreground }, handFont.body]}>{label}</Text>
     </Pressable>
   );
 }

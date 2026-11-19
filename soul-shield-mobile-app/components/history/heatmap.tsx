@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useHandFont } from '@/hooks/use-ui-style';
 import { monthShortLabel, weekdayIndex } from '@/lib/date';
 
 export interface HeatmapDay {
@@ -40,6 +41,7 @@ export function Heatmap({ days, onDayPress }: HeatmapProps) {
   const track = useThemeColor({}, 'border');
   const success = useThemeColor({}, 'success');
   const muted = useThemeColor({}, 'muted');
+  const handFont = useHandFont();
 
   const levelColors = [track, `${success}33`, `${success}66`, `${success}A6`, success];
 
@@ -81,7 +83,7 @@ export function Heatmap({ days, onDayPress }: HeatmapProps) {
           <View style={{ height: MONTH_ROW_HEIGHT }} />
           {Array.from({ length: 7 }, (_, row) => (
             <View key={row} style={{ height: ROW_HEIGHT, justifyContent: 'center' }}>
-              <Text style={[styles.weekdayLabel, { color: muted }]}>{LABELED_ROWS[row] ?? ''}</Text>
+              <Text style={[styles.weekdayLabel, { color: muted }, handFont.body]}>{LABELED_ROWS[row] ?? ''}</Text>
             </View>
           ))}
         </View>
@@ -92,7 +94,7 @@ export function Heatmap({ days, onDayPress }: HeatmapProps) {
               {monthLabels.map((label, index) => (
                 <Text
                   key={index}
-                  style={[styles.monthLabel, { color: muted, width: COLUMN_WIDTH }]}
+                  style={[styles.monthLabel, { color: muted, width: COLUMN_WIDTH }, handFont.body]}
                   numberOfLines={1}>
                   {label}
                 </Text>
@@ -129,11 +131,11 @@ export function Heatmap({ days, onDayPress }: HeatmapProps) {
       </View>
 
       <View style={styles.legendRow}>
-        <Text style={[styles.legendLabel, { color: muted }]}>Less</Text>
+        <Text style={[styles.legendLabel, { color: muted }, handFont.body]}>Less</Text>
         {levelColors.map((color, index) => (
           <View key={index} style={[styles.square, { backgroundColor: color }]} />
         ))}
-        <Text style={[styles.legendLabel, { color: muted }]}>More</Text>
+        <Text style={[styles.legendLabel, { color: muted }, handFont.body]}>More</Text>
       </View>
     </View>
   );

@@ -2,7 +2,9 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 
 interface PaginationBarProps {
   page: number;
@@ -16,12 +18,14 @@ export function PaginationBar({ page, totalPages, onPrev, onNext }: PaginationBa
   const mutedColor = useThemeColor({}, 'muted');
   const cardColor = useThemeColor({}, 'card');
   const borderColor = useThemeColor({}, 'border');
+  const surface = useSurface();
 
   const canGoPrev = page > 1;
   const canGoNext = page < totalPages;
 
   return (
-    <View style={[styles.container, { backgroundColor: cardColor, borderColor }]}>
+    <View style={[styles.container, { backgroundColor: cardColor, borderColor }, surface('card')]}>
+      <ThemeDecor kind="card" />
       <Pressable
         onPress={onPrev}
         disabled={!canGoPrev}

@@ -2,6 +2,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, Pattern, Rect } from 'react-native-svg';
 
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { ThemeDecor } from '@/components/ui/theme-decor';
+import { useHandFont, useSurface } from '@/hooks/use-ui-style';
 
 interface ProgressSummaryBarProps {
   completed: number;
@@ -46,6 +48,10 @@ export function ProgressSummaryBar({ completed, partiallyCompleted = 0, total }:
   const warning = useThemeColor({}, 'warning');
   const text = useThemeColor({}, 'text');
   const muted = useThemeColor({}, 'muted');
+  const handFont = useHandFont();
+  const surface = useSurface();
+  // Pencil only (undefined elsewhere): outlined track, hatched fill.
+  const trackSurface = surface('track');
 
   const completedRatio = total > 0 ? completed / total : 0;
   const partialRatio = total > 0 ? partiallyCompleted / total : 0;
@@ -53,18 +59,33 @@ export function ProgressSummaryBar({ completed, partiallyCompleted = 0, total }:
   return (
     <View style={styles.container}>
       <View style={styles.labelRow}>
-        <Text style={[styles.label, { color: text }]}>
+        <Text style={[styles.label, { color: text }, handFont.body]}>
           {completed}/{total} Completed
         </Text>
         {partiallyCompleted > 0 ? (
-          <Text style={[styles.partialLabel, { color: muted }]}>{partiallyCompleted} partial</Text>
+          <Text style={[styles.partialLabel, { color: muted }, handFont.body]}>{partiallyCompleted} partial</Text>
         ) : null}
       </View>
-      <View style={[styles.track, { backgroundColor: track }]}>
-        <View style={[styles.section, { left: 0, width: `${completedRatio * 100}%`, backgroundColor: success }]} />
+      <View style={[styles.track, { backgroundColor: track }, trackSurface]}>
+        <ThemeDecor kind="track" />
+        <View
+          style={[
+            styles.section,
+            { left: 0, width: `${completedRatio * 100}%`, backgroundColor: success },
+            trackSurface && styles.hatchedFill,
+          ]}>
+          {/* Pencil: completed = cross-hatched (fully shaded); partial = single sparse hatch. */}
+          <ThemeDecor kind="track" hatch={success} hatchSpacing={3} hatchWidth={1} crossHatch outline={false} />
+        </View>
         {partiallyCompleted > 0 ? (
           <View style={[styles.section, { left: `${completedRatio * 100}%`, width: `${partialRatio * 100}%` }]}>
-            <StripedFill color={warning} />
+            {/* Pencil: sparser hatching than the completed section, so
+                "partial" reads as lighter shading rather than a solid block. */}
+            {trackSurface ? (
+              <ThemeDecor kind="track" hatch={warning} hatchSpacing={7} hatchWidth={1.3} outline={false} />
+            ) : (
+              <StripedFill color={warning} />
+            )}
           </View>
         ) : null}
       </View>
@@ -79,4 +100,5 @@ const styles = StyleSheet.create({
   partialLabel: { fontSize: 12, fontVariant: ['tabular-nums'] },
   track: { height: 10, borderRadius: 999, overflow: 'hidden' },
   section: { position: 'absolute', top: 0, bottom: 0 },
+  hatchedFill: { backgroundColor: 'transparent' },
 });

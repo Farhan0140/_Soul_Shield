@@ -6,7 +6,9 @@ import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, THEME_LABELS, type ThemeName } from '@/constants/theme';
 import { useAppTheme } from '@/context/theme-context';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 
 const THEME_OPTIONS = Object.keys(Colors) as ThemeName[];
 
@@ -17,6 +19,7 @@ export function ThemePicker() {
   const cardColor = useThemeColor({}, 'card');
   const borderColor = useThemeColor({}, 'border');
   const mutedColor = useThemeColor({}, 'muted');
+  const surface = useSurface();
   const insets = useSafeAreaInsets();
 
   const activePalette = Colors[resolvedTheme];
@@ -26,7 +29,8 @@ export function ThemePicker() {
     <>
       <Pressable
         onPress={() => setOpen(true)}
-        style={[styles.trigger, { backgroundColor: cardColor, borderColor }]}>
+        style={[styles.trigger, { backgroundColor: cardColor, borderColor }, surface('card')]}>
+        <ThemeDecor kind="card" />
         <View style={styles.triggerSwatchRow}>
           <View style={[styles.triggerSwatch, { backgroundColor: activePalette.background, borderColor: activePalette.border }]} />
           <View style={[styles.triggerSwatch, { backgroundColor: activePalette.tint }]} />
@@ -39,7 +43,8 @@ export function ThemePicker() {
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
           <Pressable
             onPress={(e) => e.stopPropagation()}
-            style={[styles.sheet, { backgroundColor: cardColor, paddingBottom: insets.bottom + 20 }]}>
+            style={[styles.sheet, { backgroundColor: cardColor, paddingBottom: insets.bottom + 20 }, surface('sheet')]}>
+            <ThemeDecor kind="sheet" />
             <View style={[styles.handle, { backgroundColor: borderColor }]} />
             <ThemedText type="subtitle" style={styles.title}>
               Choose Theme

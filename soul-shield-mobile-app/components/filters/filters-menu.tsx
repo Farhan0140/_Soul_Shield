@@ -8,7 +8,9 @@ import type { StatusFilter } from '@/components/filters/status-tabs';
 import type { TaskTypeFilter } from '@/components/filters/task-type-filter';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useOnAccent, useSurface } from '@/hooks/use-ui-style';
 
 const STATUS_OPTIONS: { key: StatusFilter; label: string; icon: IconSymbolName }[] = [
   { key: 'all', label: 'All', icon: 'square.grid.2x2' },
@@ -58,6 +60,8 @@ export function FiltersMenu({
   const card = useThemeColor({}, 'card');
   const border = useThemeColor({}, 'border');
   const muted = useThemeColor({}, 'muted');
+  const surface = useSurface();
+  const onAccent = useOnAccent();
   const insets = useSafeAreaInsets();
 
   const activeCount = [status !== 'all', taskType !== 'all', source !== 'all'].filter(Boolean).length;
@@ -80,7 +84,10 @@ export function FiltersMenu({
             borderColor: hasActive ? tint : border,
             opacity: pressed ? 0.8 : 1,
           },
+          surface('chip'),
+          surface('chip') && hasActive ? { borderColor: tint } : null,
         ]}>
+        <ThemeDecor kind="chip" stroke={hasActive ? tint : undefined} />
         <IconSymbol name="line.3.horizontal.decrease" size={16} color={hasActive ? tint : muted} />
         <ThemedText type="defaultSemiBold" style={[styles.triggerLabel, hasActive && { color: tint }]}>
           Filters{hasActive ? ` (${activeCount})` : ''}
@@ -92,7 +99,8 @@ export function FiltersMenu({
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
           <Pressable
             onPress={(e) => e.stopPropagation()}
-            style={[styles.sheet, { backgroundColor: card, paddingBottom: insets.bottom + 20 }]}>
+            style={[styles.sheet, { backgroundColor: card, paddingBottom: insets.bottom + 20 }, surface('sheet')]}>
+            <ThemeDecor kind="sheet" />
             <View style={[styles.handle, { backgroundColor: border }]} />
             <View style={styles.sheetHeader}>
               <ThemedText type="subtitle">Filters</ThemedText>
@@ -111,8 +119,13 @@ export function FiltersMenu({
             </ScrollView>
             <Pressable
               onPress={() => setOpen(false)}
-              style={({ pressed }) => [styles.doneButton, { backgroundColor: tint, opacity: pressed ? 0.85 : 1 }]}>
-              <ThemedText type="defaultSemiBold" style={styles.doneLabel}>
+              style={({ pressed }) => [
+                styles.doneButton,
+                { backgroundColor: tint, opacity: pressed ? 0.85 : 1 },
+                surface('button'),
+              ]}>
+              <ThemeDecor kind="button" hatch={tint} />
+              <ThemedText type="defaultSemiBold" style={[styles.doneLabel, { color: onAccent }]}>
                 Done
               </ThemedText>
             </Pressable>

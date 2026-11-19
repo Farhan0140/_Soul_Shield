@@ -1,6 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useHandFont, useOnAccent, useSurface } from '@/hooks/use-ui-style';
 import { weekdayLabel } from '@/lib/date';
 
 interface DayOfWeekPickerProps {
@@ -13,6 +15,9 @@ export function DayOfWeekPicker({ value, onChange }: DayOfWeekPickerProps) {
   const card = useThemeColor({}, 'card');
   const text = useThemeColor({}, 'text');
   const border = useThemeColor({}, 'border');
+  const surface = useSurface();
+  const onAccent = useOnAccent();
+  const handFont = useHandFont();
 
   const toggle = (day: number) => {
     if (value.includes(day)) {
@@ -33,8 +38,10 @@ export function DayOfWeekPicker({ value, onChange }: DayOfWeekPickerProps) {
             style={[
               styles.day,
               { backgroundColor: active ? tint : card, borderColor: active ? tint : border },
+              surface('chip'),
             ]}>
-            <Text style={[styles.label, { color: active ? '#fff' : text }]}>{weekdayLabel(day)}</Text>
+            <ThemeDecor kind="chip" hatch={active ? tint : undefined} />
+            <Text style={[styles.label, { color: active ? onAccent : text }, handFont.body]}>{weekdayLabel(day)}</Text>
           </Pressable>
         );
       })}

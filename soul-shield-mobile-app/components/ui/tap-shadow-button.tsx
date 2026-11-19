@@ -2,7 +2,9 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface, useUIStyle } from '@/hooks/use-ui-style';
 import { hexToRgba } from '@/lib/color';
 
 export const TAP_SHADOW_OFFSET = 4;
@@ -40,7 +42,16 @@ export function TapShadowButton({ onPress, disabled, children, style, accessibil
   // Computed here in plain JS (not inside the worklet below) since Reanimated
   // worklets can't call ordinary, non-worklet functions like tapShadowValue —
   // they can only capture the resulting string by closure.
-  const shadowValue = tapShadowValue(textColor);
+  const { uiStyle, tokens } = useUIStyle();
+  const surface = useSurface();
+  // Paper: the reference's solid, unblurred offset shadow; Pencil: no
+  // shadow (the sketched outline carries the shape). Normal: unchanged.
+  const shadowValue =
+    uiStyle === 'paper'
+      ? `${TAP_SHADOW_OFFSET}px ${TAP_SHADOW_OFFSET}px 0px ${tokens.noteDeep}`
+      : uiStyle === 'pencil'
+        ? 'none'
+        : tapShadowValue(textColor);
   // 0 = idle/elevated (shadow visible, offset up-left), 1 = pressed/flush (shadow hidden).
   const pressed = useSharedValue(0);
 
@@ -69,9 +80,11 @@ export function TapShadowButton({ onPress, disabled, children, style, accessibil
         style={[
           styles.base,
           { borderColor: textColor, backgroundColor: cardColor, opacity: disabled ? 0.5 : 1 },
+          surface('button'),
           animatedStyle,
           style,
         ]}>
+        <ThemeDecor kind="button" />
         {children}
       </Animated.View>
     </Pressable>

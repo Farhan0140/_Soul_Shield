@@ -11,7 +11,9 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { PaginationBar } from '@/components/ui/pagination-bar';
 import { useLocale } from '@/context/locale-context';
 import { useCompleteSubTask, useIncrementSubTask } from '@/hooks/queries/use-task-mutations';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 import { hapticLight } from '@/lib/feedback';
 
 /** How many incomplete sub-tasks one page shows — a sub-tasked Main Task's
@@ -40,6 +42,7 @@ function SubTaskRow({ subTask, disabled, onComplete, onIncrement, onOpenCounter,
   const successColor = useThemeColor({}, 'success');
   const borderColor = useThemeColor({}, 'border');
   const rowBackground = useThemeColor({}, 'background');
+  const surface = useSurface();
 
   const isCompleted = subTask.status === 'completed';
   const isCounter = subTask.task_type === 'counter';
@@ -57,7 +60,8 @@ function SubTaskRow({ subTask, disabled, onComplete, onIncrement, onOpenCounter,
     <Pressable
       disabled={!openPageHandler}
       onPress={openPageHandler ?? undefined}
-      style={[styles.row, { backgroundColor: rowBackground, borderColor }]}>
+      style={[styles.row, { backgroundColor: rowBackground, borderColor }, surface('card')]}>
+      <ThemeDecor kind="card" />
       <View style={styles.rowHeader}>
         {!isCounter && !isTimer ? (
           // TODO this button is for toggling completion of a normal type sub-task

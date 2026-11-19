@@ -4,7 +4,7 @@ import { useFonts } from 'expo-font';
 import { router, Stack } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { ActivityIndicator, AppState, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
@@ -21,6 +21,8 @@ import { LocaleProvider } from '@/context/locale-context';
 import { SyncNotificationsProvider } from '@/context/sync-notifications-context';
 import { AppThemeProvider, useAppTheme } from '@/context/theme-context';
 import { ThemeScheme } from '@/constants/theme';
+import { HAND_FONT_ASSETS, HAND_FONTS } from '@/constants/ui-style';
+import { themeScreenLayout } from '@/components/ui/theme-backdrop';
 import { ARABIC_FONT_OPTIONS } from '@/lib/arabic';
 import { OnboardingModal } from '@/components/onboarding/onboarding-modal';
 // Side effect: registers the headless Android widget renderer (see the module
@@ -47,7 +49,7 @@ function RootNavigator() {
   }
 
   return (
-    <Stack>
+    <Stack screenLayout={themeScreenLayout}>
       <Stack.Protected guard={status === 'signedOut'}>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       </Stack.Protected>
@@ -76,10 +78,14 @@ function RootNavigator() {
 }
 
 function ThemedApp() {
-  const { resolvedTheme } = useAppTheme();
+  const { resolvedTheme, palette, styleTokens } = useAppTheme();
+  const navigationTheme = useMemo(
+    () => getNavigationTheme(resolvedTheme, palette, styleTokens.handDrawn ? HAND_FONTS.body : undefined),
+    [resolvedTheme, palette, styleTokens.handDrawn]
+  );
 
   return (
-    <ThemeProvider value={getNavigationTheme(resolvedTheme)}>
+    <ThemeProvider value={navigationTheme}>
       <SyncNotificationsProvider>
         <RootNavigator />
         <OnboardingModal />
@@ -96,9 +102,12 @@ export default function RootLayout() {
   // not another async font load. Gating the initial render on this (same
   // pattern as the auth-loading spinner below) avoids a flash of the wrong
   // font on any text that needs it before the assets finish registering.
-  const [fontsLoaded] = useFonts(
-    Object.fromEntries(ARABIC_FONT_OPTIONS.map((option) => [option.familyName, option.asset]))
-  );
+  // The Paper/Pencil UI styles' handwritten fonts (constants/ui-style.ts)
+  // register here too, for the same instant-switch reason.
+  const [fontsLoaded] = useFonts({
+    ...Object.fromEntries(ARABIC_FONT_OPTIONS.map((option) => [option.familyName, option.asset])),
+    ...HAND_FONT_ASSETS,
+  });
 
   useEffect(() => {
     ensureNotificationSetup();

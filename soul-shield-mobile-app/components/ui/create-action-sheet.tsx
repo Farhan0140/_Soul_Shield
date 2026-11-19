@@ -3,7 +3,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 
 interface CreateActionSheetProps {
   visible: boolean;
@@ -20,6 +22,7 @@ export function CreateActionSheet({
 }: CreateActionSheetProps) {
   const cardColor = useThemeColor({}, 'card');
   const borderColor = useThemeColor({}, 'border');
+  const surface = useSurface();
   const insets = useSafeAreaInsets();
 
   return (
@@ -28,7 +31,8 @@ export function CreateActionSheet({
         {/* Swallow taps inside the sheet so they don't bubble to the backdrop's close handler. */}
         <Pressable
           onPress={(e) => e.stopPropagation()}
-          style={[styles.sheet, { backgroundColor: cardColor, paddingBottom: insets.bottom + 20 }]}>
+          style={[styles.sheet, { backgroundColor: cardColor, paddingBottom: insets.bottom + 20 }, surface('sheet')]}>
+          <ThemeDecor kind="sheet" />
           <View style={[styles.handle, { backgroundColor: borderColor }]} />
           <ThemedText type="subtitle" style={styles.title}>
             Create New
@@ -64,12 +68,14 @@ interface ActionRowProps {
 function ActionRow({ icon, title, description, onPress }: ActionRowProps) {
   const tint = useThemeColor({}, 'tint');
   const mutedColor = useThemeColor({}, 'muted');
+  const surface = useSurface();
 
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [styles.row, { opacity: pressed ? 0.7 : 1 }]}>
-      <View style={[styles.iconCircle, { backgroundColor: `${tint}1A` }]}>
+      <View style={[styles.iconCircle, { backgroundColor: `${tint}1A` }, surface('iconCircle')]}>
+        <ThemeDecor kind="iconCircle" stroke={tint} />
         <IconSymbol name={icon} size={24} color={tint} />
       </View>
       <View style={styles.rowText}>

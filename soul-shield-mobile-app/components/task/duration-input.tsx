@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, TextInput, View, type TextStyle } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { TapShadowButton } from '@/components/ui/tap-shadow-button';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useHandFont, useOnAccent, useSurface } from '@/hooks/use-ui-style';
 import type { TimerSelection } from '@/lib/timer/store';
 
 const PRESET_MINUTES = [10, 15, 30, 45, 60];
@@ -52,6 +54,10 @@ export function DurationInput({ selection, onChange, disabled }: DurationInputPr
   const mutedColor = useThemeColor({}, 'muted');
   const textColor = useThemeColor({}, 'text');
   const tintColor = useThemeColor({}, 'tint');
+  const surface = useSurface();
+  const onAccent = useOnAccent();
+  const handFont = useHandFont();
+  const fieldSurface = surface('input') as TextStyle | undefined;
 
   // Re-seeded from the last committed selection every time the modal opens,
   // so a previous edit dismissed without confirming doesn't linger into the
@@ -87,7 +93,8 @@ export function DurationInput({ selection, onChange, disabled }: DurationInputPr
 
       <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
         <Pressable style={styles.backdrop} onPress={handleClose}>
-          <Pressable onPress={(e) => e.stopPropagation()} style={[styles.card, { backgroundColor: cardColor }]}>
+          <Pressable onPress={(e) => e.stopPropagation()} style={[styles.card, { backgroundColor: cardColor }, surface('modal')]}>
+            <ThemeDecor kind="modal" />
             <View style={styles.headerRow}>
               <ThemedText type="subtitle" style={styles.headerTitle}>
                 Set Duration
@@ -104,6 +111,8 @@ export function DurationInput({ selection, onChange, disabled }: DurationInputPr
 
             <View style={styles.fieldsRow}>
               <View style={styles.field}>
+                <View>
+                <ThemeDecor kind="input" />
                 <TextInput
                   value={draft.hours > 0 ? String(draft.hours) : ''}
                   onChangeText={(text) => setDraft((d) => ({ ...d, hours: clamp(text, 23) }))}
@@ -111,11 +120,14 @@ export function DurationInput({ selection, onChange, disabled }: DurationInputPr
                   placeholder="0"
                   placeholderTextColor={mutedColor}
                   selectTextOnFocus
-                  style={[styles.fieldInput, { borderColor, color: textColor }]}
+                  style={[styles.fieldInput, { borderColor, color: textColor }, fieldSurface, handFont.body]}
                 />
+                </View>
                 <ThemedText style={[styles.fieldLabel, { color: mutedColor }]}>h</ThemedText>
               </View>
               <View style={styles.field}>
+                <View>
+                <ThemeDecor kind="input" />
                 <TextInput
                   value={draft.minutes > 0 ? String(draft.minutes) : ''}
                   onChangeText={(text) => setDraft((d) => ({ ...d, minutes: clamp(text, 59) }))}
@@ -123,11 +135,14 @@ export function DurationInput({ selection, onChange, disabled }: DurationInputPr
                   placeholder="0"
                   placeholderTextColor={mutedColor}
                   selectTextOnFocus
-                  style={[styles.fieldInput, { borderColor, color: textColor }]}
+                  style={[styles.fieldInput, { borderColor, color: textColor }, fieldSurface, handFont.body]}
                 />
+                </View>
                 <ThemedText style={[styles.fieldLabel, { color: mutedColor }]}>m</ThemedText>
               </View>
               <View style={styles.field}>
+                <View>
+                <ThemeDecor kind="input" />
                 <TextInput
                   value={draft.seconds > 0 ? String(draft.seconds) : ''}
                   onChangeText={(text) => setDraft((d) => ({ ...d, seconds: clamp(text, 59) }))}
@@ -135,8 +150,9 @@ export function DurationInput({ selection, onChange, disabled }: DurationInputPr
                   placeholder="0"
                   placeholderTextColor={mutedColor}
                   selectTextOnFocus
-                  style={[styles.fieldInput, { borderColor, color: textColor }]}
+                  style={[styles.fieldInput, { borderColor, color: textColor }, fieldSurface, handFont.body]}
                 />
+                </View>
                 <ThemedText style={[styles.fieldLabel, { color: mutedColor }]}>s</ThemedText>
               </View>
             </View>
@@ -156,8 +172,11 @@ export function DurationInput({ selection, onChange, disabled }: DurationInputPr
                         borderColor: active ? tintColor : borderColor,
                         backgroundColor: active ? tintColor : 'transparent',
                       },
+                      surface('chip'),
+                      surface('chip') && { borderColor: active ? tintColor : borderColor },
                     ]}>
-                    <ThemedText style={[styles.chipLabel, { color: active ? '#fff' : textColor }]}>{label}</ThemedText>
+                    <ThemeDecor kind="chip" hatch={active ? tintColor : undefined} />
+                    <ThemedText style={[styles.chipLabel, { color: active ? onAccent : textColor }]}>{label}</ThemedText>
                   </Pressable>
                 );
               })}
@@ -170,8 +189,10 @@ export function DurationInput({ selection, onChange, disabled }: DurationInputPr
               style={({ pressed }) => [
                 styles.confirmButton,
                 { backgroundColor: tintColor, opacity: isZero ? 0.4 : pressed ? 0.85 : 1 },
+                surface('button'),
               ]}>
-              <ThemedText style={styles.confirmLabel}>Done</ThemedText>
+              <ThemeDecor kind="button" hatch={tintColor} />
+              <ThemedText style={[styles.confirmLabel, { color: onAccent }]}>Done</ThemedText>
             </Pressable>
           </Pressable>
         </Pressable>

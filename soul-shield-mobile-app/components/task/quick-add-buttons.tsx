@@ -1,6 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useHandFont, useSurface } from '@/hooks/use-ui-style';
 import { hapticLight } from '@/lib/feedback';
 
 const AMOUNTS = [1, 5, 10];
@@ -13,6 +15,8 @@ interface QuickAddButtonsProps {
 export function QuickAddButtons({ onAdd, disabled }: QuickAddButtonsProps) {
   const tint = useThemeColor({}, 'tint');
   const card = useThemeColor({}, 'card');
+  const surface = useSurface();
+  const handFont = useHandFont();
 
   return (
     <View style={styles.row}>
@@ -28,8 +32,10 @@ export function QuickAddButtons({ onAdd, disabled }: QuickAddButtonsProps) {
           style={({ pressed }) => [
             styles.button,
             { backgroundColor: card, opacity: disabled ? 0.5 : pressed ? 0.7 : 1 },
+            surface('chip'),
           ]}>
-          <Text style={[styles.label, { color: tint }]}>+{amount}</Text>
+          <ThemeDecor kind="chip" stroke={tint} />
+          <Text style={[styles.label, { color: tint }, handFont.body]}>+{amount}</Text>
         </Pressable>
       ))}
     </View>

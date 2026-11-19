@@ -4,7 +4,9 @@ import Animated, { FadeIn, FadeOut, Keyframe, ZoomIn } from 'react-native-reanim
 
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useOnAccent, useSurface } from '@/hooks/use-ui-style';
 import { hapticSuccess } from '@/lib/feedback';
 
 interface RewardModalProps {
@@ -96,6 +98,8 @@ export function RewardModal({ visible, text, taskTitle, onClose }: RewardModalPr
   const tint = useThemeColor({}, 'tint');
   const warning = useThemeColor({}, 'warning');
   const mutedColor = useThemeColor({}, 'muted');
+  const surface = useSurface();
+  const onAccent = useOnAccent();
   // Bumps each time the modal opens so a fresh confetti burst (new keys) and
   // haptic fire on every reward, not just the first.
   const [burstKey, setBurstKey] = useState(0);
@@ -112,7 +116,8 @@ export function RewardModal({ visible, text, taskTitle, onClose }: RewardModalPr
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <Animated.View
           entering={ZoomIn.springify().damping(14).mass(0.6)}
-          style={[styles.card, { backgroundColor: cardColor }]}>
+          style={[styles.card, { backgroundColor: cardColor }, surface('modal')]}>
+          <ThemeDecor kind="modal" />
           {burstKey > 0 ? (
             <ConfettiBurst key={burstKey} seed={burstKey} colors={[success, tint, warning]} />
           ) : null}
@@ -121,7 +126,8 @@ export function RewardModal({ visible, text, taskTitle, onClose }: RewardModalPr
             <IconSymbol name="xmark" size={20} color={mutedColor} />
           </Pressable>
 
-          <View style={[styles.iconCircle, { backgroundColor: `${success}22` }]}>
+          <View style={[styles.iconCircle, { backgroundColor: `${success}22` }, surface('iconCircle')]}>
+            <ThemeDecor kind="iconCircle" stroke={success} />
             <IconSymbol name="sparkles" size={32} color={success} />
           </View>
 
@@ -144,8 +150,10 @@ export function RewardModal({ visible, text, taskTitle, onClose }: RewardModalPr
             style={({ pressed }) => [
               styles.ctaButton,
               { backgroundColor: success, opacity: pressed ? 0.85 : 1 },
+              surface('button'),
             ]}>
-            <ThemedText style={styles.ctaLabel}>Nice!</ThemedText>
+            <ThemeDecor kind="button" hatch={success} />
+            <ThemedText style={[styles.ctaLabel, { color: onAccent }]}>Nice!</ThemedText>
           </Pressable>
         </Animated.View>
       </Animated.View>

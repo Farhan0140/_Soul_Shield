@@ -10,7 +10,9 @@ import { Heatmap, type HeatmapDay } from '@/components/history/heatmap';
 import { ErrorState } from '@/components/ui/error-state';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { useTaskHistoryQuery } from '@/hooks/queries/use-tasks';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 import { addDays, dateRange, formatDisplayDate, fromISODate, toISODate, todayISODate } from '@/lib/date';
 import { getErrorMessage } from '@/lib/errors';
 import { setJumpToDate } from '@/lib/jump-to-date';
@@ -24,6 +26,7 @@ export default function HistoryScreen() {
 
   const historyQuery = useTaskHistoryQuery(from, to);
   const cardColor = useThemeColor({}, 'card');
+  const surface = useSurface();
   const border = useThemeColor({}, 'border');
 
   const tasksByDate = useMemo(() => {
@@ -69,13 +72,15 @@ export default function HistoryScreen() {
       <View style={styles.rangeRow}>
         <Pressable
           onPress={() => setActiveField(activeField === 'from' ? null : 'from')}
-          style={[styles.rangeButton, { backgroundColor: cardColor, borderColor: border }]}>
+          style={[styles.rangeButton, { backgroundColor: cardColor, borderColor: border }, surface('card')]}>
+          <ThemeDecor kind="card" />
           <ThemedText style={styles.rangeLabel}>From</ThemedText>
           <ThemedText type="defaultSemiBold">{formatDisplayDate(from)}</ThemedText>
         </Pressable>
         <Pressable
           onPress={() => setActiveField(activeField === 'to' ? null : 'to')}
-          style={[styles.rangeButton, { backgroundColor: cardColor, borderColor: border }]}>
+          style={[styles.rangeButton, { backgroundColor: cardColor, borderColor: border }, surface('card')]}>
+          <ThemeDecor kind="card" />
           <ThemedText style={styles.rangeLabel}>To</ThemedText>
           <ThemedText type="defaultSemiBold">{formatDisplayDate(to)}</ThemedText>
         </Pressable>

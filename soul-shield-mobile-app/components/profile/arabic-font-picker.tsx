@@ -5,7 +5,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useArabicFont } from '@/context/arabic-font-context';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 import { ARABIC_FONT_DEMO_TEXT, ARABIC_FONT_OPTIONS } from '@/lib/arabic';
 
 /** Same trigger + bottom-sheet shape as profile/theme-picker.tsx. Each row
@@ -20,6 +22,7 @@ export function ArabicFontPicker() {
   const mutedColor = useThemeColor({}, 'muted');
   const textColor = useThemeColor({}, 'text');
   const tintColor = useThemeColor({}, 'tint');
+  const surface = useSurface();
   const insets = useSafeAreaInsets();
 
   const activeOption = ARABIC_FONT_OPTIONS.find((option) => option.id === fontId) ?? ARABIC_FONT_OPTIONS[0];
@@ -28,7 +31,8 @@ export function ArabicFontPicker() {
     <>
       <Pressable
         onPress={() => setOpen(true)}
-        style={[styles.trigger, { backgroundColor: cardColor, borderColor }]}>
+        style={[styles.trigger, { backgroundColor: cardColor, borderColor }, surface('card')]}>
+        <ThemeDecor kind="card" />
         <View style={styles.triggerInfo}>
           <ThemedText style={styles.triggerLabel}>{activeOption.displayName}</ThemedText>
           <Text style={[styles.triggerDemo, { color: mutedColor, fontFamily: activeOption.familyName }]}>
@@ -42,7 +46,8 @@ export function ArabicFontPicker() {
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
           <Pressable
             onPress={(e) => e.stopPropagation()}
-            style={[styles.sheet, { backgroundColor: cardColor, paddingBottom: insets.bottom + 20 }]}>
+            style={[styles.sheet, { backgroundColor: cardColor, paddingBottom: insets.bottom + 20 }, surface('sheet')]}>
+            <ThemeDecor kind="sheet" />
             <View style={[styles.handle, { backgroundColor: borderColor }]} />
             <ThemedText type="subtitle" style={styles.title}>
               Choose Arabic Font
@@ -61,7 +66,10 @@ export function ArabicFontPicker() {
                     style={({ pressed }) => [
                       styles.row,
                       { borderColor: isActive ? tintColor : borderColor, opacity: pressed ? 0.7 : 1 },
+                      surface('chip'),
+                      surface('chip') && { borderColor: isActive ? tintColor : borderColor },
                     ]}>
+                    <ThemeDecor kind="chip" stroke={isActive ? tintColor : undefined} />
                     <View style={styles.rowInfo}>
                       <ThemedText type="defaultSemiBold" style={styles.rowLabel}>
                         {option.displayName}

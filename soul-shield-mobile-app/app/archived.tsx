@@ -8,7 +8,9 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { useLocale } from '@/context/locale-context';
 import { useDeleteTask, useUpdateTask } from '@/hooks/queries/use-task-mutations';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 import { listArchivedTasksLocal } from '@/lib/db/tasks-repo';
 import { todayISODate } from '@/lib/date';
 
@@ -31,6 +33,7 @@ export default function ArchivedTasksScreen() {
   });
 
   const cardColor = useThemeColor({}, 'card');
+  const surface = useSurface();
   const tint = useThemeColor({}, 'tint');
   const mutedColor = useThemeColor({}, 'muted');
 
@@ -54,7 +57,8 @@ export default function ArchivedTasksScreen() {
       ) : (
         <View style={styles.list}>
           {(archivedQuery.data ?? []).map((row) => (
-            <View key={row.uuid} style={[styles.row, { backgroundColor: cardColor }]}>
+            <View key={row.uuid} style={[styles.row, { backgroundColor: cardColor }, surface('card')]}>
+              <ThemeDecor kind="card" />
               <View style={styles.rowText}>
                 <ThemedText type="defaultSemiBold" numberOfLines={1}>
                   {row.title}

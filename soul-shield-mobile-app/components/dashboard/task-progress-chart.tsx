@@ -5,7 +5,9 @@ import Svg, { Circle, Line, Polyline, Text as SvgText } from 'react-native-svg';
 import { ThemedText } from '@/components/themed-text';
 import { useLocale } from '@/context/locale-context';
 import { useTaskHistoryQuery } from '@/hooks/queries/use-tasks';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 import { addDays, dateRange, weekdayIndex, weekdayLabel } from '@/lib/date';
 
 const DAYS_SHOWN = 7;
@@ -53,6 +55,7 @@ export function TaskProgressChart({ selectedDate }: { selectedDate: string }) {
   const tintColor = useThemeColor({}, 'tint');
   const successColor = useThemeColor({}, 'success');
   const warningColor = useThemeColor({}, 'warning');
+  const surface = useSurface();
 
   const from = addDays(selectedDate, -(DAYS_SHOWN - 1));
   const { data: history, isPending, isError } = useTaskHistoryQuery(from, selectedDate);
@@ -101,7 +104,8 @@ export function TaskProgressChart({ selectedDate }: { selectedDate: string }) {
   }, [containerWidth, windowWidth, dates, counts, yMax]);
 
   return (
-    <View style={[styles.card, { backgroundColor: cardColor, borderColor }]}>
+    <View style={[styles.card, { backgroundColor: cardColor, borderColor }, surface('note')]}>
+      <ThemeDecor kind="note" />
       <View style={styles.header}>
         <ThemedText type="defaultSemiBold" style={styles.title}>
           {t('home.chart.title')}

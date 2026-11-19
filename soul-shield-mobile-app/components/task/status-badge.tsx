@@ -1,6 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useHandFont, useSurface } from '@/hooks/use-ui-style';
 
 interface StatusBadgeProps {
   label: string;
@@ -13,13 +15,16 @@ export function StatusBadge({ label, tone }: StatusBadgeProps) {
   const warning = useThemeColor({}, 'warning');
   const muted = useThemeColor({}, 'muted');
   const card = useThemeColor({}, 'card');
+  const surface = useSurface();
+  const handFont = useHandFont();
 
   const color =
     tone === 'success' ? success : tone === 'danger' ? danger : tone === 'warning' ? warning : muted;
 
   return (
-    <View style={[styles.badge, { backgroundColor: card, borderColor: color }]}>
-      <Text style={[styles.label, { color }]}>{label}</Text>
+    <View style={[styles.badge, { backgroundColor: card, borderColor: color }, surface('chip'), surface('chip') && { borderColor: color }]}>
+      <ThemeDecor kind="chip" stroke={color} />
+      <Text style={[styles.label, { color }, handFont.body]}>{label}</Text>
     </View>
   );
 }

@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, TextInput, View, type TextStyle } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useHandFont, useOnAccent, useSurface } from '@/hooks/use-ui-style';
 
 interface CustomIncrementModalProps {
   visible: boolean;
@@ -30,6 +32,9 @@ export function CustomIncrementModal({ visible, onClose, onConfirm }: CustomIncr
   const textColor = useThemeColor({}, 'text');
   const tintColor = useThemeColor({}, 'tint');
   const dangerColor = useThemeColor({}, 'danger');
+  const surface = useSurface();
+  const onAccent = useOnAccent();
+  const handFont = useHandFont();
 
   const amount = parsePositiveInt(text);
   const isInvalid = text.length > 0 && amount === null;
@@ -50,7 +55,8 @@ export function CustomIncrementModal({ visible, onClose, onConfirm }: CustomIncr
       <Pressable style={styles.backdrop} onPress={handleClose}>
         <Pressable
           onPress={(e) => e.stopPropagation()}
-          style={[styles.card, { backgroundColor: cardColor }]}>
+          style={[styles.card, { backgroundColor: cardColor }, surface('modal')]}>
+          <ThemeDecor kind="modal" />
           <View style={styles.headerRow}>
             <ThemedText type="subtitle" style={styles.headerTitle}>
               Add Custom Amount
@@ -60,6 +66,8 @@ export function CustomIncrementModal({ visible, onClose, onConfirm }: CustomIncr
             </Pressable>
           </View>
 
+          <View>
+          <ThemeDecor kind="input" stroke={isInvalid ? dangerColor : undefined} />
           <TextInput
             value={text}
             onChangeText={setText}
@@ -71,8 +79,12 @@ export function CustomIncrementModal({ visible, onClose, onConfirm }: CustomIncr
             style={[
               styles.input,
               { borderColor: isInvalid ? dangerColor : borderColor, color: textColor },
+              surface('input') as TextStyle | undefined,
+              surface('input') && isInvalid ? { borderColor: dangerColor } : null,
+              handFont.body,
             ]}
           />
+          </View>
           {isInvalid ? (
             <ThemedText style={[styles.error, { color: dangerColor }]}>
               Enter a whole number greater than 0.
@@ -85,8 +97,10 @@ export function CustomIncrementModal({ visible, onClose, onConfirm }: CustomIncr
             style={({ pressed }) => [
               styles.confirmButton,
               { backgroundColor: tintColor, opacity: amount === null ? 0.4 : pressed ? 0.85 : 1 },
+              surface('button'),
             ]}>
-            <ThemedText style={styles.confirmLabel}>{amount !== null ? `Add ${amount}` : 'Add'}</ThemedText>
+            <ThemeDecor kind="button" hatch={tintColor} />
+            <ThemedText style={[styles.confirmLabel, { color: onAccent }]}>{amount !== null ? `Add ${amount}` : 'Add'}</ThemedText>
           </Pressable>
         </Pressable>
       </Pressable>

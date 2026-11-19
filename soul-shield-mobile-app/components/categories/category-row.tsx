@@ -3,7 +3,9 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import type { Category } from '@/api/types';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 
 interface CategoryRowProps {
   category: Category;
@@ -16,11 +18,13 @@ export function CategoryRow({ category, onPress, onEdit, onDelete }: CategoryRow
   const cardColor = useThemeColor({}, 'card');
   const mutedColor = useThemeColor({}, 'muted');
   const dangerColor = useThemeColor({}, 'danger');
+  const surface = useSurface();
 
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.row, { backgroundColor: cardColor, opacity: pressed ? 0.85 : 1 }]}>
+      style={({ pressed }) => [styles.row, { backgroundColor: cardColor, opacity: pressed ? 0.85 : 1 }, surface('card')]}>
+      <ThemeDecor kind="card" />
       <View style={[styles.dot, { backgroundColor: category.color_hex }]} />
       <ThemedText type="defaultSemiBold" style={styles.name}>
         {category.name}

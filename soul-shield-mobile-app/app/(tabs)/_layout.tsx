@@ -8,7 +8,8 @@ import { CenterFabButton } from '@/components/ui/center-fab-button';
 import { CreateActionSheet } from '@/components/ui/create-action-sheet';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { NotificationBell } from '@/components/ui/notification-bell';
-import { Colors } from '@/constants/theme';
+import { ThemeDecor } from '@/components/ui/theme-decor';
+import { themeScreenLayout } from '@/components/ui/theme-backdrop';
 import {
   TAB_BAR_BOTTOM_MARGIN,
   TAB_BAR_HEIGHT,
@@ -18,13 +19,17 @@ import {
 import { useAuth } from '@/context/auth-context';
 import { useLocale } from '@/context/locale-context';
 import { useAppTheme } from '@/context/theme-context';
+import { useHandFont, useSurface } from '@/hooks/use-ui-style';
 
 export default function TabLayout() {
-  const { resolvedTheme } = useAppTheme();
+  // `palette` = the selected color palette as the active UI style renders
+  // it (identical to Colors[resolvedTheme] under the Normal style).
+  const { palette: colors, uiStyle } = useAppTheme();
+  const surface = useSurface();
+  const handFont = useHandFont();
   const { user } = useAuth();
   const { t } = useLocale();
   const insets = useSafeAreaInsets();
-  const colors = Colors[resolvedTheme];
   const [sheetOpen, setSheetOpen] = useState(false);
 
   // The center "+" is a create action, not a screen — only meaningful on the
@@ -37,13 +42,14 @@ export default function TabLayout() {
   return (
     <>
       <Tabs
+        screenLayout={themeScreenLayout}
         screenOptions={{
           headerShown: false,
           tabBarButton: HapticTab,
           tabBarActiveTintColor: colors.tint,
           tabBarInactiveTintColor: colors.muted,
           tabBarShowLabel: true,
-          tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+          tabBarLabelStyle: [{ fontSize: 11, fontWeight: '600' }, handFont.body],
           tabBarItemStyle: { paddingTop: 6 },
           tabBarStyle: {
             position: 'absolute',
@@ -63,7 +69,10 @@ export default function TabLayout() {
               },
               android: { elevation: 10 },
             }),
+            ...surface('tabBar'),
           },
+          // Pencil only: the sketched outline around the bar.
+          tabBarBackground: uiStyle === 'pencil' ? () => <ThemeDecor kind="tabBar" /> : undefined,
         }}>
         <Tabs.Screen
           name="index"

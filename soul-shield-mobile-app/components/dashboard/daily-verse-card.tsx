@@ -3,7 +3,9 @@ import { StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useDailyVerseQuery } from '@/hooks/queries/use-daily-verse';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 
 /** Small Home-screen widget showing today's verse (Arabic + English), from
  * the public quranapi.pages.dev content API — see lib/daily-verse.ts for how
@@ -20,11 +22,13 @@ export function DailyVerseCard() {
   const borderColor = useThemeColor({}, 'border');
   const tintColor = useThemeColor({}, 'tint');
   const mutedColor = useThemeColor({}, 'muted');
+  const surface = useSurface();
 
   if (!isSuccess) return null;
 
   return (
-    <View style={[styles.card, { backgroundColor: cardColor, borderColor }]}>
+    <View style={[styles.card, { backgroundColor: cardColor, borderColor }, surface('note')]}>
+      <ThemeDecor kind="note" />
       <View style={styles.header}>
         <IconSymbol name="sparkles" size={14} color={tintColor} />
         <ThemedText type="defaultSemiBold" style={[styles.label, { color: tintColor }]}>

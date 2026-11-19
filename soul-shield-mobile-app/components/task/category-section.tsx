@@ -5,7 +5,9 @@ import type { Task } from '@/api/types';
 import { ThemedText } from '@/components/themed-text';
 import { TaskCard } from '@/components/task/task-card';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface, useUIStyle } from '@/hooks/use-ui-style';
 
 interface CategorySectionProps {
   title: string;
@@ -51,20 +53,28 @@ export function CategorySection({
 }: CategorySectionProps) {
   const mutedColor = useThemeColor({}, 'muted');
   const cardColor = useThemeColor({}, 'card');
+  const surface = useSurface();
+  const { uiStyle } = useUIStyle();
   const isLink = !!onPress;
 
   return (
     <Animated.View
       layout={LinearTransition.duration(220)}
-      style={[styles.container, { backgroundColor: cardColor }]}>
+      style={[styles.container, { backgroundColor: cardColor }, surface('panel')]}>
+      <ThemeDecor kind="panel" />
       <Pressable
         onPress={onPress ?? onToggle}
         style={({ pressed }) => [
           styles.header,
           { backgroundColor: `${accentColor}1A`, opacity: pressed ? 0.85 : 1 },
+          uiStyle === 'pencil' && styles.headerClear,
         ]}
         accessibilityRole="button"
         accessibilityState={isLink ? undefined : { expanded }}>
+        {/* Pencil: the reference's hatched header bar (in the category's
+            colored pencil), ruled off from the body when expanded. */}
+        <ThemeDecor kind="track" hatch={accentColor} hatchSpacing={7} hatchWidth={1} outline={false} />
+        {!isLink && expanded ? <ThemeDecor kind="rule" /> : null}
         {icon ? (
           <IconSymbol name={icon} size={18} color={accentColor} />
         ) : (
@@ -125,6 +135,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
+  headerClear: { backgroundColor: 'transparent' },
   dot: { width: 12, height: 12, borderRadius: 6 },
   title: { flex: 1 },
   count: { fontSize: 14 },

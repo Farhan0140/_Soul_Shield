@@ -11,7 +11,9 @@ import { PrimaryButton } from '@/components/ui/primary-button';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { useLocale } from '@/context/locale-context';
 import { useTaskHistoryQuery } from '@/hooks/queries/use-tasks';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 import { addDays, todayISODate } from '@/lib/date';
 import { getErrorMessage } from '@/lib/errors';
 import { computeInsightStats } from '@/lib/insights';
@@ -34,6 +36,7 @@ export default function InsightsScreen() {
   const summaryRef = useRef<View>(null);
 
   const cardColor = useThemeColor({}, 'card');
+  const surface = useSurface();
   const borderColor = useThemeColor({}, 'border');
   const tint = useThemeColor({}, 'tint');
   const mutedColor = useThemeColor({}, 'muted');
@@ -117,12 +120,14 @@ export default function InsightsScreen() {
           <View
             ref={summaryRef}
             collapsable={false}
-            style={[styles.summaryCard, { backgroundColor: cardColor, borderColor }]}>
+            style={[styles.summaryCard, { backgroundColor: cardColor, borderColor }, surface('panel')]}>
+            <ThemeDecor kind="panel" />
             <TaskProgressChart selectedDate={today} />
 
             <View style={styles.grid}>
               {statCards.map((card) => (
-                <View key={card.label} style={[styles.statCard, { borderColor }]}>
+                <View key={card.label} style={[styles.statCard, { borderColor }, surface('chip')]}>
+                  <ThemeDecor kind="chip" />
                   <ThemedText style={[styles.statLabel, { color: mutedColor }]} numberOfLines={1}>
                     {card.label}
                   </ThemedText>

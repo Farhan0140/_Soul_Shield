@@ -3,6 +3,8 @@ import { Animated, Pressable, StyleSheet } from 'react-native';
 
 import { hapticLight } from '@/lib/feedback';
 import { ThemedText } from '@/components/themed-text';
+import { ThemeDecor } from '@/components/ui/theme-decor';
+import { useOnAccent, useSurface } from '@/hooks/use-ui-style';
 
 interface MainIncrementButtonProps {
   onPress: () => void;
@@ -17,6 +19,8 @@ interface MainIncrementButtonProps {
  * the press animation/haptic, not any counting logic. */
 export function MainIncrementButton({ onPress, disabled, size = 172, color }: MainIncrementButtonProps) {
   const scale = useRef(new Animated.Value(1)).current;
+  const surface = useSurface();
+  const onAccent = useOnAccent();
 
   const handlePress = useCallback(() => {
     hapticLight();
@@ -44,8 +48,10 @@ export function MainIncrementButton({ onPress, disabled, size = 172, color }: Ma
             backgroundColor: color,
             opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
           },
+          surface('fab'),
         ]}>
-        <ThemedText style={styles.label}>+1</ThemedText>
+        <ThemeDecor kind="fab" hatch={color} />
+        <ThemedText style={[styles.label, { color: onAccent }]}>+1</ThemedText>
       </Pressable>
     </Animated.View>
   );

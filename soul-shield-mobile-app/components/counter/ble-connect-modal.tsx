@@ -6,7 +6,9 @@ import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { useLocale } from '@/context/locale-context';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useHandFont, useSurface } from '@/hooks/use-ui-style';
 import {
   bleGetStatus,
   bleSubscribe,
@@ -44,6 +46,8 @@ export function BleConnectModal({ visible, onClose, currentTask }: BleConnectMod
   const successColor = useThemeColor({}, 'success');
   const dangerColor = useThemeColor({}, 'danger');
   const textColor = useThemeColor({}, 'text');
+  const surface = useSurface();
+  const handFont = useHandFont();
 
   // Scan while the modal is open (unless already connected); always stop the
   // scan when it closes.
@@ -77,7 +81,8 @@ export function BleConnectModal({ visible, onClose, currentTask }: BleConnectMod
         <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
         <Animated.View
           entering={FadeIn.duration(200)}
-          style={[styles.card, { backgroundColor: cardColor, borderColor }]}>
+          style={[styles.card, { backgroundColor: cardColor, borderColor }, surface('modal')]}>
+          <ThemeDecor kind="modal" />
           {/* Header */}
           <View style={styles.headerRow}>
             <IconSymbol name="b.circle.fill" size={20} color={tint} />
@@ -167,12 +172,14 @@ export function BleConnectModal({ visible, onClose, currentTask }: BleConnectMod
                       style={({ pressed }) => [
                         styles.deviceRow,
                         { borderColor, opacity: pressed ? 0.7 : 1 },
+                        surface('chip'),
                       ]}>
+                      <ThemeDecor kind="chip" />
                       <View style={styles.deviceText}>
                         <ThemedText type="defaultSemiBold" numberOfLines={1} style={{ color: textColor }}>
                           {device.name ?? '(unknown device)'}
                         </ThemedText>
-                        <Text style={{ color: mutedColor, fontSize: 11 }}>RSSI {device.rssi}</Text>
+                        <Text style={[{ color: mutedColor, fontSize: 11 }, handFont.body]}>RSSI {device.rssi}</Text>
                       </View>
                       <IconSymbol name="chevron.right" size={16} color={mutedColor} />
                     </Pressable>

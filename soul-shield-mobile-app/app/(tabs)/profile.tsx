@@ -10,11 +10,14 @@ import { deletePushToken, registerPushToken } from '@/api/auth';
 import { ThemedText } from '@/components/themed-text';
 import { ArabicFontPicker } from '@/components/profile/arabic-font-picker';
 import { ThemePicker } from '@/components/profile/theme-picker';
+import { UIStylePicker } from '@/components/profile/ui-style-picker';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { PrimaryButton } from '@/components/ui/primary-button';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useLocale, type Locale } from '@/context/locale-context';
 import { useAuth } from '@/context/auth-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 import { getCounterHapticsPref, setCounterHapticsPref } from '@/lib/haptics-pref';
 import { cancelDailyDigest, scheduleDailyDigest, sendTestNotification } from '@/lib/notifications';
 import {
@@ -51,6 +54,7 @@ export default function ProfileScreen() {
   const cardColor = useThemeColor({}, 'card');
   const tintColor = useThemeColor({}, 'tint');
   const mutedColor = useThemeColor({}, 'muted');
+  const surface = useSurface();
 
   const [clearing, setClearing] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -292,7 +296,8 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
-      <View style={[styles.card, { backgroundColor: cardColor }]}>
+      <View style={[styles.card, { backgroundColor: cardColor }, surface('note')]}>
+        <ThemeDecor kind="note" />
         <IconSymbol name="person.crop.circle.fill" size={56} color={tintColor} />
         <View style={styles.info}>
           <ThemedText type="subtitle">{user?.full_name}</ThemedText>
@@ -302,7 +307,19 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.section}>
-        <View style={styles.sectionHeader}>
+        <View style={[styles.sectionHeader, surface('tag')]}>
+          <ThemeDecor kind="tag" />
+          <IconSymbol name="sparkles" size={16} color={mutedColor} />
+          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+            {t('profile.uiStyle')}
+          </ThemedText>
+        </View>
+        <UIStylePicker />
+      </View>
+
+      <View style={styles.section}>
+        <View style={[styles.sectionHeader, surface('tag')]}>
+          <ThemeDecor kind="tag" />
           <IconSymbol name="paintpalette.fill" size={16} color={mutedColor} />
           <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
             {t('profile.appearance')}
@@ -323,7 +340,8 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.section}>
-        <View style={styles.sectionHeader}>
+        <View style={[styles.sectionHeader, surface('tag')]}>
+          <ThemeDecor kind="tag" />
           <IconSymbol name="globe" size={16} color={mutedColor} />
           <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
             {t('profile.language')}
@@ -341,7 +359,14 @@ export default function ProfileScreen() {
                   borderColor: locale === candidate ? tintColor : `${mutedColor}55`,
                   opacity: pressed ? 0.8 : 1,
                 },
+                surface('chip'),
+                surface('chip') && locale === candidate ? { borderColor: tintColor } : null,
               ]}>
+              <ThemeDecor
+                kind="chip"
+                stroke={locale === candidate ? tintColor : undefined}
+                hatch={locale === candidate ? tintColor : undefined}
+              />
               <ThemedText
                 type="defaultSemiBold"
                 style={{ color: locale === candidate ? tintColor : mutedColor, fontSize: 13 }}>
@@ -353,7 +378,8 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.section}>
-        <View style={styles.sectionHeader}>
+        <View style={[styles.sectionHeader, surface('tag')]}>
+          <ThemeDecor kind="tag" />
           <IconSymbol name="textformat" size={16} color={mutedColor} />
           <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
             {t('profile.arabicFont')}
@@ -363,7 +389,8 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.section}>
-        <View style={styles.sectionHeader}>
+        <View style={[styles.sectionHeader, surface('tag')]}>
+          <ThemeDecor kind="tag" />
           <IconSymbol name="bell.fill" size={16} color={mutedColor} />
           <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
             {t('profile.notifications')}
@@ -383,7 +410,9 @@ export default function ProfileScreen() {
               style={({ pressed }) => [
                 styles.digestTimeButton,
                 { backgroundColor: cardColor, opacity: pressed ? 0.8 : 1 },
+                surface('card'),
               ]}>
+              <ThemeDecor kind="card" />
               <ThemedText style={{ color: mutedColor }}>{t('profile.digestTimeLabel')}</ThemedText>
               <ThemedText type="defaultSemiBold">
                 {String(digestTime.hour).padStart(2, '0')}:{String(digestTime.minute).padStart(2, '0')}
@@ -417,7 +446,8 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.section}>
-        <View style={styles.sectionHeader}>
+        <View style={[styles.sectionHeader, surface('tag')]}>
+          <ThemeDecor kind="tag" />
           <IconSymbol name="clock" size={16} color={mutedColor} />
           <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
             {t('profile.tools')}
@@ -427,10 +457,16 @@ export default function ProfileScreen() {
           <Pressable
             key={row.label}
             onPress={row.onPress}
-            style={({ pressed }) => [styles.toolRow, { backgroundColor: cardColor, opacity: pressed ? 0.7 : 1 }]}
+            style={({ pressed }) => [
+              styles.toolRow,
+              { backgroundColor: cardColor, opacity: pressed ? 0.7 : 1 },
+              surface('card'),
+            ]}
             accessibilityRole="button"
             accessibilityLabel={row.label}>
-            <View style={[styles.toolIconCircle, { backgroundColor: `${tintColor}1A` }]}>
+            <ThemeDecor kind="card" />
+            <View style={[styles.toolIconCircle, { backgroundColor: `${tintColor}1A` }, surface('iconCircle')]}>
+              <ThemeDecor kind="iconCircle" stroke={tintColor} />
               <IconSymbol name={row.icon} size={22} color={tintColor} />
             </View>
             <ThemedText type="defaultSemiBold" style={styles.toolLabel}>
@@ -442,7 +478,8 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.section}>
-        <View style={styles.sectionHeader}>
+        <View style={[styles.sectionHeader, surface('tag')]}>
+          <ThemeDecor kind="tag" />
           <IconSymbol name="externaldrive.fill" size={16} color={mutedColor} />
           <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
             {t('profile.data')}
@@ -483,7 +520,8 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.section}>
-        <View style={styles.sectionHeader}>
+        <View style={[styles.sectionHeader, surface('tag')]}>
+          <ThemeDecor kind="tag" />
           <IconSymbol name="person.fill" size={16} color={mutedColor} />
           <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
             {t('profile.account')}
@@ -496,16 +534,20 @@ export default function ProfileScreen() {
             style={({ pressed }) => [
               styles.toolRow,
               { backgroundColor: cardColor, opacity: pressed ? 0.7 : 1 },
+              surface('card'),
             ]}
             accessibilityRole="button"
             accessibilityLabel={row.label}
           >
+            <ThemeDecor kind="card" />
             <View
               style={[
                 styles.toolIconCircle,
                 { backgroundColor: `${tintColor}1A` },
+                surface('iconCircle'),
               ]}
             >
+              <ThemeDecor kind="iconCircle" stroke={tintColor} />
               <IconSymbol name={row.icon} size={22} color={tintColor} />
             </View>
             <ThemedText type="defaultSemiBold" style={styles.toolLabel}>

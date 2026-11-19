@@ -1,11 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet } from 'react-native';
 
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 
 export function SkeletonCard() {
   const opacity = useRef(new Animated.Value(0.5)).current;
   const cardColor = useThemeColor({}, 'card');
+  const surface = useSurface();
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -19,7 +22,8 @@ export function SkeletonCard() {
   }, [opacity]);
 
   return (
-    <Animated.View style={[styles.card, { backgroundColor: cardColor, opacity }]}>
+    <Animated.View style={[styles.card, { backgroundColor: cardColor, opacity }, surface('card')]}>
+      <ThemeDecor kind="card" />
       <Animated.View style={[styles.line, styles.title, { backgroundColor: cardColor }]} />
       <Animated.View style={[styles.line, styles.subtitle, { backgroundColor: cardColor }]} />
     </Animated.View>

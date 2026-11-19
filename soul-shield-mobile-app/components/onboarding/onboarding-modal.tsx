@@ -7,7 +7,9 @@ import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { useLocale } from '@/context/locale-context';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 
 const ONBOARDING_KEY = 'soulshield_onboarding_done_v1';
 
@@ -28,6 +30,7 @@ export function OnboardingModal() {
   const cardColor = useThemeColor({}, 'card');
   const tint = useThemeColor({}, 'tint');
   const mutedColor = useThemeColor({}, 'muted');
+  const surface = useSurface();
 
   if (visible === null) {
     AsyncStorage.getItem(ONBOARDING_KEY)
@@ -48,12 +51,14 @@ export function OnboardingModal() {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={() => {}}>
       <View style={styles.backdrop}>
-        <Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(150)} style={[styles.card, { backgroundColor: cardColor, width: cardWidth }]}>
+        <Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(150)} style={[styles.card, { backgroundColor: cardColor, width: cardWidth }, surface('modal')]}>
+          <ThemeDecor kind="modal" />
           <ThemedText type="subtitle" style={styles.welcome}>
             {t('onb.title')}
           </ThemedText>
 
-          <View style={[styles.iconCircle, { backgroundColor: `${tint}1A` }]}>
+          <View style={[styles.iconCircle, { backgroundColor: `${tint}1A` }, surface('iconCircle')]}>
+            <ThemeDecor kind="iconCircle" stroke={tint} />
             <IconSymbol name={slide.icon} size={36} color={tint} />
           </View>
           <ThemedText type="defaultSemiBold" style={styles.slideTitle}>

@@ -3,7 +3,9 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 
 interface ReorderRowProps {
   title: string;
@@ -22,9 +24,11 @@ export function ReorderRow({ title, onMoveUp, onMoveDown, canMoveUp, canMoveDown
   const borderColor = useThemeColor({}, 'border');
   const tintColor = useThemeColor({}, 'tint');
   const mutedColor = useThemeColor({}, 'muted');
+  const surface = useSurface();
 
   return (
-    <View style={[styles.row, { backgroundColor: cardColor, borderColor }]}>
+    <View style={[styles.row, { backgroundColor: cardColor, borderColor }, surface('card')]}>
+      <ThemeDecor kind="card" />
       <ArrowButton
         icon="chevron.up"
         onPress={onMoveUp}
@@ -59,6 +63,7 @@ function ArrowButton({
   tintColor: string;
   mutedColor: string;
 }) {
+  const surface = useSurface();
   return (
     <Pressable
       accessibilityRole="button"
@@ -73,7 +78,9 @@ function ArrowButton({
       style={({ pressed }) => [
         styles.arrowCircle,
         { backgroundColor: `${disabled ? mutedColor : tintColor}1A`, opacity: pressed ? 0.6 : 1 },
+        surface('iconCircle'),
       ]}>
+      <ThemeDecor kind="iconCircle" stroke={disabled ? mutedColor : tintColor} />
       <IconSymbol name={icon} size={22} color={disabled ? mutedColor : tintColor} />
     </Pressable>
   );

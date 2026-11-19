@@ -2,7 +2,9 @@ import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useOnAccent, useSurface } from '@/hooks/use-ui-style';
 import type { TimerStatus } from '@/lib/timer/store';
 
 interface TimerControlsProps {
@@ -27,6 +29,8 @@ export function TimerControls({
   const card = useThemeColor({}, 'card');
   const text = useThemeColor({}, 'text');
   const muted = useThemeColor({}, 'muted');
+  const surface = useSurface();
+  const onAccent = useOnAccent();
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
@@ -37,9 +41,10 @@ export function TimerControls({
       <Pressable
         onPress={onReset}
         hitSlop={12}
-        style={[styles.sideButton, { backgroundColor: card }]}
+        style={[styles.sideButton, { backgroundColor: card }, surface('fab')]}
         accessibilityRole="button"
         accessibilityLabel="Reset timer">
+        <ThemeDecor kind="circle" />
         <IconSymbol name="arrow.counterclockwise" size={22} color={text} />
       </Pressable>
 
@@ -54,17 +59,19 @@ export function TimerControls({
         hitSlop={12}
         accessibilityRole="button"
         accessibilityLabel={isRunning ? 'Pause timer' : 'Start timer'}>
-        <Animated.View style={[styles.playButton, { backgroundColor: tint }, animatedStyle]}>
-          <IconSymbol name={isRunning ? 'pause.fill' : 'play.fill'} size={30} color="#fff" />
+        <Animated.View style={[styles.playButton, { backgroundColor: tint }, surface('fab'), animatedStyle]}>
+          <ThemeDecor kind="fab" hatch={tint} />
+          <IconSymbol name={isRunning ? 'pause.fill' : 'play.fill'} size={30} color={onAccent} />
         </Animated.View>
       </Pressable>
 
       <Pressable
         onPress={onToggleVibration}
         hitSlop={12}
-        style={[styles.sideButton, { backgroundColor: card }]}
+        style={[styles.sideButton, { backgroundColor: card }, surface('fab')]}
         accessibilityRole="button"
         accessibilityLabel={vibrationEnabled ? 'Vibration on' : 'Vibration off'}>
+        <ThemeDecor kind="circle" />
         <IconSymbol
           name="iphone.radiowaves.left.and.right"
           size={22}

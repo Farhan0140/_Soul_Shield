@@ -4,7 +4,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useSyncNotifications } from '@/context/sync-notifications-context';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useHandFont, useSurface } from '@/hooks/use-ui-style';
 
 /** Badge + icon surfacing genuinely failed sync mutations (not offline-paused
  * ones, which retry silently). Pinned to the opposite corner from `Fab` so
@@ -14,6 +16,8 @@ export function NotificationBell() {
   const tint = useThemeColor({}, 'tint');
   const danger = useThemeColor({}, 'danger');
   const card = useThemeColor({}, 'card');
+  const surface = useSurface();
+  const handFont = useHandFont();
   const insets = useSafeAreaInsets();
 
   if (unreadCount === 0) return null;
@@ -25,10 +29,12 @@ export function NotificationBell() {
       style={({ pressed }) => [
         styles.bell,
         { top: insets.top + 12, backgroundColor: card, opacity: pressed ? 0.85 : 1 },
+        surface('fab'),
       ]}>
+      <ThemeDecor kind="circle" />
       <IconSymbol name="bell.fill" size={22} color={tint} />
       <View style={[styles.badge, { backgroundColor: danger }]}>
-        <Text style={styles.badgeLabel}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+        <Text style={[styles.badgeLabel, handFont.body]}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
       </View>
     </Pressable>
   );

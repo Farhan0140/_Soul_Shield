@@ -6,7 +6,9 @@ import type { Task, TaskStatus } from '@/api/types';
 import { ThemedText } from '@/components/themed-text';
 import { StatusBadge } from '@/components/task/status-badge';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
 import { formatDisplayDate } from '@/lib/date';
 
 interface DayHistoryCardProps {
@@ -41,6 +43,7 @@ export function DayHistoryCard({ date, tasks }: DayHistoryCardProps) {
   const dangerColor = useThemeColor({}, 'danger');
   const warningColor = useThemeColor({}, 'warning');
   const categoryFallback = useThemeColor({}, 'categoryFallback');
+  const surface = useSurface();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
 
@@ -52,7 +55,8 @@ export function DayHistoryCard({ date, tasks }: DayHistoryCardProps) {
       <Pressable
         onPress={() => setDetailsVisible(true)}
         disabled={!hasTasks}
-        style={({ pressed }) => [styles.card, { backgroundColor: cardColor, opacity: pressed ? 0.85 : 1 }]}>
+        style={({ pressed }) => [styles.card, { backgroundColor: cardColor, opacity: pressed ? 0.85 : 1 }, surface('note')]}>
+        <ThemeDecor kind="note" />
         <View style={styles.header}>
           <ThemedText type="defaultSemiBold">{formatDisplayDate(date)}</ThemedText>
           {hasTasks ? <IconSymbol name="chevron.right" size={16} color={mutedColor} /> : null}
@@ -86,7 +90,8 @@ export function DayHistoryCard({ date, tasks }: DayHistoryCardProps) {
           />
           <View
             pointerEvents="box-none"
-            style={[styles.sheet, { backgroundColor: cardColor, paddingBottom: insets.bottom + 20 }]}>
+            style={[styles.sheet, { backgroundColor: cardColor, paddingBottom: insets.bottom + 20 }, surface('sheet')]}>
+            <ThemeDecor kind="sheet" />
             <View style={[styles.handle, { backgroundColor: borderColor }]} />
             <ThemedText type="subtitle" style={styles.sheetTitle}>
               {formatDisplayDate(date)}
