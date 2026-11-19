@@ -6,6 +6,8 @@ import { BleManager, type Subscription } from 'react-native-ble-plx';
 import { hapticLight } from '@/lib/feedback';
 import { refreshAllWidgets, refreshBleCounterWidget } from '@/lib/widget/task-widget';
 import {
+  getMainTaskCompletionForDate,
+  getSubTaskCompletionForDate,
   incrementSubTaskCompletionLocal,
   incrementTaskCompletionLocal,
 } from '@/lib/db/completions-repo';
@@ -44,6 +46,27 @@ import { incrementSubTaskMutationFn, incrementTaskMutationFn } from '@/lib/mutat
 // --- BLE identity — MUST match Framework/src/main.cpp -------------------
 const SERVICE_UUID = '9f83f3d0-8f5f-4a3f-9a1d-2c6a8f4e5b01';
 const CHAR_TX_UUID = 'a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
+// Phone -> ESP32 (write): one-byte replies/state that the firmware turns into
+// LED + buzzer feedback.
+const CHAR_RX_UUID = 'b2c3d4e5-6f7a-4b8c-9d0e-1f2a3b4c5d6e';
+
+/** One-byte ASCII messages written to the ESP32 (base64, as ble-plx wants).
+ * MUST match handleMessage() in Framework-ESP32-DevModule/src/main.cpp.
+ * Replies — exactly one per button press; the firmware treats a missing
+ * reply as "update not received": */
+const ESP_REPLY = {
+  counted: 'QQ==', // 'A' — +1 saved
+  completedNow: 'RA==', // 'D' — this press reached the target
+  alreadyComplete: 'WA==', // 'X' — target already reached, press ignored
+  noTask: 'Tg==', // 'N' — no task selected for Bluetooth control
+  failed: 'RQ==', // 'E' — the press couldn't be saved
+} as const;
+/** State sync — sent on connect and whenever the active task changes. */
+const ESP_STATE = {
+  open: 'VQ==', // 'U' — active task still counting
+  done: 'Qw==', // 'C' — active task complete for today
+  noTask: 'MA==', // '0' — no active task
+} as const;
 
 const DEVICE_STORE_KEY = 'soulshield_ble_device';
 const ACTIVE_TASK_STORE_KEY = 'soulshield_ble_active_task';
@@ -97,6 +120,8 @@ let state: InternalState = {
 const listeners = new Set<() => void>();
 let manager: BleManager | null = null;
 let initialized = false;
+/** Device the TX monitor is armed on — where replies are written. */
+let connectedDeviceId: string | null = null;
 
 function blePublic(s: InternalState): BleStatus {
   return {
@@ -305,11 +330,13 @@ export async function connectAndUse(deviceId: string, task: ActiveCounterTask): 
   await persistPairedDevice(deviceId, name);
   armMonitoring(deviceId);
   replace({ phase: 'connected', deviceName: name, error: null });
+  syncEspTaskState();
 }
 
 function armMonitoring(deviceId: string): void {
   const manager = getManager();
   if (!manager) return;
+  connectedDeviceId = deviceId;
   state.monitoring = manager.monitorCharacteristicForDevice(
     deviceId,
     SERVICE_UUID,
@@ -319,6 +346,7 @@ function armMonitoring(deviceId: string): void {
         // Connection dropped (walked out of range / phone toggled BT off).
         state.monitoring?.remove();
         state.monitoring = null;
+        connectedDeviceId = null;
         replace({ phase: 'idle', error: error.message });
         return;
       }
@@ -346,6 +374,7 @@ export async function reconnectIfPaired(): Promise<void> {
     await manager.discoverAllServicesAndCharacteristicsForDevice(deviceId);
     armMonitoring(deviceId);
     replace({ phase: 'connected' });
+    syncEspTaskState();
   } catch {
     // Device out of range / not powered yet — user can reconnect via the modal.
     replace({ phase: 'idle' });
@@ -355,6 +384,7 @@ export async function reconnectIfPaired(): Promise<void> {
 export async function disconnectBle(): Promise<void> {
   state.monitoring?.remove();
   state.monitoring = null;
+  connectedDeviceId = null;
   const manager = getManager();
   if (state.pairedDeviceId && manager) {
     await manager.cancelDeviceConnection(state.pairedDeviceId).catch(() => {});
@@ -368,6 +398,7 @@ export async function disconnectBle(): Promise<void> {
  * requirement: only the selected task is affected by button presses). */
 export async function setActiveCounterTask(task: ActiveCounterTask): Promise<void> {
   replace({ activeTask: task });
+  syncEspTaskState();
   await persistActiveTask(task);
   // The BLE counter widget displays ONLY the active task — reflect the switch.
   void refreshBleCounterWidget();
@@ -379,6 +410,7 @@ export async function setActiveCounterTask(task: ActiveCounterTask): Promise<voi
  * is a device-level setting and stays paired. */
 export async function clearActiveCounterTask(): Promise<void> {
   replace({ activeTask: null });
+  syncEspTaskState();
   await AsyncStorage.removeItem(ACTIVE_TASK_STORE_KEY);
   void refreshBleCounterWidget();
 }
@@ -392,19 +424,87 @@ export function isActiveCounterTask(taskId: string, subTaskId: string | null): b
   return !!active && active.taskId === taskId && active.subTaskId === subTaskId;
 }
 
+// --- ESP32 feedback channel ------------------------------------------------
+
+function writeToEsp(base64Byte: string): void {
+  const deviceId = connectedDeviceId;
+  const manager = getManager();
+  if (!deviceId || !manager || state.phase !== 'connected') return;
+  // Fire-and-forget: if this write is lost, the firmware's reply timeout
+  // shows "not received" — which is exactly what happened.
+  manager
+    .writeCharacteristicWithResponseForDevice(deviceId, SERVICE_UUID, CHAR_RX_UUID, base64Byte)
+    .catch(() => {});
+}
+
+/** Today's progress vs target for the Bluetooth-controlled task, read from
+ * the same local rows the increment writes. target 0 = no target set. */
+function readActiveProgress(task: ActiveCounterTask, date: string): { progress: number; target: number } {
+  if (task.subTaskId) {
+    return {
+      progress: getSubTaskCompletionForDate(task.subTaskId, date)?.progressCount ?? 0,
+      target: getSubTaskByUuid(task.subTaskId)?.targetCount ?? 0,
+    };
+  }
+  return {
+    progress: getMainTaskCompletionForDate(task.taskId, date)?.progressCount ?? 0,
+    target: getTaskByUuid(task.taskId)?.targetCount ?? 0,
+  };
+}
+
+function reachedTarget(p: { progress: number; target: number }): boolean {
+  return p.target > 0 && p.progress >= p.target;
+}
+
+/** Tells the ESP32 whether the active task is still counting, complete or
+ * absent, so its idle LED pattern is right. Sent on connect and on task
+ * switch; safe to call after any in-app change to the active task's count. */
+export function syncEspTaskState(): void {
+  if (state.phase !== 'connected') return;
+  const task = state.activeTask;
+  if (!task) {
+    writeToEsp(ESP_STATE.noTask);
+    return;
+  }
+  writeToEsp(reachedTarget(readActiveProgress(task, todayISODate())) ? ESP_STATE.done : ESP_STATE.open);
+}
+
+/** Counter page → ESP32: the on-screen count of this task crossed (or fell
+ * back below) its target through an in-app change. Ignored unless it is the
+ * Bluetooth-controlled task and the ESP32 is connected. */
+export function reportCounterTaskState(taskId: string, subTaskId: string | null, done: boolean): void {
+  if (!isActiveCounterTask(taskId, subTaskId)) return;
+  writeToEsp(done ? ESP_STATE.done : ESP_STATE.open);
+}
+
 // --- dispatch: one ESP32 press == +1 on the active task --------------------
 
 function handleEspButtonPress(): void {
+  if (state.phase !== 'connected') return;
   const task = state.activeTask;
-  if (!task || state.phase !== 'connected') return;
+  if (!task) {
+    writeToEsp(ESP_REPLY.noTask);
+    return;
+  }
   const date = todayISODate();
+  const before = readActiveProgress(task, date);
+  // Target already reached today: the press must NOT count. The ESP32 shows
+  // "task complete" instead.
+  if (reachedTarget(before)) {
+    writeToEsp(ESP_REPLY.alreadyComplete);
+    return;
+  }
+  const targetCount = before.target;
   hapticLight();
+  let progressCount: number;
 
   if (task.subTaskId) {
-    const subTask = getSubTaskByUuid(task.subTaskId);
-    const targetCount = subTask?.targetCount ?? 0;
     const local = incrementSubTaskCompletionLocal(task.subTaskId, task.taskId, date, 1, targetCount);
-    if (!local.completionUuid) return;
+    if (!local.completionUuid) {
+      writeToEsp(ESP_REPLY.failed);
+      return;
+    }
+    progressCount = local.progressCount;
     // Same optimistic cache patch the +1 button uses → instant UI everywhere.
     patchSubTaskIncrementInCaches(queryClient, {
       date,
@@ -418,10 +518,12 @@ function handleEspButtonPress(): void {
       () => {}
     );
   } else {
-    const taskRow = getTaskByUuid(task.taskId);
-    const targetCount = taskRow?.targetCount ?? 0;
     const local = incrementTaskCompletionLocal(task.taskId, date, 1, targetCount);
-    if (!local.completionUuid) return;
+    if (!local.completionUuid) {
+      writeToEsp(ESP_REPLY.failed);
+      return;
+    }
+    progressCount = local.progressCount;
     patchTaskInCaches(queryClient, date, task.taskId, (t) => ({
       ...t,
       progress_count: local.progressCount,
@@ -433,6 +535,10 @@ function handleEspButtonPress(): void {
       amount: 1,
     }).catch(() => {});
   }
+
+  writeToEsp(
+    reachedTarget({ progress: progressCount, target: targetCount }) ? ESP_REPLY.completedNow : ESP_REPLY.counted
+  );
 
   // Streak chip's completed-dates window may gain "today".
   void queryClient.invalidateQueries({ queryKey: ['completedDates'] });

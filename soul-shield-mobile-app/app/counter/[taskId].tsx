@@ -1,5 +1,5 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -22,6 +22,7 @@ import {
   bleGetStatus,
   bleSubscribe,
   isActiveCounterTask,
+  reportCounterTaskState,
   type ActiveCounterTask,
 } from '@/lib/bluetooth/counter-ble';
 import { useThemeColor } from '@/hooks/use-theme-color';
@@ -128,6 +129,17 @@ export default function CounterTaskScreen() {
   const targetCount = (isSubTask ? subTask?.target_count : task?.target_count) ?? 0;
   const currentCount = isSubTask ? ( subTask?.progress_count ?? 0) : buffer.displayProgress;
   const ratio = targetCount > 0 ? Math.min(currentCount / targetCount, 1) : 0;
+
+  // Keep the ESP32's "task complete" light in step with in-app taps too
+  // (not just its own button presses). No-op unless this is the Bluetooth-
+  // controlled task and the device is connected.
+  const targetReached = targetCount > 0 && currentCount >= targetCount;
+  const bleTaskKey = isSubTask ? String(subTaskId) : null;
+  const hasTask = !!task;
+  useEffect(() => {
+    if (!hasTask || isReadOnly) return;
+    reportCounterTaskState(String(taskId), bleTaskKey, targetReached);
+  }, [hasTask, isReadOnly, taskId, bleTaskKey, targetReached]);
 
   const title = isSubTask ? subTask?.title : task?.title;
   const description = (isSubTask ? subTask?.description : task?.description) ?? null;
