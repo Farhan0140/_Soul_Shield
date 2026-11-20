@@ -62,7 +62,7 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
     try {
       const res = await addTaskToMyTasks(task.task_id);
       onUpdate({ already_added: true });
-      toast.success(res.already_added ? 'Already in your tasks.' : 'Added to your tasks!');
+      toast.success(res.already_added ? 'Already in your tasks.' : 'Added to your tasks');
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -92,7 +92,7 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
       const res = await completeTask(task.task_id, fmtDate(date));
       onUpdate({ ...res, status: 'completed', reward_text: res.reward_text });
       if (res.reward_text) setRewardText(res.reward_text);
-      toast.success('Nice work! 🎉');
+      toast.success('Task completed');
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -193,7 +193,7 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
                 text={task.title}
                 maxLines={2}
                 className={cn(
-                  'min-w-0 flex-1 text-[15px] font-semibold leading-snug',
+                  'min-w-0 flex-1 text-[15px] font-medium leading-snug',
                   isCompleted ? 'text-muted line-through decoration-muted/60' : 'text-fg'
                 )}
               />
@@ -301,7 +301,7 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
       {isTemplate && (
         <div className="mt-4 flex items-center gap-2 border-t border-border pt-3">
           {task.already_added ? (
-            <div className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[9px] border border-success/20 bg-success/10 text-sm font-semibold text-success">
+            <div className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[9px] border border-success/20 bg-success/10 text-sm font-medium text-success">
               <CheckCircle2 className="h-4 w-4" /> Already added
             </div>
           ) : (

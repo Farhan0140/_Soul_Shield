@@ -220,7 +220,7 @@ function ModalPanel({
               )}
               <div className="min-w-0 flex-1 pt-0.5">
                 {title && (
-                  <h2 id={titleId} className="text-base font-semibold leading-snug sm:text-[17px]">
+                  <h2 id={titleId} className="text-base font-medium leading-snug sm:text-[17px]">
                     {title}
                   </h2>
                 )}

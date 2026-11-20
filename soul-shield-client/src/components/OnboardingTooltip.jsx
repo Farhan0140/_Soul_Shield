@@ -18,7 +18,7 @@ const DEMO_TIPS = [
   {
     icon: Hand,
     title: 'Welcome to the SoulShield tour',
-    body: 'This is a sandbox filled with sample tasks. Tap, count and complete anything you like — nothing here touches a real account.',
+    body: 'A sandbox with sample tasks. Tap, count and complete anything you like, nothing here touches a real account.',
   },
   {
     icon: ListChecks,
@@ -33,30 +33,30 @@ const DEMO_TIPS = [
   {
     icon: CalendarDays,
     title: 'Look back anytime',
-    body: 'History has four months of sample streaks and a heatmap. As an admin you can also manage the fixed tasks everyone sees.',
+    body: 'History has four months of sample streaks. As an admin you can also manage the fixed tasks everyone sees.',
   },
 ];
 
 const STANDARD_TIPS = [
   {
     icon: Hand,
-    title: 'Welcome to SoulShield!',
-    body: "We're here to help you build better daily habits. Let's start with your first task.",
+    title: 'Your daily deeds in one place',
+    body: 'Prayers, dhikr, Quran reading and any habit you want to keep. Start by adding your first task.',
   },
   {
     icon: Plus,
-    title: 'Tap the + button',
-    body: "Create a task — like 'Fajr prayer' or 'Read 10 pages'. You can set it to repeat daily.",
+    title: 'Add a task',
+    body: "Use New task to add something like Fajr prayer or Read 10 pages, and set it to repeat.",
   },
   {
     icon: Target,
     title: 'Track your progress',
-    body: "Check off tasks as you complete them. Counter tasks (like dhikr) let you tap to count.",
+    body: 'Check off tasks as you finish them. Each one adds a bead to the day, and counters let you tap through dhikr.',
   },
   {
     icon: CalendarDays,
     title: 'Look back anytime',
-    body: "The History page shows your streaks and completion heatmap. Keep going!",
+    body: 'History shows your streaks and a calendar of every day you showed up.',
   },
 ];
 
@@ -111,7 +111,7 @@ export default function OnboardingTooltip() {
             <span
               key={i}
               className={cn(
-                'h-1.5 rounded-full transition-all duration-300',
+                'h-1.5 rounded-full transition-colors duration-200',
                 i === step ? 'w-6 bg-primary' : 'w-1.5 bg-border-strong'
               )}
             />
@@ -125,10 +125,10 @@ export default function OnboardingTooltip() {
           transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
           className="pt-6 pb-2"
         >
-          <span className="icon-tile icon-tile-accent mx-auto h-14 w-14 rounded-2xl">
-            <Icon className="h-6 w-6" aria-hidden="true" />
+          <span className="icon-tile mx-auto h-12 w-12 rounded-xl text-primary-ink">
+            <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
           </span>
-          <h2 className="mt-4 text-lg font-semibold text-fg">{tip.title}</h2>
+          <h2 className="display mt-4 text-2xl text-fg">{tip.title}</h2>
           <p className="mx-auto mt-1.5 max-w-xs text-sm leading-relaxed text-muted">{tip.body}</p>
           <p className="mt-3 text-xs text-subtle" aria-live="polite">
             Step {step + 1} of {TIPS.length}
@@ -149,7 +149,7 @@ export default function OnboardingTooltip() {
           )}
         </div>
         <Button onClick={next} data-autofocus>
-          {step === TIPS.length - 1 ? "Let's go!" : 'Next'}
+          {step === TIPS.length - 1 ? 'Start' : 'Next'}
           <ArrowRight className="h-4 w-4" />
         </Button>
       </ModalFooter>

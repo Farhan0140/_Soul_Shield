@@ -110,7 +110,7 @@ export default function TaskTimer() {
       ) : error ? (
         <ErrorState title="Couldn't load this timer" message={error} />
       ) : notFound ? (
-        <EmptyState icon={SearchX} title="Task not found" description="This task could not be found." />
+        <EmptyState icon={SearchX} title="Task not found" description="This task could not be found" />
       ) : invalidType ? (
         <EmptyState icon={TimerOff} title="No timer for this task" description="This task doesn't have a dedicated timer page." />
       ) : (
@@ -178,14 +178,14 @@ function TaskTimerContent({
             as="h2"
             text={parentTitle}
             maxLines={2}
-            className="text-lg font-semibold leading-snug text-fg"
+            className="text-lg font-medium leading-snug text-fg"
           />
         )}
         <ExpandableText
           as="h2"
           text={title}
           maxLines={2}
-          className="text-lg font-semibold leading-snug text-fg"
+          className="text-lg font-medium leading-snug text-fg"
         />
         {description && (
           <ExpandableText
@@ -197,10 +197,10 @@ function TaskTimerContent({
       </div>
 
       <TimerRing progress={timer.progress} size={232} strokeWidth={12}>
-        <span className="text-[40px] font-semibold leading-none tracking-tight tabular-nums text-fg" aria-live="off">
+        <span className="text-[40px] font-medium leading-none tracking-tight tabular-nums text-fg" aria-live="off">
           {formatRemaining(timer.remainingMs)}
         </span>
-        <span className="mt-2 text-xs font-medium uppercase tracking-[0.08em] text-muted">{stateLabel}</span>
+        <span className="mt-2 text-[13px] text-muted">{stateLabel}</span>
       </TimerRing>
 
       {isCompleted && <Badge tone="success" dot>Completed</Badge>}

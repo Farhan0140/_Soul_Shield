@@ -15,7 +15,7 @@ export function EmptyState({ icon: Icon = Inbox, title, description, action, bor
       <div className="icon-tile mb-4 h-11 w-11">
         <Icon className="h-5 w-5" aria-hidden="true" />
       </div>
-      <h3 className="text-[15px] font-semibold">{title}</h3>
+      <h3 className="text-[15px] font-medium">{title}</h3>
       {description && <p className="mt-1 max-w-sm text-sm leading-relaxed text-muted">{description}</p>}
       {action && <div className="mt-5">{action}</div>}
     </div>
@@ -35,7 +35,7 @@ export function ErrorState({
       <div className="icon-tile mb-4 h-11 w-11 text-danger">
         <CloudOff className="h-5 w-5" aria-hidden="true" />
       </div>
-      <h3 className="text-[15px] font-semibold">{title}</h3>
+      <h3 className="text-[15px] font-medium">{title}</h3>
       {message && <p className="mt-1 max-w-md text-sm leading-relaxed text-muted">{message}</p>}
       {onRetry && (
         <Button variant="secondary" size="md" onClick={onRetry} loading={retrying} className="mt-5">

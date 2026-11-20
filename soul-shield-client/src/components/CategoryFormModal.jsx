@@ -36,7 +36,7 @@ export default function CategoryFormModal({ open, onClose, onCreated }) {
     setLoading(true);
     try {
       const created = await createCategory(name.trim(), color);
-      toast.success(`Category "${created.name}" created ✨`);
+      toast.success(`Category "${created.name}" created`);
       onCreated(created);
       onClose();
     } catch (err) {
@@ -71,7 +71,7 @@ export default function CategoryFormModal({ open, onClose, onCreated }) {
               <Tag className="h-4 w-4 text-white/90" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-fg">{name.trim() || 'Your category name'}</p>
+              <p className="truncate text-sm font-medium text-fg">{name.trim() || 'Your category name'}</p>
               <p className="font-mono text-xs text-muted">{color}</p>
             </div>
           </div>

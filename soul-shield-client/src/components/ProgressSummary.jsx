@@ -1,74 +1,55 @@
-import { m } from 'framer-motion';
-import { CheckCircle2 } from 'lucide-react';
-import Badge from './ui/Badge';
+import BeadString from './BeadString';
 
-export default function ProgressSummary({ tasks }) {
+/** The day's progress as a string of prayer beads, with the count beside it. */
+export default function ProgressSummary({ tasks, label = "Today's deeds" }) {
   // Only the user's own tasks count - admin-managed fixed tasks (is_global)
   // that haven't been added to "My Tasks" would otherwise inflate the total
   // with things they never chose to track.
   const myTasks = tasks.filter(t => !t.is_global);
   const total = myTasks.length;
   const completed = myTasks.filter(t => t.status === 'completed').length;
-  const partiallyCompleted = myTasks.filter(t => t.status === 'partially_completed').length;
-  const pct = total === 0 ? 0 : (completed / total) * 100;
-  const partialPct = total === 0 ? 0 : (partiallyCompleted / total) * 100;
+  const partial = myTasks.filter(t => t.status === 'partially_completed').length;
+  const remaining = total - completed - partial;
+  const pct = total === 0 ? 0 : Math.round((completed / total) * 100);
   const allDone = completed === total && total > 0;
 
   return (
-    <section aria-label="Today's progress" className="card p-4 sm:p-5">
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+    <section aria-label={label} className="card overflow-hidden">
+      <div className="grid gap-y-2 p-6 sm:p-8 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)] lg:items-center lg:gap-x-8">
         <div>
-          <p className="text-xs font-medium text-muted">Daily progress</p>
-          <p className="mt-1 text-[26px] font-semibold leading-none tracking-tight tabular-nums text-fg">
-            {completed}
-            <span className="text-base font-medium text-muted"> / {total} done</span>
+          <p className="text-[13px] text-muted">{label}</p>
+          <p className="mt-2 flex items-baseline gap-2 tabular-nums">
+            <span className="display text-[48px] leading-none text-fg sm:text-[56px]">{completed}</span>
+            <span className="text-base text-muted">of {total}</span>
           </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {allDone ? (
-            <Badge tone="success" icon={CheckCircle2}>All done</Badge>
-          ) : (
-            <span className="text-sm font-semibold tabular-nums text-fg-2">{Math.round(pct)}%</span>
-          )}
-        </div>
-      </div>
+          <p className="mt-3 text-[13px] text-fg-2">
+            {allDone ? 'Every deed done for the day' : `${pct}% done, ${remaining + partial} to go`}
+          </p>
 
-      <div
-        className="mt-4 flex h-2 overflow-hidden rounded-full bg-sunken"
-        role="progressbar"
-        aria-label="Tasks completed today"
-        aria-valuemin={0}
-        aria-valuemax={total}
-        aria-valuenow={completed}
-      >
-        <m.div
-          className="h-full bg-primary shadow-[inset_0_-1px_0_var(--edge-bottom)]"
-          initial={false}
-          animate={{ width: `${pct}%` }}
-          transition={{ type: 'spring', stiffness: 110, damping: 22 }}
+          <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-[13px] text-muted lg:mt-6 lg:block lg:space-y-2">
+            <li className="flex items-center gap-2">
+              <span className="bead bead-done w-3" aria-hidden="true" />
+              <span className="tabular-nums">{completed}</span> completed
+            </li>
+            {partial > 0 && (
+              <li className="flex items-center gap-2">
+                <span className="bead bead-part w-3" aria-hidden="true" />
+                <span className="tabular-nums">{partial}</span> partly done
+              </li>
+            )}
+            <li className="flex items-center gap-2">
+              <span className="bead bead-todo w-3" aria-hidden="true" />
+              <span className="tabular-nums">{remaining}</span> not started
+            </li>
+          </ul>
+        </div>
+
+        <BeadString
+          total={total}
+          completed={completed}
+          partial={partial}
+          className="-mx-2 mt-2 h-auto w-[calc(100%+16px)] lg:mt-0"
         />
-        {partiallyCompleted > 0 && (
-          <m.div
-            className="h-full bg-warning/55"
-            initial={false}
-            animate={{ width: `${partialPct}%` }}
-            transition={{ type: 'spring', stiffness: 110, damping: 22 }}
-          />
-        )}
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-primary ring-1 ring-primary-ink/40" aria-hidden="true" /> {completed} completed
-        </span>
-        {partiallyCompleted > 0 && (
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-warning" aria-hidden="true" /> {partiallyCompleted} partial
-          </span>
-        )}
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-border-strong" aria-hidden="true" /> {total - completed - partiallyCompleted} to go
-        </span>
       </div>
     </section>
   );

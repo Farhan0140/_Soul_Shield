@@ -42,7 +42,7 @@ export function ThemeProvider({ children }) {
     root.setAttribute('data-scheme', scheme);
     // Keep the mobile browser chrome in step with the canvas color.
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', scheme === 'dark' ? '#0E0F10' : '#F4F4F0');
+    if (meta) meta.setAttribute('content', scheme === 'dark' ? '#111318' : '#F5F2EC');
   }, [resolvedTheme, scheme]);
 
   const setPreference = useCallback((next) => {

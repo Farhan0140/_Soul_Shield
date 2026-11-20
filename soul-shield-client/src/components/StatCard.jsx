@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { m } from 'framer-motion';
-import { cn } from '../utils/cn';
 
 // Animated number counter
 function useCountUp(target, duration = 900) {
@@ -27,9 +26,10 @@ function useCountUp(target, duration = 900) {
   return value;
 }
 
-/** Metric tile: label + icon, a large value (numbers count up), and a sub-line.
- * `accent` gives the icon the brand tile, for the headline metric. */
-export default function StatCard({ icon: Icon, label, value, suffix = '', sub, accent = false, delay = 0 }) {
+/** Metric tile: a label, a large figure (numbers count up) and a sub-line.
+ * Numbers only — `icon` and `accent` are accepted for compatibility and ignored. */
+// eslint-disable-next-line no-unused-vars
+export default function StatCard({ icon, label, value, suffix = '', sub, accent = false, delay = 0 }) {
   const numericValue = typeof value === 'number' ? value : null;
   const displayValue = useCountUp(numericValue ?? 0);
 
@@ -38,24 +38,17 @@ export default function StatCard({ icon: Icon, label, value, suffix = '', sub, a
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-      className="card min-w-0 p-4 sm:p-5"
+      className="card min-w-0 p-5"
     >
-      <div className="flex items-start justify-between gap-3">
-        <p className="pt-1 text-xs font-medium text-muted">{label}</p>
-        {Icon && (
-          <span className={cn('icon-tile h-8 w-8', accent && 'icon-tile-accent')}>
-            <Icon className="h-4 w-4" aria-hidden="true" />
-          </span>
-        )}
-      </div>
+      <p className="text-[13px] text-muted">{label}</p>
       <p
-        className="mt-2 truncate text-2xl font-semibold leading-tight tracking-tight tabular-nums text-fg sm:text-[28px]"
+        className="mt-3 truncate text-[28px] leading-none font-medium tabular-nums text-fg sm:text-[32px]"
         title={typeof value === 'string' ? value : undefined}
       >
         {numericValue !== null ? displayValue : value}
-        {suffix && <span className="ml-0.5 text-base font-medium text-muted">{suffix}</span>}
+        {suffix && <span className="ml-0.5 text-lg text-muted">{suffix}</span>}
       </p>
-      {sub && <p className="mt-1.5 truncate text-xs text-muted">{sub}</p>}
+      {sub && <p className="mt-2 truncate text-xs text-muted">{sub}</p>}
     </m.div>
   );
 }

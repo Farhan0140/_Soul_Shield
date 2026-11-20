@@ -19,7 +19,7 @@ export default function BulkActionBar({ count, onClear, onDeleteSelected }) {
           className="popover-surface fixed inset-x-3 bottom-[calc(72px+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-md items-center gap-3 p-2 pl-4 sm:inset-x-0 lg:bottom-6 lg:ml-[calc(50%+124px)] lg:-translate-x-1/2"
         >
           <span className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium text-fg">
-            <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-primary px-1.5 text-xs font-semibold tabular-nums text-on-primary">
+            <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-primary px-1.5 text-xs font-medium tabular-nums text-on-primary">
               {count}
             </span>
             <span className="truncate">{count === 1 ? 'task selected' : 'tasks selected'}</span>

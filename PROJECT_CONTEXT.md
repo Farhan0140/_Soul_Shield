@@ -84,6 +84,8 @@ F:\Soul_Shield\
 | `src/hooks/` | `useTasks` (day list + date nav), `useCounter` (debounced counter batching), `useTimerTask` (web timer, localStorage), `useHistory`, `useAdminTasks`, `usePersonalStats` |
 | `src/pages/` | Dashboard, History, Categories, CategoryDetail, Profile, AdminTasks, TaskTimer, Login/Register/ForgotPassword/AuthLayout, NotFound |
 | `src/components/` | TaskCard, TaskFormModal (create/edit + sub-tasks incl. descriptions), SubTaskList (paginated + collapsible completed section), ExpandableText, CounterWidget, RewardModal, CategoryRow/Card/FormModal, ProgressSummary, Heatmap, ChangePasswordModal, ConfirmModal, Toast, Sidebar/MobileBottomNav/AppLayout, ui/Button+Input |
+| `src/index.css` design system | **Redesigned 2026-11-20** ("mosque at dawn"): warm-stone light / ink dark tokens, emerald accent (`--primary`, from the app icon), brass (`--brass`) only for the logo and beads. `@theme inline` so a subtree can switch tokens via `data-theme` (the sign-in brand panel uses `data-theme="lemon-dark"`). Theme keys stay `lemon-light`/`lemon-dark` (stored preferences). Type: Instrument Sans (UI) + Newsreader (`.display`, page titles), weights 400/500 |
+| `src/components/BeadString.jsx` | Signature progress visual: `BeadString` (SVG tasbih, Today hero + sign-in preview) and `BeadMeter` (inline bead row: History days, counters) |
 | `dist/` | Local build output (git-ignored, not committed; Vercel builds from source) |
 
 ### Mobile — `soul-shield-mobile-app/`

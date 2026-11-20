@@ -65,7 +65,7 @@ export default function ChangePasswordModal({ open, onClose }) {
       // Changing the password revokes every existing session, this one
       // included; the response carries this device's replacement token.
       if (token) setToken(token);
-      toast.success("Password updated! Other devices have been signed out.");
+      toast.success("Password updated, other devices are signed out");
       onClose();
     } catch (err) {
       const msg = clientErrorMessage(err);

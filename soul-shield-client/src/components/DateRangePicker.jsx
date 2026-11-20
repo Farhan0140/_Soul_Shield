@@ -57,7 +57,7 @@ export default function DateRangePicker({ range, setRange }) {
     >
       {({ close }) => (
         <>
-          <p className="mb-3 text-sm font-semibold text-fg">Date range</p>
+          <p className="mb-3 text-sm font-medium text-fg">Date range</p>
 
           {/* Custom inputs */}
           <div className="mb-4 grid grid-cols-2 gap-2.5">

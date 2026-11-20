@@ -9,7 +9,7 @@ function Metric({ icon: Icon, label, children, title }) {
       <Icon className="h-4 w-4 shrink-0 text-subtle" aria-hidden="true" />
       <div className="min-w-0">
         <p className="text-[11px] font-medium text-muted">{label}</p>
-        <p className="truncate text-sm font-semibold tabular-nums text-fg">{children}</p>
+        <p className="truncate text-sm font-medium tabular-nums text-fg">{children}</p>
       </div>
     </div>
   );
@@ -23,10 +23,10 @@ export default function UsageBadge({ usage, compact = false }) {
       <div className="flex items-center gap-3 text-xs">
         <span className="flex items-center gap-1 text-muted">
           <CheckCircle2 className="h-3.5 w-3.5 text-success" />
-          <span className="font-semibold tabular-nums">{usage.completions}</span>
+          <span className="font-medium tabular-nums">{usage.completions}</span>
           <span className="text-muted" title="Most completions possible: scheduled days × active users">/ {usage.total}</span>
         </span>
-        <span className={cn('font-semibold tabular-nums', rateTone(usage.completionRate))}>
+        <span className={cn('font-medium tabular-nums', rateTone(usage.completionRate))}>
           {usage.completionRate}%
         </span>
       </div>

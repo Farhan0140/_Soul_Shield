@@ -124,7 +124,7 @@ export default function Categories() {
     <div className="space-y-6 sm:space-y-8">
       <PageHeader
         title="Categories"
-        description="Organize your tasks with names and colors — it makes them easier to find."
+        description="Group your tasks by name and color so they are easier to find"
         actions={
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4" /> New category
@@ -195,9 +195,9 @@ export default function Categories() {
       >
         {deleting && (usageCounts[deleting.id] || 0) > 0 && (
           <Alert tone="warning">
-            <strong className="font-semibold text-fg">{usageCounts[deleting.id]}</strong> task
+            <strong className="font-medium text-fg">{usageCounts[deleting.id]}</strong> task
             {usageCounts[deleting.id] === 1 ? '' : 's'} using this category will become{' '}
-            <strong className="font-semibold text-fg">Uncategorized</strong>. They won't be deleted.
+            <strong className="font-medium text-fg">Uncategorized</strong>. They won't be deleted.
           </Alert>
         )}
       </ConfirmModal>

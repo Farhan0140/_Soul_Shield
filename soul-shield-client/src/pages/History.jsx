@@ -69,7 +69,7 @@ export default function History() {
     <div className="space-y-6 sm:space-y-8">
       <PageHeader
         title="History"
-        description="Look back at your progress and see how consistent you've been."
+        description="Streaks, completion and every day in the range you pick"
         actions={<DateRangePicker range={range} setRange={changeRange} />}
       />
 
@@ -110,7 +110,7 @@ export default function History() {
             <EmptyState
               icon={CalendarX2}
               title="No history yet"
-              description="Complete some tasks and your progress will show up here."
+              description="Complete some tasks and your progress will show up here"
             />
           )}
         </>

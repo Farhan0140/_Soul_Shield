@@ -33,7 +33,7 @@ export default function CommunityOverview({ overview }) {
               <Icon className="h-3.5 w-3.5 shrink-0 text-subtle" aria-hidden="true" />
               {label}
             </dt>
-            <dd className="mt-1.5 text-2xl font-semibold tracking-tight tabular-nums text-fg">{value ?? 0}</dd>
+            <dd className="mt-1.5 text-2xl font-medium tabular-nums text-fg">{value ?? 0}</dd>
           </div>
         ))}
       </dl>

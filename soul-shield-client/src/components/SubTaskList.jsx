@@ -207,7 +207,7 @@ export default function SubTaskList({ task, date, onUpdate, onRewardEarned, disa
             type="button"
             onClick={() => setCompletedExpanded((v) => !v)}
             aria-expanded={completedExpanded}
-            className="inline-flex h-7 items-center gap-1 rounded-md px-1 text-xs font-semibold text-success transition-colors hover:bg-success/10"
+            className="inline-flex h-7 items-center gap-1 rounded-md px-1 text-xs font-medium text-success transition-colors hover:bg-success/10"
           >
             <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', completedExpanded ? 'rotate-180' : '')} />
             Completed sub-tasks ({completedSubTasks.length})

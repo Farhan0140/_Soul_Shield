@@ -207,10 +207,10 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
       let saved;
       if (isEdit) {
         saved = await updateTask(task.task_id, payload);
-        toast.success('Task updated ✨');
+        toast.success('Task updated');
       } else {
         saved = await createTask(payload);
-        toast.success('Task created 🎉');
+        toast.success('Task created');
       }
       onSaved(saved);
       onClose();
@@ -294,7 +294,7 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
                       aria-pressed={active}
                       aria-label={DAY_NAMES[i]}
                       className={cn(
-                        'h-9 rounded-lg border text-xs font-semibold transition-[background-color,border-color,color,transform] active:scale-95',
+                        'h-9 rounded-lg border text-xs font-medium transition-[background-color,border-color,color,transform] active:scale-95',
                         active
                           ? 'border-[color-mix(in_srgb,var(--on-primary)_15%,var(--primary))] bg-primary text-on-primary shadow-[inset_0_1px_0_var(--edge-top),inset_0_-2px_0_var(--edge-bottom)]'
                           : 'border-border bg-surface text-muted hover:border-border-strong hover:text-fg'
@@ -386,7 +386,7 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
                       {subTasks.map((s, i) => (
                         <div key={i} className="space-y-3 rounded-xl border border-border bg-surface-2 p-3.5">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold tabular-nums text-muted">Sub-task {i + 1}</span>
+                            <span className="text-xs font-medium tabular-nums text-muted">Sub-task {i + 1}</span>
                             <button
                               type="button"
                               onClick={() => removeSubTask(i)}

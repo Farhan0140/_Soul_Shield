@@ -16,8 +16,8 @@ export default function NotFound() {
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
         className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center pb-16 text-center"
       >
-        <p className="text-sm font-semibold tabular-nums text-primary-ink">Error 404</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">This page doesn't exist</h1>
+        <p className="text-sm font-medium tabular-nums text-primary-ink">Error 404</p>
+        <h1 className="display mt-3 text-[36px] leading-[1.15] sm:text-[44px]">This page doesn't exist</h1>
         <p className="mt-3 text-sm leading-relaxed text-muted">
           The link may be broken, or the page may have moved. Let's get you back on track.
         </p>

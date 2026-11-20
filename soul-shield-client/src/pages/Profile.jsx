@@ -45,19 +45,19 @@ export default function Profile() {
 
   const handleLogout = () => {
     logout();
-    toast.success("Logged out. See you soon 👋");
+    toast.success("Logged out");
   };
 
   return (
-    <div className="max-w-4xl space-y-8">
-      <PageHeader title="Profile" description="Your account, appearance and progress at a glance." />
+    <div className="space-y-8">
+      <PageHeader title="Profile" description="Your account, appearance and the past year" />
 
       {/* Identity */}
       <section aria-label="Account" className="card flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:p-6">
         <Avatar name={user?.full_name} size={64} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="truncate text-lg font-semibold">{user?.full_name}</h2>
+            <h2 className="truncate text-lg font-medium">{user?.full_name}</h2>
             {isAdmin && <Badge tone="warning" icon={Shield}>Admin</Badge>}
           </div>
           <p className="mt-1 flex items-center gap-1.5 truncate text-sm text-muted">
@@ -96,7 +96,7 @@ export default function Profile() {
               icon={Flame}
               label="Current streak"
               value={stats.streak}
-              sub={stats.streak > 0 ? "Keep it going 🔥" : "Start one today!"}
+              sub={stats.streak > 0 ? "Days in a row" : "No streak yet"}
               delay={0.08}
             />
             <StatCard
@@ -111,7 +111,7 @@ export default function Profile() {
 
         {stats?.bestDay && (
           <Alert tone="neutral" icon={Calendar} className="mt-3">
-            Your most productive day is <strong className="font-semibold text-fg">{stats.bestDay}</strong> — maybe schedule important tasks then?
+            Your most productive day is <strong className="font-medium text-fg">{stats.bestDay}</strong>
           </Alert>
         )}
       </section>
@@ -127,7 +127,7 @@ export default function Profile() {
               </span>
               <div className="min-w-0">
                 <p className="text-sm font-medium text-fg">Appearance</p>
-                <p className="mt-0.5 text-[13px] text-muted">Light, dark, or match your device.</p>
+                <p className="mt-0.5 text-[13px] text-muted">Light, dark, or match your device</p>
               </div>
             </div>
             <ThemePicker />
@@ -136,7 +136,7 @@ export default function Profile() {
           <SettingRow
             icon={KeyRound}
             title="Password"
-            description="Confirm your current password, then pick a new one."
+            description="Confirm your current password, then pick a new one"
             trailing={
               <Button variant="secondary" size="sm" onClick={() => setPasswordModalOpen(true)}>
                 Change <ChevronRight className="h-3.5 w-3.5" />
@@ -166,7 +166,7 @@ export default function Profile() {
           <SettingRow
             icon={LogOut}
             title="Log out"
-            description="You'll need to sign in again to access your tasks."
+            description="You'll need to sign in again to see your tasks"
             trailing={
               <Button variant="secondary" size="sm" onClick={() => setLogoutConfirmOpen(true)}>
                 Log out
@@ -181,7 +181,7 @@ export default function Profile() {
             description={
               isAdmin
                 ? "Admin accounts can't be deleted from the app."
-                : 'Permanently remove your account and all data.'
+                : 'Permanently remove your account and all its data'
             }
             trailing={
               <Button variant="danger-soft" size="sm" disabled={isAdmin} onClick={() => setDeleteModalOpen(true)}>

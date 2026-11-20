@@ -1,5 +1,6 @@
 import { m, AnimatePresence } from 'framer-motion';
-import { Plus, Sparkles } from 'lucide-react';
+import { Plus, Check } from 'lucide-react';
+import { BeadMeter } from './BeadString';
 import { useCounter } from '../hooks/useCounter';
 import Button from './ui/Button';
 
@@ -13,7 +14,6 @@ export default function CounterWidget({ task, date, onUpdate, onRewardEarned, di
     onRewardEarned
   );
 
-  const pct = Math.min(100, (localProgress / task.target_count) * 100);
   const done = localProgress >= task.target_count;
   const locked = done || task.status === 'completed' || disabled;
 
@@ -21,28 +21,14 @@ export default function CounterWidget({ task, date, onUpdate, onRewardEarned, di
     <div className="mt-4 space-y-3">
       {/* Progress */}
       <div>
-        <div className="mb-1.5 flex items-baseline justify-between">
+        <div className="mb-2 flex items-baseline justify-between">
           <span className="text-xs font-medium text-muted">Progress</span>
-          <span className="text-[13px] font-semibold tabular-nums text-fg">
+          <span className="text-xs tabular-nums text-fg">
             {localProgress}
             <span className="font-normal text-muted"> / {task.target_count}</span>
           </span>
         </div>
-        <div
-          className="h-2 overflow-hidden rounded-full bg-sunken"
-          role="progressbar"
-          aria-label={`${task.title} progress`}
-          aria-valuemin={0}
-          aria-valuemax={task.target_count}
-          aria-valuenow={localProgress}
-        >
-          <m.div
-            className="h-full rounded-full bg-primary shadow-[inset_0_-1px_0_var(--edge-bottom)]"
-            initial={false}
-            animate={{ width: `${pct}%` }}
-            transition={{ type: 'spring', stiffness: 140, damping: 24 }}
-          />
-        </div>
+        <BeadMeter value={localProgress} max={task.target_count} limit={33} label={`${task.title} progress`} />
       </div>
 
       {/* Taps are batched locally and synced by useCounter, so these stay
@@ -68,8 +54,8 @@ export default function CounterWidget({ task, date, onUpdate, onRewardEarned, di
             exit={{ opacity: 0 }}
             className="flex items-center gap-2 rounded-lg border border-primary-ink/15 bg-primary-soft px-3 py-2"
           >
-            <Sparkles className="h-4 w-4 shrink-0 text-primary-ink" aria-hidden="true" />
-            <span className="text-[13px] font-medium text-fg">{task.reward_text || 'Target reached! ✨'}</span>
+            <Check className="h-4 w-4 shrink-0 text-primary-ink" aria-hidden="true" />
+            <span className="text-[13px] font-medium text-fg">{task.reward_text || 'Target reached'}</span>
           </m.div>
         )}
       </AnimatePresence>

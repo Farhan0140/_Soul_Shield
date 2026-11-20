@@ -21,9 +21,9 @@ export default function Login() {
 
   const validate = () => {
     const e = {};
-    if (!form.email) e.email = "We need your email to let you in.";
+    if (!form.email) e.email = "Enter your email";
     else if (!/\S+@\S+\.\S+/.test(form.email)) e.email = "That doesn't look like a valid email.";
-    if (!form.password) e.password = "Please enter your password.";
+    if (!form.password) e.password = "Enter your password";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -34,7 +34,7 @@ export default function Login() {
     setLoading(true);
     try {
       await login(form.email, form.password);
-      toast.success("Welcome back! Great to see you again ✨");
+      toast.success("Signed in");
       navigate('/', { replace: true });
     } catch (err) {
       // Humanized errors come from api.js — shown as a form-level alert.
@@ -45,7 +45,7 @@ export default function Login() {
   };
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Sign in to continue guarding your day.">
+    <AuthLayout title="Sign in" subtitle="Pick up today's deeds where you left off">
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
         {sessionExpired && !errors.form && (
           <Alert tone="warning" title="Your session expired">
@@ -94,7 +94,7 @@ export default function Login() {
 
       <p className="mt-8 text-center text-sm text-muted">
         New here?{' '}
-        <Link to="/register" className="font-semibold text-fg underline decoration-primary decoration-2 underline-offset-4 hover:decoration-primary-ink">
+        <Link to="/register" className="font-medium text-primary-ink underline-offset-4 hover:underline">
           Create an account
         </Link>
       </p>

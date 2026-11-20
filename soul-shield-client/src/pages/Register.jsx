@@ -13,9 +13,9 @@ import Alert from '../components/ui/Alert';
 import { validateEmail, validateFullName, validateNewPassword, PASSWORD_MIN } from '../utils/validation';
 
 const STEPS = [
-  { key: 'email',    title: "Let's start with your email",  subtitle: "Enter your email to get started." },
+  { key: 'email',    title: "Create an account",  subtitle: "Start with your email" },
   // { key: 'otp',      title: 'Check your inbox',              subtitle: "We sent a 6-digit code. It expires in 5 minutes." },
-  { key: 'account',  title: 'Create your account',           subtitle: "Pick a name and a strong password — you're almost there!" },
+  { key: 'account',  title: 'Create your account',           subtitle: "Your name, a password and a security question for recovery" },
 ];
 
 export default function Register() {
@@ -127,7 +127,7 @@ export default function Register() {
     try {
       await registerUser(full_name.trim(), email.trim(), password, trimmedAnswer);
       await login(email.trim(), password);
-      toast.success("Account created! Welcome to SoulShield 🌟");
+      toast.success("Account created");
       navigate('/', { replace: true });
     } catch (err) {
       // Most likely "email already exists" — show on password field as a generic form error
@@ -181,7 +181,7 @@ export default function Register() {
                   value={d}
                   onChange={(e) => handleOtpChange(i, e.target.value)}
                   onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                  className={`w-12 h-14 text-center text-xl font-bold rounded-xl border-2 outline-none transition-all
+                  className={`w-12 h-14 text-center text-xl font-medium rounded-xl border-2 outline-none transition-[border-color,box-shadow]
                     ${errors.otp ? 'border-rose-400' : 'border-slate-200 focus:border-indigo-500'}
                     focus:shadow-sm focus:shadow-indigo-100`}
                 />
@@ -198,7 +198,7 @@ export default function Register() {
               {cooldown > 0 ? (
                 <span className="text-slate-400">Resend in {cooldown}s</span>
               ) : (
-                <button type="button" onClick={handleResend} className="text-indigo-600 font-semibold hover:text-indigo-700">
+                <button type="button" onClick={handleResend} className="text-indigo-600 font-medium hover:text-indigo-700">
                   Resend code
                 </button>
               )}
@@ -265,7 +265,7 @@ export default function Register() {
 
       <p className="mt-8 text-center text-sm text-muted">
         Already have an account?{' '}
-        <Link to="/login" className="font-semibold text-fg underline decoration-primary decoration-2 underline-offset-4 hover:decoration-primary-ink">
+        <Link to="/login" className="font-medium text-fg underline decoration-primary decoration-2 underline-offset-4 hover:decoration-primary-ink">
           Sign in
         </Link>
       </p>

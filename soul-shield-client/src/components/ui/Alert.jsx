@@ -21,7 +21,7 @@ export default function Alert({ tone = 'neutral', title, children, icon, action,
     >
       <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', t.icon_cls)} aria-hidden="true" />
       <div className="min-w-0 flex-1">
-        {title && <p className="font-semibold leading-snug text-fg">{title}</p>}
+        {title && <p className="font-medium leading-snug text-fg">{title}</p>}
         {children && <div className={cn('leading-relaxed text-fg-2', title && 'mt-0.5')}>{children}</div>}
         {action && <div className="mt-2.5">{action}</div>}
       </div>

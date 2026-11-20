@@ -11,9 +11,9 @@ import Alert from '../components/ui/Alert';
 import { validateNewPassword, PASSWORD_MIN } from '../utils/validation';
 
 const STEPS = [
-  { key: 'email',  title: 'Reset your password',  subtitle: "Enter your email to continue." },
-  { key: 'verify', title: 'Verify Your Identity',  subtitle: "Please enter the security answer you created when you registered your account." },
-  { key: 'new',    title: 'Pick a new password',   subtitle: "Choose something strong — and different from the last one." },
+  { key: 'email',  title: 'Reset your password',  subtitle: "Enter the email you signed up with" },
+  { key: 'verify', title: 'Verify your identity',  subtitle: "Enter the security answer you set when you created your account" },
+  { key: 'new',    title: 'Pick a new password',   subtitle: "Choose something strong and different from the last one" },
 ];
 
 export default function ForgotPassword() {
@@ -57,7 +57,7 @@ export default function ForgotPassword() {
     try {
       const res = await verifySecurityAnswer(email, answer);
       setResetToken(res?.reset_token || '');
-      toast.success("Identity verified successfully. You may now reset your password.");
+      toast.success("Identity verified, choose a new password");
       setStep(2);
     } catch (err) {
       setErrors({ security_answer: err.message });
@@ -111,7 +111,7 @@ export default function ForgotPassword() {
     setLoading(true);
     try {
       await resetPassword(resetToken, password);
-      toast.success("Password updated! You can now sign in 🎉");
+      toast.success("Password updated, you can sign in now");
       navigate('/login', { replace: true });
     } catch (err) {
       setErrors({ password: err.message });
@@ -209,7 +209,7 @@ export default function ForgotPassword() {
 
       <p className="mt-8 text-center text-sm text-muted">
         Remembered it?{' '}
-        <Link to="/login" className="font-semibold text-fg underline decoration-primary decoration-2 underline-offset-4 hover:decoration-primary-ink">
+        <Link to="/login" className="font-medium text-fg underline decoration-primary decoration-2 underline-offset-4 hover:decoration-primary-ink">
           Back to sign in
         </Link>
       </p>

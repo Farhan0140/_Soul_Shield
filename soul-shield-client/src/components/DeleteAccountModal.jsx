@@ -73,9 +73,9 @@ export default function DeleteAccountModal({ open, onClose }) {
       <form onSubmit={handleSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
         <ModalBody className="space-y-4">
           <Alert tone="danger" role="note">
-            This permanently deletes <strong className="font-semibold text-fg">{user?.email}</strong> and everything in it: tasks,
+            This permanently deletes <strong className="font-medium text-fg">{user?.email}</strong> and everything in it: tasks,
             sub-tasks, categories, completion history and Quran bookmarks, on every device.
-            <strong className="font-semibold text-fg"> This can&apos;t be undone.</strong>
+            <strong className="font-medium text-fg"> This can&apos;t be undone.</strong>
           </Alert>
 
           <Input

@@ -15,17 +15,20 @@ function NavItem({ link }) {
       end={link.end}
       className={({ isActive }) =>
         cn(
-          'group relative flex h-9 items-center gap-3 rounded-lg px-3 text-[13.5px] font-medium transition-colors',
-          isActive ? 'bg-sunken text-fg' : 'text-muted hover:bg-sunken/70 hover:text-fg'
+          'group flex h-9 items-center gap-2.5 rounded-lg px-3 text-sm transition-colors',
+          isActive
+            ? 'bg-surface font-medium text-fg shadow-[inset_0_0_0_1px_var(--border-c),var(--elev-1)]'
+            : 'text-fg-2 hover:bg-sunken hover:text-fg'
         )
       }
     >
       {({ isActive }) => (
         <>
-          {isActive && (
-            <span className="absolute top-1/2 left-0 h-4 w-[3px] -translate-y-1/2 rounded-r-full bg-primary-ink" aria-hidden="true" />
-          )}
-          <Icon className={cn('h-[18px] w-[18px] shrink-0', isActive ? 'text-primary-ink' : 'text-subtle group-hover:text-fg-2')} aria-hidden="true" />
+          <Icon
+            className={cn('h-[18px] w-[18px] shrink-0', isActive ? 'text-primary-ink' : 'text-muted group-hover:text-fg-2')}
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
           {link.label}
         </>
       )}
@@ -37,7 +40,7 @@ export default function Sidebar() {
   const { user, logout, isAdmin } = useAuth();
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col border-r border-border bg-surface lg:flex">
+    <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col border-r border-border bg-sunken/60 lg:flex">
       <div className="flex h-16 shrink-0 items-center px-5">
         <Link to="/" aria-label="SoulShield home" className="rounded-lg">
           <Logo />
@@ -45,14 +48,14 @@ export default function Sidebar() {
       </div>
 
       <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 pb-4">
-        <p className="px-3 pt-3 pb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-subtle">Workspace</p>
+        <p className="px-3 pt-4 pb-2 text-xs text-muted">Workspace</p>
         <div className="space-y-0.5">
           {MAIN_LINKS.map((link) => <NavItem key={link.to} link={link} />)}
         </div>
 
         {isAdmin && (
           <>
-            <p className="px-3 pt-6 pb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-subtle">Administration</p>
+            <p className="px-3 pt-6 pb-2 text-xs text-muted">Administration</p>
             <div className="space-y-0.5">
               {ADMIN_LINKS.map((link) => <NavItem key={link.to} link={link} />)}
             </div>
@@ -61,10 +64,10 @@ export default function Sidebar() {
       </nav>
 
       <div className="shrink-0 border-t border-border p-3">
-        <div className="flex items-center gap-3 rounded-lg px-2 py-1.5">
-          <Avatar name={user?.full_name} size={34} />
+        <div className="flex items-center gap-3 rounded-lg px-2 py-2">
+          <Avatar name={user?.full_name} size={32} />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-semibold text-fg">{user?.full_name}</p>
+            <p className="truncate text-[13px] font-medium text-fg">{user?.full_name}</p>
             <p className="truncate text-xs text-muted">{user?.email}</p>
           </div>
           <Tooltip label="Log out" align="end">
@@ -74,7 +77,7 @@ export default function Sidebar() {
               aria-label="Log out"
               className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-danger/10 hover:text-danger"
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className="h-4 w-4" strokeWidth={1.75} />
             </button>
           </Tooltip>
         </div>

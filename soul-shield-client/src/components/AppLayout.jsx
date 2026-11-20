@@ -28,7 +28,7 @@ function MobileAccountMenu() {
       {({ close }) => (
         <>
           <div className="px-3 py-2.5">
-            <p className="truncate text-sm font-semibold text-fg">{user?.full_name}</p>
+            <p className="truncate text-sm font-medium text-fg">{user?.full_name}</p>
             <p className="truncate text-xs text-muted">{user?.email}</p>
           </div>
           <div className="my-1 h-px bg-border" />

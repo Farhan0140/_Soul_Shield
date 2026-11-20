@@ -10,7 +10,7 @@ export default function RewardModal({ open, text, taskTitle, onClose }) {
     <Modal
       open={open}
       onClose={onClose}
-      title="Well done!"
+      title="Deed complete"
       description={taskTitle ? `You completed “${taskTitle}”.` : undefined}
       icon={PartyPopper}
       iconTone="accent"

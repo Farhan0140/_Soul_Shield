@@ -26,10 +26,10 @@ export default function TakeTourButton({ className }) {
         <span className="h-px flex-1 bg-border" />
       </div>
       <Button variant="secondary" size="lg" fullWidth loading={starting} onClick={handleClick} className="mt-5">
-        <Compass className="h-4 w-4 text-primary-ink" /> Take a tour
+        <Compass className="h-4 w-4 text-muted" /> Take a tour
       </Button>
       <p className="mt-2 text-center text-xs text-muted">
-        Explore with sample tasks — no account needed.
+        Explore with sample tasks, no account needed
       </p>
     </div>
   );

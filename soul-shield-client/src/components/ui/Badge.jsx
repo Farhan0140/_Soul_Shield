@@ -24,7 +24,7 @@ export default function Badge({ tone = 'neutral', icon: Icon, dot = false, color
     <span
       title={title}
       className={cn(
-        'inline-flex h-[22px] max-w-full items-center gap-1 rounded-md border px-1.5 text-[11px] font-semibold leading-none whitespace-nowrap',
+        'inline-flex h-[22px] max-w-full items-center gap-1 rounded-md border px-1.5 text-[11px] font-medium leading-none whitespace-nowrap',
         TONES[tone],
         className
       )}

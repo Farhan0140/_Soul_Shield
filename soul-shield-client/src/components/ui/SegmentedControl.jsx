@@ -67,7 +67,7 @@ export default function SegmentedControl({
               <m.span
                 layoutId={`seg-thumb-${groupId}`}
                 className="absolute inset-0 rounded-[7px] border border-border bg-surface shadow-[inset_0_-1px_0_var(--edge-bottom),var(--elev-1)]"
-                transition={{ type: 'spring', stiffness: 520, damping: 42 }}
+                transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
               />
             )}
             <span className="relative inline-flex items-center gap-1.5">

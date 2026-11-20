@@ -1,7 +1,7 @@
 import { ChevronRight } from 'lucide-react';
 
-/** Collapsed category summary row — name, accent dot/icon, task count, and a
- * chevron — used on the dashboard in place of showing every task inline.
+/** Collapsed category summary row — name, color dot (or icon), task count, and
+ * a chevron — used on the dashboard in place of showing every task inline.
  * Tapping navigates to a dedicated page listing that category's full task
  * cards (see pages/CategoryDetail.jsx), mirroring the mobile app's
  * CategorySection-as-a-link pattern. Rendered inside a divided list card. */
@@ -10,25 +10,21 @@ export default function CategoryRow({ title, count, accentColor, icon: Icon, onC
     <button
       type="button"
       onClick={onClick}
-      className="group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-2 focus-visible:-outline-offset-2 active:bg-sunken sm:px-5"
+      className="group flex h-14 w-full items-center gap-3 px-5 text-left transition-colors hover:bg-surface-2 focus-visible:-outline-offset-2 active:bg-sunken"
     >
-      <span
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border"
-        style={{ backgroundColor: `color-mix(in srgb, ${accentColor} 13%, var(--surface))` }}
-        aria-hidden="true"
-      >
+      <span className="flex w-5 shrink-0 items-center justify-center" aria-hidden="true">
         {Icon ? (
-          <Icon className="h-4 w-4" style={{ color: accentColor }} />
+          <Icon className="h-4 w-4 text-muted" strokeWidth={1.75} />
         ) : (
-          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: accentColor }} />
+          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: accentColor }} />
         )}
       </span>
       <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg">{title}</span>
-      <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-sunken px-1.5 text-xs font-semibold tabular-nums text-fg-2">
+      <span className="text-[13px] tabular-nums text-muted">
         {count}
         <span className="sr-only"> tasks</span>
       </span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-subtle transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
+      <ChevronRight className="h-4 w-4 shrink-0 text-subtle transition-colors group-hover:text-fg-2" strokeWidth={1.75} aria-hidden="true" />
     </button>
   );
 }

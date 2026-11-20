@@ -66,7 +66,9 @@ export default function App() {
       </Routes>
       </Suspense>
       
-      <OnboardingTooltip />
+      {/* Only inside the app (signed in, or the demo's visitor): never over
+          the sign-in or sign-up pages. */}
+      {user && <OnboardingTooltip />}
       <ServerWakeBanner />
     </>
   );

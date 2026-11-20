@@ -37,7 +37,7 @@ export default function MobileBottomNav() {
                       <m.span
                         layoutId="mobile-nav-pill"
                         className="absolute inset-0 rounded-full bg-primary-soft"
-                        transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+                        transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
                       />
                     )}
                     <Icon className={cn('relative h-5 w-5', isActive && 'text-primary-ink')} aria-hidden="true" />

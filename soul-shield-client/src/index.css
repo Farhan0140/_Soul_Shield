@@ -3,15 +3,17 @@
 /* ==========================================================================
    SoulShield design system
    --------------------------------------------------------------------------
-   One accent (lemon green) on a neutral, slightly warm canvas. Depth comes
-   from layered shadows and an inner bottom edge on controls ("subtle 3D"),
-   never from gradients. Every color is a token below; components only use
-   the semantic Tailwind names from @theme (bg-surface, text-muted, ...).
+   World: a mosque at dawn. Warm stone surfaces in light, quiet ink at night.
+   One chrome accent, emerald (from the app icon's shield). Brass (the icon's
+   crescent) is reserved for the rendered moments: the prayer-bead string and
+   the logo. Chrome stays quiet; depth comes from surface steps, hairlines
+   and small neutral shadows. Components only use the semantic Tailwind names
+   from @theme (bg-surface, text-muted, ...).
    ========================================================================== */
 
 /* KFGQPC Uthman Taha Naskh — restricted to the Arabic-script unicode ranges so the
    browser only picks it for Arabic glyphs; Latin/numeric text keeps falling through
-   to Inter. This gives automatic per-character Arabic detection with no JS. */
+   to the interface family. Automatic per-character Arabic detection, no JS. */
 @font-face {
   font-family: 'Uthman Taha Naskh';
   src: url('/fonts/UthmanTN1-Regular.woff2') format('woff2');
@@ -34,7 +36,7 @@
 
 @custom-variant dark (&:where([data-scheme='dark'], [data-scheme='dark'] *));
 
-@theme {
+@theme inline {
   /* Surfaces */
   --color-bg: var(--bg);
   --color-surface: var(--surface);
@@ -49,14 +51,16 @@
   --color-muted: var(--muted);
   --color-subtle: var(--subtle);
 
-  /* Accent: `primary` is the lemon fill, `primary-ink` is the accent for
-     text/icons on neutral surfaces (lemon itself is too light on white),
-     `on-primary` is text placed on a lemon fill. */
+  /* Accent: `primary` is the emerald fill, `primary-ink` is emerald used as
+     text/icons on neutral surfaces, `on-primary` is text on an emerald fill. */
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
   --color-primary-ink: var(--primary-ink);
   --color-primary-soft: var(--primary-soft);
   --color-on-primary: var(--on-primary);
+
+  /* Brass — moments only (beads, logo crescent). */
+  --color-brass: var(--brass);
 
   /* Status */
   --color-success: var(--success);
@@ -70,8 +74,9 @@
   --color-heat-3: var(--heat-3);
   --color-heat-4: var(--heat-4);
 
-  --font-sans: 'Uthman Taha Naskh', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-heading: 'Uthman Taha Naskh', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Uthman Taha Naskh', 'Instrument Sans Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-heading: 'Uthman Taha Naskh', 'Instrument Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Uthman Taha Naskh', 'Newsreader Variable', Georgia, 'Times New Roman', serif;
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, monospace;
 
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
@@ -85,95 +90,125 @@
   50% { opacity: 0.5; }
 }
 
-/* ---------- Tokens: Lemon Light (default) ---------- */
+/* ---------- Tokens: Light — warm stone at dawn (default) ---------- */
 :root,
 [data-theme='lemon-light'] {
-  --bg: #F4F4F0;
-  --surface: #FFFFFF;
-  --surface-2: #FAFAF7;
-  --sunken: #EEEEE9;
-  --border-c: #E3E3DC;
-  --border-strong: #CDCDC4;
+  --bg: #F5F2EC;
+  --surface: #FFFDF9;
+  --surface-2: #FAF7F1;
+  --sunken: #EFEAE1;
+  --border-c: #E6E0D5;
+  --border-strong: #D3CBBD;
 
-  --fg: #16171A;
-  --fg-2: #3A3C41;
-  --muted: #64676D;
-  --subtle: #9B9DA2;
+  --fg: #1F1B16;
+  --fg-2: #4B443A;
+  --muted: #6B6357;
+  --subtle: #9A9284;
 
-  --primary: #CDEB4B;
-  --primary-hover: #C2E13C;
-  --primary-press: #B4D32F;
-  --primary-ink: #4B6000;
-  --primary-soft: #F2F8D8;
-  --on-primary: #151A04;
+  --primary: #1F6B4A;
+  --primary-hover: #1A5D40;
+  --primary-press: #154F36;
+  --primary-ink: #1D6646;
+  --primary-soft: #E3EEE6;
+  --on-primary: #FBF8F2;
 
-  --success: #1E8550;
-  --danger: #C7362C;
-  --warning: #A86400;
-  --info: #2560A6;
+  --brass: #A8823A;
 
-  --focus: #4B6000;
-  --overlay: rgba(14, 15, 16, 0.42);
+  --success: #2F7A50;
+  --danger: #B5382C;
+  --warning: #A0640F;
+  --info: #2F5E97;
 
-  --heat-1: #E9F4B9;
-  --heat-2: #CDEB4B;
-  --heat-3: #98B523;
-  --heat-4: #5A7300;
+  --focus: #1D6646;
+  --overlay: rgba(31, 27, 22, 0.40);
 
-  /* Elevation: a hairline + a soft ambient layer. */
-  --elev-1: 0 1px 2px rgba(17, 18, 20, 0.05), 0 1px 1px rgba(17, 18, 20, 0.03);
-  --elev-2: 0 1px 2px rgba(17, 18, 20, 0.05), 0 6px 16px -4px rgba(17, 18, 20, 0.09);
-  --elev-3: 0 2px 4px rgba(17, 18, 20, 0.04), 0 16px 40px -10px rgba(17, 18, 20, 0.18);
-  --elev-4: 0 4px 8px rgba(17, 18, 20, 0.05), 0 28px 72px -16px rgba(17, 18, 20, 0.30);
+  --heat-1: #DCE9DF;
+  --heat-2: #A6CBB2;
+  --heat-3: #3F8263;
+  --heat-4: #1F6B4A;
+
+  /* Bead materials (light) */
+  --bead-done-hi: #A8E0C2;
+  --bead-done-mid: #2C855C;
+  --bead-done-lo: #0F3D29;
+  --bead-part-hi: #F6E2B4;
+  --bead-part-mid: #C49A4A;
+  --bead-part-lo: #6E4C17;
+  --bead-todo-hi: #FFFFFF;
+  --bead-todo-mid: #E2D8C7;
+  --bead-todo-lo: #A99A82;
+  --bead-cord: #9C8A6C;
+  --bead-shadow: rgba(60, 42, 18, 0.28);
+
+  /* Elevation: neutral, warm, small. */
+  --elev-1: 0 1px 2px rgba(40, 30, 15, 0.05);
+  --elev-2: 0 1px 2px rgba(40, 30, 15, 0.05), 0 8px 24px -8px rgba(40, 30, 15, 0.10);
+  --elev-3: 0 2px 4px rgba(40, 30, 15, 0.04), 0 16px 40px -12px rgba(40, 30, 15, 0.18);
+  --elev-4: 0 4px 8px rgba(40, 30, 15, 0.05), 0 28px 72px -16px rgba(40, 30, 15, 0.28);
   /* Controls: lit top edge, shaded bottom edge — the "pressable" depth. */
-  --edge-top: rgba(255, 255, 255, 0.55);
-  --edge-bottom: rgba(17, 18, 20, 0.12);
+  --edge-top: rgba(255, 255, 255, 0.16);
+  --edge-bottom: rgba(31, 27, 22, 0.10);
   --surface-highlight: transparent;
 
   color-scheme: light;
 }
 
-/* ---------- Tokens: Lemon Dark ---------- */
+/* ---------- Tokens: Dark — ink, the night prayer ---------- */
 [data-theme='lemon-dark'] {
-  --bg: #0E0F10;
-  --surface: #161719;
-  --surface-2: #1B1C1F;
-  --sunken: #111214;
-  --border-c: #26282C;
-  --border-strong: #35373C;
+  --bg: #111318;
+  --surface: #171A20;
+  --surface-2: #1C1F26;
+  --sunken: #0D0F13;
+  --border-c: #252932;
+  --border-strong: #333843;
 
-  --fg: #ECEDE8;
-  --fg-2: #C8CAC4;
-  --muted: #989BA0;
-  --subtle: #676A70;
+  --fg: #ECEDF0;
+  --fg-2: #C3C6CE;
+  --muted: #9599A4;
+  --subtle: #6A707C;
 
-  --primary: #D2F05A;
-  --primary-hover: #DCF578;
-  --primary-press: #C3E148;
-  --primary-ink: #D2F05A;
-  --primary-soft: rgba(210, 240, 90, 0.11);
-  --on-primary: #141904;
+  --primary: #55BB8C;
+  --primary-hover: #66C79A;
+  --primary-press: #47A87C;
+  --primary-ink: #6CC89D;
+  --primary-soft: rgba(85, 187, 140, 0.12);
+  --on-primary: #08160F;
 
-  --success: #4CC184;
-  --danger: #F06D61;
-  --warning: #EBAB3F;
-  --info: #6CA7EE;
+  --brass: #D2B06A;
 
-  --focus: #D2F05A;
-  --overlay: rgba(0, 0, 0, 0.62);
+  --success: #5BBF8A;
+  --danger: #EC6B5E;
+  --warning: #DDA64C;
+  --info: #78A8E2;
 
-  --heat-1: rgba(210, 240, 90, 0.18);
-  --heat-2: rgba(210, 240, 90, 0.40);
-  --heat-3: rgba(210, 240, 90, 0.70);
-  --heat-4: #D2F05A;
+  --focus: #6CC89D;
+  --overlay: rgba(4, 6, 10, 0.64);
 
-  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --elev-2: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 20px -6px rgba(0, 0, 0, 0.5);
-  --elev-3: 0 2px 4px rgba(0, 0, 0, 0.4), 0 18px 44px -10px rgba(0, 0, 0, 0.65);
-  --elev-4: 0 4px 10px rgba(0, 0, 0, 0.45), 0 30px 80px -16px rgba(0, 0, 0, 0.8);
+  --heat-1: rgba(85, 187, 140, 0.18);
+  --heat-2: rgba(85, 187, 140, 0.38);
+  --heat-3: rgba(85, 187, 140, 0.66);
+  --heat-4: #55BB8C;
+
+  /* Bead materials (dark) */
+  --bead-done-hi: #B4F0D2;
+  --bead-done-mid: #3AA474;
+  --bead-done-lo: #0E3A27;
+  --bead-part-hi: #FBE8BC;
+  --bead-part-mid: #CDA457;
+  --bead-part-lo: #5E4114;
+  --bead-todo-hi: #8C93A2;
+  --bead-todo-mid: #3D434F;
+  --bead-todo-lo: #191C22;
+  --bead-cord: #6E6553;
+  --bead-shadow: rgba(0, 0, 0, 0.55);
+
+  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --elev-2: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 20px -6px rgba(0, 0, 0, 0.45);
+  --elev-3: 0 2px 4px rgba(0, 0, 0, 0.35), 0 18px 44px -10px rgba(0, 0, 0, 0.6);
+  --elev-4: 0 4px 10px rgba(0, 0, 0, 0.4), 0 30px 80px -16px rgba(0, 0, 0, 0.75);
   --edge-top: rgba(255, 255, 255, 0.10);
-  --edge-bottom: rgba(0, 0, 0, 0.35);
-  --surface-highlight: rgba(255, 255, 255, 0.035);
+  --edge-bottom: rgba(0, 0, 0, 0.30);
+  --surface-highlight: rgba(255, 255, 255, 0.03);
 
   color-scheme: dark;
 }
@@ -187,7 +222,6 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
 
   body {
@@ -201,13 +235,13 @@
 
   h1, h2, h3, h4 {
     font-family: var(--font-heading);
-    letter-spacing: -0.015em;
+    font-weight: 500;
     color: var(--fg);
   }
 
   ::selection {
-    background: var(--primary);
-    color: var(--on-primary);
+    background: color-mix(in srgb, var(--primary) 24%, transparent);
+    color: var(--fg);
   }
 
   /* One visible, consistent focus indicator for every interactive element. */
@@ -240,25 +274,29 @@
    Component primitives (used by src/components/ui/*)
    ========================================================================== */
 @layer components {
+  /* ---------- Type ---------- */
+  /* Page titles: the literary serif, set large and light. */
+  .display {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    font-optical-sizing: auto;
+  }
+
   /* ---------- Surfaces ---------- */
   .card {
     background-color: var(--surface);
     border: 1px solid var(--border-c);
-    border-radius: 0.875rem;
+    border-radius: 1rem;
     box-shadow: inset 0 1px 0 var(--surface-highlight), var(--elev-1);
   }
 
   .card-interactive {
-    transition: border-color 160ms ease, box-shadow 200ms var(--ease-out-soft), transform 200ms var(--ease-out-soft);
+    transition: border-color 160ms ease, box-shadow 180ms var(--ease-out-soft);
   }
   .card-interactive:hover {
     border-color: var(--border-strong);
     box-shadow: inset 0 1px 0 var(--surface-highlight), var(--elev-2);
-    transform: translateY(-1px);
-  }
-  .card-interactive:active {
-    transform: translateY(0);
-    box-shadow: inset 0 1px 0 var(--surface-highlight), var(--elev-1);
   }
 
   .popover-surface {
@@ -274,7 +312,7 @@
     box-shadow: inset 0 1px 0 var(--surface-highlight), var(--elev-4);
   }
 
-  /* Raised square tile that holds an icon (stat cards, empty states). */
+  /* Raised square tile that holds an icon (settings rows, empty states). */
   .icon-tile {
     display: inline-flex;
     align-items: center;
@@ -283,15 +321,27 @@
     background-color: var(--surface-2);
     border: 1px solid var(--border-c);
     border-radius: 0.625rem;
-    box-shadow: inset 0 -1px 0 var(--edge-bottom), var(--elev-1);
-    color: var(--fg-2);
+    box-shadow: inset 0 -1px 0 var(--edge-bottom);
+    color: var(--muted);
   }
   .icon-tile-accent {
     background-color: var(--primary);
-    border-color: color-mix(in srgb, var(--on-primary) 10%, transparent);
+    border-color: color-mix(in srgb, var(--primary) 70%, black);
     color: var(--on-primary);
-    box-shadow: inset 0 1px 0 var(--edge-top), inset 0 -2px 0 var(--edge-bottom), var(--elev-1);
+    box-shadow: inset 0 1px 0 var(--edge-top), inset 0 -2px 0 var(--edge-bottom);
   }
+
+  /* ---------- Beads (the signature: progress drawn as prayer beads) ---------- */
+  .bead {
+    display: block;
+    aspect-ratio: 1;
+    border-radius: 9999px;
+    background: radial-gradient(circle at 34% 30%, var(--hi) 0%, var(--mid) 46%, var(--lo) 100%);
+    box-shadow: 0 1px 1.5px var(--bead-shadow);
+  }
+  .bead-done { --hi: var(--bead-done-hi); --mid: var(--bead-done-mid); --lo: var(--bead-done-lo); }
+  .bead-part { --hi: var(--bead-part-hi); --mid: var(--bead-part-mid); --lo: var(--bead-part-lo); }
+  .bead-todo { --hi: var(--bead-todo-hi); --mid: var(--bead-todo-mid); --lo: var(--bead-todo-lo); }
 
   /* ---------- Buttons ---------- */
   .btn {
@@ -301,19 +351,21 @@
     justify-content: center;
     gap: 0.5rem;
     flex-shrink: 0;
-    font-weight: 600;
-    letter-spacing: -0.005em;
+    font-weight: 500;
     white-space: nowrap;
     user-select: none;
     border: 1px solid transparent;
-    border-radius: 0.5625rem;
+    border-radius: 0.625rem;
     transition:
       background-color 150ms ease,
       border-color 150ms ease,
       color 150ms ease,
-      box-shadow 180ms var(--ease-out-soft),
-      transform 180ms var(--ease-out-soft);
+      box-shadow 150ms ease,
+      transform 120ms var(--ease-out-soft);
     -webkit-tap-highlight-color: transparent;
+  }
+  .btn:not(:disabled):active {
+    transform: scale(0.98);
   }
   .btn:disabled,
   .btn[aria-disabled='true'] {
@@ -332,38 +384,30 @@
 
   .btn-sm { height: 2rem; padding: 0 0.75rem; font-size: 0.8125rem; gap: 0.375rem; border-radius: 0.5rem; }
   .btn-md { height: 2.5rem; padding: 0 1rem; font-size: 0.875rem; }
-  .btn-lg { height: 2.875rem; padding: 0 1.25rem; font-size: 0.9375rem; }
+  .btn-lg { height: 3rem; padding: 0 1.25rem; font-size: 0.9375rem; }
   .btn-icon.btn-sm { width: 2rem; padding: 0; }
   .btn-icon.btn-md { width: 2.5rem; padding: 0; }
-  .btn-icon.btn-lg { width: 2.875rem; padding: 0; }
+  .btn-icon.btn-lg { width: 3rem; padding: 0; }
 
-  /* Primary — lemon, raised. Lifts on hover, sinks on press. */
+  /* Primary — emerald, with a lit top edge and a shaded bottom edge. */
   .btn-primary {
     background-color: var(--primary);
     color: var(--on-primary);
-    border-color: color-mix(in srgb, var(--on-primary) 12%, transparent);
+    border-color: color-mix(in srgb, var(--primary) 75%, black);
     box-shadow:
       inset 0 1px 0 var(--edge-top),
-      inset 0 -2px 0 var(--edge-bottom),
-      0 1px 2px rgba(20, 26, 4, 0.16),
-      0 3px 8px -3px rgba(20, 26, 4, 0.22);
+      inset 0 -1px 0 var(--edge-bottom),
+      0 1px 2px rgba(10, 30, 20, 0.18);
   }
   .btn-primary:not(:disabled):hover {
     background-color: var(--primary-hover);
-    transform: translateY(-1px);
-    box-shadow:
-      inset 0 1px 0 var(--edge-top),
-      inset 0 -2px 0 var(--edge-bottom),
-      0 2px 3px rgba(20, 26, 4, 0.14),
-      0 8px 18px -6px rgba(20, 26, 4, 0.3);
   }
   .btn-primary:not(:disabled):active {
     background-color: var(--primary-press);
-    transform: translateY(1px);
-    box-shadow: inset 0 1px 2px rgba(20, 26, 4, 0.22), 0 0 0 rgba(0, 0, 0, 0);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
   }
 
-  /* Secondary — neutral surface, raised. */
+  /* Secondary — the raised neutral surface with a hairline. */
   .btn-secondary {
     background-color: var(--surface);
     color: var(--fg);
@@ -373,13 +417,10 @@
   .btn-secondary:not(:disabled):hover {
     background-color: var(--surface-2);
     border-color: var(--border-strong);
-    transform: translateY(-1px);
-    box-shadow: inset 0 -1px 0 var(--edge-bottom), var(--elev-2);
   }
   .btn-secondary:not(:disabled):active {
     background-color: var(--sunken);
-    transform: translateY(1px);
-    box-shadow: inset 0 1px 2px rgba(17, 18, 20, 0.1);
+    box-shadow: inset 0 1px 2px rgba(31, 27, 22, 0.08);
   }
 
   /* Ghost — flat until hovered. */
@@ -395,23 +436,20 @@
     background-color: color-mix(in srgb, var(--sunken) 70%, var(--border-strong));
   }
 
-  /* Danger — solid, raised. */
+  /* Danger — solid. */
   .btn-danger {
     background-color: var(--danger);
     color: #fff;
     border-color: color-mix(in srgb, var(--danger) 80%, black);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.18),
-      inset 0 -2px 0 rgba(0, 0, 0, 0.18),
-      0 1px 2px rgba(0, 0, 0, 0.12),
-      0 3px 8px -3px color-mix(in srgb, var(--danger) 50%, transparent);
+      inset 0 1px 0 rgba(255, 255, 255, 0.16),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.16),
+      0 1px 2px rgba(0, 0, 0, 0.12);
   }
   .btn-danger:not(:disabled):hover {
     background-color: color-mix(in srgb, var(--danger) 90%, black);
-    transform: translateY(-1px);
   }
   .btn-danger:not(:disabled):active {
-    transform: translateY(1px);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
   }
 
@@ -436,7 +474,7 @@
     width: 100%;
     background-color: var(--surface);
     border: 1px solid var(--border-c);
-    border-radius: 0.5625rem;
+    border-radius: 0.625rem;
     box-shadow: inset 0 1px 2px rgba(17, 18, 20, 0.04);
     transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
   }
@@ -445,7 +483,7 @@
   }
   .field:focus-within {
     border-color: var(--primary-ink);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 45%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
   }
   .field[data-invalid='true'] {
     border-color: var(--danger);
@@ -524,7 +562,7 @@
   }
   .checkbox:checked {
     background-color: var(--primary);
-    border-color: color-mix(in srgb, var(--on-primary) 30%, var(--primary));
+    border-color: color-mix(in srgb, var(--primary) 75%, black);
   }
   .checkbox:checked::after {
     transform: scale(1);

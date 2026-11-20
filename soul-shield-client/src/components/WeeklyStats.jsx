@@ -58,7 +58,7 @@ export default function WeeklyStats({ stats }) {
         icon={Flame}
         label="Current streak"
         value={`${streak} day${streak === 1 ? '' : 's'}`}
-        sub={streak > 0 ? "Keep it going 🔥" : "Start one today!"}
+        sub={streak > 0 ? "Days in a row" : "No streak yet"}
         delay={0.04}
       />
       <StatCard

@@ -118,7 +118,7 @@ export default function CategoryCard({ category, taskCount, onUpdate, onRequestD
 
             {/* Info */}
             <div className="min-w-0 flex-1">
-              <h3 className="truncate text-[15px] font-semibold text-fg">{category.name}</h3>
+              <h3 className="truncate text-[15px] font-medium text-fg">{category.name}</h3>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
                 <span className="inline-flex items-center gap-1.5 font-mono">
                   <span className="h-2 w-2 rounded-full" style={{ backgroundColor: category.color_hex }} aria-hidden="true" />

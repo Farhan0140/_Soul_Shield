@@ -22,6 +22,9 @@ const COLORS = [
 ];
 
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+// Ranges up to six weeks read as a calendar; longer ones as a compact grid.
+const CALENDAR_MAX_DAYS = 42;
 
 export default function Heatmap({ byDate, range, onDateClick }) {
   const [hovered, setHovered] = useState(null);
@@ -86,26 +89,67 @@ export default function Heatmap({ byDate, range, onDateClick }) {
     <section aria-label="Activity heatmap" className="card p-4 sm:p-5">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold">Activity</h2>
-          <p className="mt-0.5 text-xs text-muted">
-            {completedTotal} task{completedTotal === 1 ? '' : 's'} completed · select a day to open it
+          <h2 className="text-sm font-medium">Activity</h2>
+          <p className="mt-1 text-xs text-muted">
+            {completedTotal} task{completedTotal === 1 ? '' : 's'} completed, select a day to open it
           </p>
         </div>
-        <div className="flex items-center gap-1 text-[11px] text-muted" aria-hidden="true">
-          <span className="mr-0.5">Less</span>
+        <div className="flex items-center gap-1 text-xs text-muted" aria-hidden="true">
+          <span className="mr-1">Less</span>
           {COLORS.map((c, i) => (
-            <div key={i} className={cn('h-3 w-3 rounded-[3px] ring-1 ring-inset ring-black/[0.04]', c)} />
+            <div key={i} className={cn('h-3 w-3 rounded-[3px]', c)} />
           ))}
-          <span className="ml-0.5">More</span>
+          <span className="ml-1">More</span>
         </div>
       </div>
 
-      {/* Grid */}
+      {days.length <= CALENDAR_MAX_DAYS ? (
+        <div className="grid grid-cols-7 gap-2">
+          {WEEKDAY_NAMES.map((d) => (
+            <div key={d} className="pb-1 text-xs text-muted" aria-hidden="true">{d}</div>
+          ))}
+          {Array.from({ length: days[0]?.getDay() ?? 0 }).map((_, i) => <div key={`pad-${i}`} />)}
+          {days.map((date) => {
+            const key = fmtDate(date);
+            const tasks = byDate[key] || [];
+            const total = tasks.length;
+            const completed = tasks.filter(t => t.status === 'completed').length;
+            const pct = total === 0 ? 0 : Math.round((completed / total) * 100);
+            const lvl = intensity(pct);
+            const isToday = key === todayKey;
+            return (
+              <button
+                type="button"
+                key={key}
+                onMouseEnter={(e) => showTooltip(e, date)}
+                onMouseLeave={hideTooltip}
+                onFocus={(e) => showTooltip(e, date)}
+                onBlur={hideTooltip}
+                onClick={() => onDateClick?.(date)}
+                className={cn(
+                  'flex h-16 flex-col justify-between rounded-lg p-2 text-left transition-[box-shadow] duration-150 hover:shadow-[inset_0_0_0_1px_var(--border-strong)]',
+                  COLORS[lvl],
+                  lvl === 4 ? 'text-on-primary' : lvl === 3 ? 'text-on-primary dark:text-fg' : 'text-fg-2',
+                  isToday && 'shadow-[inset_0_0_0_1.5px_var(--fg)]'
+                )}
+                aria-label={`${prettyDate(date)}: ${completed}/${total} completed`}
+              >
+                <span className="text-xs tabular-nums">{date.getDate()}</span>
+                {total > 0 && (
+                  <span className={cn('text-[11px] tabular-nums', lvl >= 3 ? 'opacity-80' : 'text-muted')}>
+                    {completed}/{total}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
       <div className="flex gap-1 overflow-x-auto pb-1">
         {/* Day labels column */}
         <div className="mr-1 flex shrink-0 flex-col gap-1" aria-hidden="true">
           {DAY_LABELS.map((d, i) => (
-            <div key={i} className="flex h-3.5 items-center text-[10px] text-subtle">
+            <div key={i} className="flex h-3.5 items-center text-[11px] text-muted">
               {i % 2 === 1 ? d : ''}
             </div>
           ))}
@@ -138,10 +182,10 @@ export default function Heatmap({ byDate, range, onDateClick }) {
                   onBlur={hideTooltip}
                   onClick={() => onDateClick?.(date)}
                   className={cn(
-                    'h-3.5 w-3.5 rounded-[3px] ring-1 ring-inset ring-black/[0.04] transition-transform duration-100 hover:scale-125 focus-visible:scale-125',
+                    'h-3.5 w-3.5 rounded-[3px]',
                     COLORS[lvl],
                     isToday && 'outline-2 outline-offset-1 outline-fg/50',
-                    isHovered && 'scale-125'
+                    isHovered && 'shadow-[0_0_0_1.5px_var(--fg)]'
                   )}
                   aria-label={`${prettyDate(date)}: ${completed}/${total} completed`}
                 />
@@ -150,6 +194,7 @@ export default function Heatmap({ byDate, range, onDateClick }) {
           </div>
         ))}
       </div>
+      )}
 
       {/* Tooltip — portaled + fixed so no scroll container or transformed
           ancestor can clip or offset it. */}
@@ -169,7 +214,7 @@ export default function Heatmap({ byDate, range, onDateClick }) {
               }}
               className="pointer-events-none z-[120] whitespace-nowrap rounded-lg bg-fg px-3 py-2 text-xs text-bg shadow-lg"
             >
-              <p className="font-semibold">{prettyDate(tooltip.data.date)}</p>
+              <p className="font-medium">{prettyDate(tooltip.data.date)}</p>
               <p className="opacity-75">
                 {tooltip.data.completed}/{tooltip.data.total} completed
                 {tooltip.data.total > 0 && ` (${tooltip.data.pct}%)`}

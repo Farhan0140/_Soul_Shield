@@ -212,7 +212,7 @@ export default function AdminTasks() {
       <PageHeader
         eyebrow="Administration"
         title="Fixed tasks"
-        description="Fixed tasks are visible to every user in the system."
+        description="Fixed tasks are visible to every user in the system"
         actions={
           <Button onClick={openCreate}>
             <Plus className="h-4 w-4" /> New fixed task
@@ -340,7 +340,7 @@ export default function AdminTasks() {
             <EmptyState
               icon={SearchX}
               title="No matches"
-              description="No fixed tasks match these filters."
+              description="No fixed tasks match these filters"
               action={
                 <Button
                   variant="secondary"
@@ -389,7 +389,7 @@ export default function AdminTasks() {
       >
         {deletingTask && usage[deletingTask.task_id] && (
           <Alert tone="warning" icon={Users}>
-            <strong className="font-semibold text-fg">{usage[deletingTask.task_id].completions}</strong> completions recorded in the last 30 days.
+            <strong className="font-medium text-fg">{usage[deletingTask.task_id].completions}</strong> completions recorded in the last 30 days.
             Past completion history is preserved — only the task itself will be removed.
           </Alert>
         )}

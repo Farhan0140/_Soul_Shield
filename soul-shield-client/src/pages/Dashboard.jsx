@@ -33,10 +33,10 @@ function DashboardSkeleton() {
     <SkeletonGroup label="Loading your tasks…" className="space-y-6">
       <div className="card p-5">
         <Skeleton className="h-3 w-24" />
-        <Skeleton className="mt-2.5 h-7 w-32" />
-        <Skeleton className="mt-5 h-2 w-full rounded-full" />
+        <Skeleton className="mt-3 h-12 w-32" />
+        <Skeleton className="mt-6 h-28 w-full rounded-xl" />
       </div>
-      <Skeleton className="h-9 w-72 max-w-full rounded-[10px]" />
+      <Skeleton className="h-9 w-72 max-w-full rounded-lg" />
       <ListSkeleton rows={4} />
     </SkeletonGroup>
   );
@@ -137,29 +137,29 @@ export default function Dashboard() {
   };
 
   const canCreate = isToday && !loading;
-  const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
+  const longDate = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const dayDiff = Math.round((new Date(date).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86400000);
 
   return (
     <div className="space-y-6 sm:space-y-8">
       <PageHeader
-        eyebrow={isToday ? `${weekday} · Today` : weekday}
-        title={isToday ? "Today's tasks" : prettyDate(date)}
-        description={isToday ? "Let's make today count." : `Viewing ${fmtDate(date)}`}
+        title={isToday ? 'Today' : longDate}
+        description={isToday ? longDate : dayDiff < 0 ? 'A past day, open a group to review it' : 'An upcoming day'}
         actions={
           <>
             {/* Day stepper */}
-            <div className="inline-flex h-10 items-center rounded-[9px] border border-border bg-surface shadow-[inset_0_-1px_0_var(--edge-bottom),var(--elev-1)]">
+            <div className="inline-flex h-10 items-stretch overflow-hidden rounded-[10px] border border-border bg-surface shadow-[inset_0_-1px_0_var(--edge-bottom),var(--elev-1)]">
               <Tooltip label="Previous day">
                 <button
                   type="button"
                   onClick={() => shiftDate(-1)}
                   aria-label="Previous day"
-                  className="inline-flex h-[38px] w-9 items-center justify-center rounded-l-[8px] text-muted transition-colors hover:bg-sunken hover:text-fg"
+                  className="inline-flex h-full w-9 items-center justify-center text-muted transition-colors hover:bg-sunken hover:text-fg"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
               </Tooltip>
-              <span className="min-w-[104px] border-x border-border px-3 text-center text-[13px] font-semibold tabular-nums text-fg" aria-live="polite">
+              <span className="flex min-w-28 items-center justify-center border-x border-border px-3 text-[13px] font-medium tabular-nums text-fg" aria-live="polite">
                 {prettyDate(date)}
               </span>
               <Tooltip label="Next day">
@@ -167,7 +167,7 @@ export default function Dashboard() {
                   type="button"
                   onClick={() => shiftDate(1)}
                   aria-label="Next day"
-                  className="inline-flex h-[38px] w-9 items-center justify-center rounded-r-[8px] text-muted transition-colors hover:bg-sunken hover:text-fg"
+                  className="inline-flex h-full w-9 items-center justify-center text-muted transition-colors hover:bg-sunken hover:text-fg"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
@@ -198,7 +198,9 @@ export default function Dashboard() {
       {!loading && !error && (
         <>
           {/* Progress */}
-          {tasks.some(t => !t.is_global) && <ProgressSummary tasks={tasks} />}
+          {tasks.some(t => !t.is_global) && (
+            <ProgressSummary tasks={tasks} label={isToday ? "Today's deeds" : `Deeds on ${prettyDate(date)}`} />
+          )}
 
           {tasks.length > 0 && (
             <section aria-label="Task groups">
@@ -220,11 +222,11 @@ export default function Dashboard() {
                 >
                   {fixedTasks.length > 0 && (
                     <CategoryRow
-                      title="Fixed Tasks"
+                      title="Fixed tasks"
                       count={fixedTasks.length}
                       accentColor="var(--color-warning)"
                       icon={Shield}
-                      onClick={() => openSection(FIXED_SECTION_ID, 'Fixed Tasks')}
+                      onClick={() => openSection(FIXED_SECTION_ID, 'Fixed tasks')}
                     />
                   )}
                   {visibleSections.map((section) => (
@@ -239,11 +241,11 @@ export default function Dashboard() {
                   ))}
                   {completedTasks.length > 0 && (
                     <CategoryRow
-                      title="Completed Tasks"
+                      title="Completed"
                       count={completedTasks.length}
                       accentColor="var(--color-success)"
                       icon={CheckCircle2}
-                      onClick={() => openSection(COMPLETED_SECTION_ID, 'Completed Tasks')}
+                      onClick={() => openSection(COMPLETED_SECTION_ID, 'Completed')}
                     />
                   )}
                 </m.div>
@@ -251,7 +253,7 @@ export default function Dashboard() {
                 <EmptyState
                   icon={SearchX}
                   title="No tasks match this filter"
-                  description="Try another status, or show everything for this day."
+                  description="Try another status, or show everything for this day"
                   action={<Button variant="secondary" onClick={() => setActiveStatus('all')}>Show all tasks</Button>}
                 />
               )}
@@ -262,15 +264,15 @@ export default function Dashboard() {
             isToday ? (
               <EmptyState
                 icon={Inbox}
-                title="No tasks yet"
-                description="Your day is a blank canvas — add your first task to get started."
+                title="Nothing scheduled for today"
+                description="Add a deed to track, like Fajr prayer, morning adhkar or a page of Quran"
                 action={<Button onClick={openCreate}><Plus className="h-4 w-4" /> Add a task</Button>}
               />
             ) : (
               <EmptyState
                 icon={Inbox}
                 title="Nothing scheduled"
-                description="There were no tasks on this day."
+                description="There were no tasks on this day"
                 action={<Button variant="secondary" onClick={goToday}><CalendarCheck className="h-4 w-4" /> Back to today</Button>}
               />
             )
@@ -283,11 +285,11 @@ export default function Dashboard() {
       {canCreate && createPortal(
         <m.button
           type="button"
-          initial={{ scale: 0.6, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
           onClick={openCreate}
-          className="btn btn-primary fixed right-4 bottom-[calc(76px+env(safe-area-inset-bottom))] z-30 h-14 w-14 rounded-2xl sm:hidden"
+          className="btn btn-primary fixed right-4 bottom-[calc(76px+env(safe-area-inset-bottom))] z-30 h-14 w-14 rounded-2xl shadow-[var(--elev-3)] sm:hidden"
           aria-label="Add task"
         >
           <Plus className="h-6 w-6" />
