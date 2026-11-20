@@ -10,7 +10,7 @@ A full-stack habit & task tracker for building consistent daily worship and self
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat&logo=react&logoColor=black)](soul-shield-client)
 [![Expo](https://img.shields.io/badge/Expo-SDK%2054-000020?style=flat&logo=expo&logoColor=white)](soul-shield-mobile-app)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?style=flat&logo=postgresql&logoColor=white)](#-database)
-[![License](https://img.shields.io/badge/License-Unspecified-lightgrey?style=flat)](#-license)
+[![License](https://img.shields.io/badge/License-Proprietary-lightgrey?style=flat)](LICENSE)
 
 </div>
 
@@ -386,7 +386,7 @@ cd soul-shield-mobile-app && npm run typecheck
 
 ## 📄 License
 
-No license has been published for this project yet — all rights reserved by the author. Reach out if you'd like to use or build on it.
+All rights reserved. The source is public for viewing and contributions only, see [LICENSE](LICENSE).
 
 ---
 
