@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { m } from 'framer-motion';
+import { cn } from '../utils/cn';
 
 // Animated number counter
-function useCountUp(target, duration = 1200) {
+function useCountUp(target, duration = 900) {
   const [value, setValue] = useState(0);
   const startRef = useRef(null);
   const fromRef = useRef(0);
@@ -26,32 +27,35 @@ function useCountUp(target, duration = 1200) {
   return value;
 }
 
-export default function StatCard({ icon: Icon, label, value, suffix = '', sub, gradient, delay = 0 }) {
+/** Metric tile: label + icon, a large value (numbers count up), and a sub-line.
+ * `accent` gives the icon the brand tile, for the headline metric. */
+export default function StatCard({ icon: Icon, label, value, suffix = '', sub, accent = false, delay = 0 }) {
   const numericValue = typeof value === 'number' ? value : null;
   const displayValue = useCountUp(numericValue ?? 0);
 
   return (
     <m.div
-      initial={{ opacity: 0, y: 15 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, type: 'spring', stiffness: 200, damping: 20 }}
-      whileHover={{ y: -4 }}
-      className="relative bg-surface rounded-2xl border border-border p-5 overflow-hidden group"
+      transition={{ delay, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+      className="card min-w-0 p-4 sm:p-5"
     >
-      {/* Decorative blob */}
-      <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full bg-gradient-to-br ${gradient} opacity-10 group-hover:opacity-20 group-hover:scale-125 transition-all duration-500`} />
-
-      <div className="relative">
-        <div className={`inline-flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br ${gradient} mb-3 shadow-sm`}>
-          <Icon className="w-5 h-5 text-white" />
-        </div>
-        <p className="text-xs font-medium text-muted uppercase tracking-wide">{label}</p>
-        <p className="text-3xl font-bold text-fg mt-1 tabular-nums">
-          {numericValue !== null ? displayValue : value}
-          {suffix && <span className="text-lg text-muted ml-0.5">{suffix}</span>}
-        </p>
-        {sub && <p className="text-xs text-muted mt-1">{sub}</p>}
+      <div className="flex items-start justify-between gap-3">
+        <p className="pt-1 text-xs font-medium text-muted">{label}</p>
+        {Icon && (
+          <span className={cn('icon-tile h-8 w-8', accent && 'icon-tile-accent')}>
+            <Icon className="h-4 w-4" aria-hidden="true" />
+          </span>
+        )}
       </div>
+      <p
+        className="mt-2 truncate text-2xl font-semibold leading-tight tracking-tight tabular-nums text-fg sm:text-[28px]"
+        title={typeof value === 'string' ? value : undefined}
+      >
+        {numericValue !== null ? displayValue : value}
+        {suffix && <span className="ml-0.5 text-base font-medium text-muted">{suffix}</span>}
+      </p>
+      {sub && <p className="mt-1.5 truncate text-xs text-muted">{sub}</p>}
     </m.div>
   );
 }

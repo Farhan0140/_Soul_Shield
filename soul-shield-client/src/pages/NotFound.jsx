@@ -1,85 +1,36 @@
 import { Link } from 'react-router-dom';
 import { m } from 'framer-motion';
-import { Home, Search, Sparkles } from 'lucide-react';
-import Button from '../components/ui/Button';
+import { Home, CalendarDays } from 'lucide-react';
+import Logo from '../components/ui/Logo';
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-primary/10 via-bg to-primary/5 relative overflow-hidden">
-      {/* Animated blobs */}
-      <m.div
-        animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
-        transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
-        className="absolute -top-20 -left-20 w-96 h-96 bg-primary/20 rounded-full mix-blend-multiply filter blur-3xl opacity-40"
-      />
-      <m.div
-        animate={{ x: [0, -30, 0], y: [0, 20, 0] }}
-        transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
-        className="absolute -bottom-20 -right-20 w-96 h-96 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-40"
-      />
+    <div className="flex min-h-dvh flex-col px-4 py-6 sm:px-8">
+      <Link to="/" aria-label="SoulShield home" className="w-fit rounded-lg">
+        <Logo />
+      </Link>
 
-      <m.div
-        initial={{ opacity: 0, y: 20 }}
+      <m.main
+        initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="relative text-center max-w-md"
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center pb-16 text-center"
       >
-        {/* Big animated 404 */}
-        <m.div
-          initial={{ scale: 0.5, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.1 }}
-          className="relative inline-block mb-6"
-        >
-          <h1 className="text-[140px] md:text-[180px] font-black bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent leading-none">
-            404
-          </h1>
-          {/* Floating sparkles around the number */}
-          <m.div
-            animate={{ y: [0, -10, 0], rotate: [0, 15, 0] }}
-            transition={{ duration: 2, repeat: Infinity }}
-            className="absolute top-4 -right-4"
-          >
-            <Sparkles className="w-6 h-6 text-warning" fill="currentColor" />
-          </m.div>
-          <m.div
-            animate={{ y: [0, 10, 0], rotate: [0, -15, 0] }}
-            transition={{ duration: 2.5, repeat: Infinity, delay: 0.5 }}
-            className="absolute bottom-8 -left-4"
-          >
-            <Sparkles className="w-5 h-5 text-primary/60" fill="currentColor" />
-          </m.div>
-        </m.div>
-
-        {/* Lost compass icon */}
-        <m.div
-          animate={{ rotate: [0, 360] }}
-          transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-          className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 mb-6"
-        >
-          <Search className="w-10 h-10 text-primary" />
-        </m.div>
-
-        <h2 className="text-2xl font-bold text-fg mb-2">
-          Oops — you've wandered off the path
-        </h2>
-        <p className="text-muted mb-6">
-          The page you're looking for doesn't exist, or maybe it moved. Let's get you back on track.
+        <p className="text-sm font-semibold tabular-nums text-primary-ink">Error 404</p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">This page doesn't exist</h1>
+        <p className="mt-3 text-sm leading-relaxed text-muted">
+          The link may be broken, or the page may have moved. Let's get you back on track.
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-2 justify-center">
-          <Link to="/">
-            <Button className="w-full sm:w-auto">
-              <Home className="w-4 h-4" /> Back to home
-            </Button>
+        <div className="mt-8 flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <Link to="/" className="btn btn-primary btn-lg">
+            <Home className="h-4 w-4" /> Back to today
           </Link>
-          <Link to="/history">
-            <Button variant="secondary" className="w-full sm:w-auto">
-              View history
-            </Button>
+          <Link to="/history" className="btn btn-secondary btn-lg">
+            <CalendarDays className="h-4 w-4" /> View history
           </Link>
         </div>
-      </m.div>
+      </m.main>
     </div>
   );
 }

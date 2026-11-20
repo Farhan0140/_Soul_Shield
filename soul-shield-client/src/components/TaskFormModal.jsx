@@ -1,13 +1,44 @@
 import { useState, useEffect } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, ListChecks, Hash, Timer, Shield } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from './Toast';
 import Input from './ui/Input';
+import Textarea from './ui/Textarea';
+import Select from './ui/Select';
+import Checkbox from './ui/Checkbox';
+import SegmentedControl from './ui/SegmentedControl';
+import Modal, { ModalBody, ModalFooter } from './ui/Modal';
+import { FieldMessage } from './ui/Field';
 import Button from './ui/Button';
+import { cn } from '../utils/cn';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const RECURRENCE_OPTIONS = [
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'custom', label: 'Custom' },
+];
+
+const TYPE_OPTIONS = [
+  { value: 'normal', label: 'Normal', icon: ListChecks },
+  { value: 'counter', label: 'Counter', icon: Hash },
+  { value: 'timer', label: 'Timer', icon: Timer },
+];
+
+/** Labelled group for controls that aren't a single input (segmented
+ * pickers, day chips). */
+function FormGroup({ label, children }) {
+  return (
+    <div role="group" aria-label={label}>
+      <p className="mb-1.5 text-[13px] font-medium text-fg-2">{label}</p>
+      {children}
+    </div>
+  );
+}
 
 const emptySubTask = () => ({ title: '', description: '', task_type: 'normal', target_count: 10, duration_hours: 0, duration_minutes: 5 });
 
@@ -190,353 +221,293 @@ export default function TaskFormModal({ open, onClose, task, categories, onSaved
     }
   };
 
+  // A save in flight can't be abandoned halfway by closing the dialog.
+  const handleClose = () => {
+    if (!loading) onClose();
+  };
+
+  const handleTypeChange = (taskType) => {
+    if (taskType === 'normal') setForm({ ...form, task_type: 'normal' });
+    else handleNonNormalType(taskType);
+  };
+
   return (
-    <AnimatePresence>
-      {open && (
-        <m.div
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
-          onClick={onClose}
-        >
-          <m.div
-            initial={{ scale: 0.95, y: 20, opacity: 0 }}
-            animate={{ scale: 1, y: 0, opacity: 1 }}
-            exit={{ scale: 0.95, y: 20, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg bg-surface rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title={isEdit ? 'Edit task' : forceGlobal ? 'New fixed task' : 'New task'}
+      description={isEdit ? 'Update the details, schedule or tracking for this task.' : 'Set what to do, how often, and how to track it.'}
+      size="lg"
+    >
+      <form onSubmit={handleSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
+        <ModalBody className="space-y-5">
+          <Input
+            label="Title"
+            value={form.title}
+            error={errors.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            placeholder="e.g. Read 10 pages"
+            required
+          />
+
+          <Textarea
+            label="Description"
+            optional
+            rows={2}
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            placeholder="Add any extra detail"
+          />
+
+          <Select
+            label="Category"
+            value={form.category_id}
+            onChange={(e) => setForm({ ...form, category_id: e.target.value })}
           >
-            {/* Header */}
-            <div className="sticky top-0 bg-surface border-b border-border px-6 py-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-fg">
-                {isEdit ? 'Edit task' : 'New task'}
-              </h2>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Close"
-                className="p-1.5 rounded-lg hover:bg-bg transition-colors"
-              >
-                <X className="w-5 h-5 text-muted" />
-              </button>
-            </div>
+            <option value="">No category</option>
+            {categories.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </Select>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <Input
-                label="Title"
-                value={form.title}
-                error={errors.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-              />
+          <FormGroup label="Repeats">
+            <SegmentedControl
+              fullWidth
+              ariaLabel="Repeats"
+              options={RECURRENCE_OPTIONS}
+              value={form.recurrence_type}
+              onChange={(type) => setForm({ ...form, recurrence_type: type })}
+            />
+          </FormGroup>
 
-              <div className="relative">
-                <label htmlFor="task-description" className="text-xs font-semibold text-muted mb-1.5 block">
-                  Description
-                </label>
-                <textarea
-                  id="task-description"
-                  rows={2}
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  placeholder="Optional — add any extra detail"
-                  className="w-full px-3 py-3 rounded-xl border-2 border-border focus:border-primary outline-none text-sm resize-none transition-colors"
-                />
-              </div>
-
-              {/* Category */}
-              <div>
-                <label htmlFor="task-category" className="text-xs font-semibold text-muted mb-1.5 block">Category</label>
-                <select
-                  id="task-category"
-                  value={form.category_id}
-                  onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-                  className="w-full px-3 py-3 rounded-xl border-2 border-border focus:border-primary outline-none text-sm bg-surface"
-                >
-                  <option value="">No category</option>
-                  {categories.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Recurrence type */}
-              <div>
-                <span className="text-xs font-semibold text-muted mb-1.5 block">Recurrence</span>
-                <div className="grid grid-cols-3 gap-2">
-                  {['daily', 'weekly', 'custom'].map(type => (
+          {/* Day picker (weekly/custom only) */}
+          {form.recurrence_type !== 'daily' && (
+            <FormGroup label="On these days">
+              <div className="grid grid-cols-7 gap-1.5">
+                {DAYS.map((d, i) => {
+                  const active = form.recurrence_days.includes(i);
+                  return (
                     <button
-                      key={type}
+                      key={d}
                       type="button"
-                      onClick={() => setForm({ ...form, recurrence_type: type })}
-                      className={`py-2 rounded-xl text-sm font-medium border-2 transition-all capitalize
-                        ${form.recurrence_type === type
-                          ? 'border-primary bg-primary/10 text-primary'
-                          : 'border-border text-muted hover:border-border'}`}
+                      onClick={() => toggleDay(i)}
+                      aria-pressed={active}
+                      aria-label={DAY_NAMES[i]}
+                      className={cn(
+                        'h-9 rounded-lg border text-xs font-semibold transition-[background-color,border-color,color,transform] active:scale-95',
+                        active
+                          ? 'border-[color-mix(in_srgb,var(--on-primary)_15%,var(--primary))] bg-primary text-on-primary shadow-[inset_0_1px_0_var(--edge-top),inset_0_-2px_0_var(--edge-bottom)]'
+                          : 'border-border bg-surface text-muted hover:border-border-strong hover:text-fg'
+                      )}
                     >
-                      {type}
+                      {d}
                     </button>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
+            </FormGroup>
+          )}
 
-              {/* Day picker (weekly/custom only) */}
-              {form.recurrence_type !== 'daily' && (
-                <div>
-                  <span className="text-xs font-semibold text-muted mb-1.5 block">Days</span>
-                  <div className="grid grid-cols-7 gap-1.5">
-                    {DAYS.map((d, i) => {
-                      const active = form.recurrence_days.includes(i);
-                      return (
-                        <button
-                          key={d}
-                          type="button"
-                          onClick={() => toggleDay(i)}
-                          className={`py-2 rounded-lg text-xs font-semibold transition-all
-                            ${active ? 'bg-primary text-white' : 'bg-bg text-muted hover:bg-border'}`}
-                        >
-                          {d}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+          <FormGroup label="Task type">
+            <SegmentedControl
+              fullWidth
+              ariaLabel="Task type"
+              options={TYPE_OPTIONS}
+              value={form.task_type}
+              onChange={handleTypeChange}
+            />
+          </FormGroup>
 
-              {/* Task type toggle */}
-              <div>
-                <span className="text-xs font-semibold text-muted mb-1.5 block">Task type</span>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, task_type: 'normal' })}
-                    className={`py-2.5 rounded-xl text-sm font-medium border-2 transition-all
-                      ${form.task_type === 'normal' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted'}`}
-                  >
-                    ✓ Normal
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleNonNormalType('counter')}
-                    className={`py-2.5 rounded-xl text-sm font-medium border-2 transition-all
-                      ${form.task_type === 'counter' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-border text-muted'}`}
-                  >
-                    🔢 Counter
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleNonNormalType('timer')}
-                    className={`py-2.5 rounded-xl text-sm font-medium border-2 transition-all
-                      ${form.task_type === 'timer' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-border text-muted'}`}
-                  >
-                    ⏱ Timer
-                  </button>
-                </div>
-              </div>
+          {/* Target count (counter only) */}
+          {form.task_type === 'counter' && (
+            <Input
+              label="Target count"
+              type="number"
+              inputMode="numeric"
+              min="1"
+              value={form.target_count}
+              error={errors.target_count}
+              onChange={(e) => setForm({ ...form, target_count: e.target.value })}
+            />
+          )}
 
-              {/* Target count (counter only) */}
-              {form.task_type === 'counter' && (
+          {/* Duration (timer only) */}
+          {form.task_type === 'timer' && (
+            <div>
+              <div className="grid grid-cols-2 gap-3">
                 <Input
-                  label="Target count"
+                  label="Hours"
                   type="number"
-                  value={form.target_count}
-                  error={errors.target_count}
-                  onChange={(e) => setForm({ ...form, target_count: e.target.value })}
+                  inputMode="numeric"
+                  min="0"
+                  max="23"
+                  value={form.duration_hours}
+                  onChange={(e) => setForm({ ...form, duration_hours: e.target.value })}
                 />
-              )}
-
-              {/* Duration (timer only) */}
-              {form.task_type === 'timer' && (
-                <div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      label="Hours"
-                      type="number"
-                      min="0"
-                      max="23"
-                      value={form.duration_hours}
-                      onChange={(e) => setForm({ ...form, duration_hours: e.target.value })}
-                    />
-                    <Input
-                      label="Minutes"
-                      type="number"
-                      min="0"
-                      max="59"
-                      value={form.duration_minutes}
-                      onChange={(e) => setForm({ ...form, duration_minutes: e.target.value })}
-                    />
-                  </div>
-                  {errors.duration && <p className="mt-1.5 text-xs text-danger">{errors.duration}</p>}
-                </div>
-              )}
-
-              {/* Sub-tasks — Normal task type only, see handleNonNormalType's doc comment */}
-              {form.task_type === 'normal' && (
-              <div>
-                <label className="flex items-center gap-3 p-3 rounded-xl border border-border bg-bg cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={subTasksEnabled}
-                    onChange={(e) => {
-                      const enabled = e.target.checked;
-                      setSubTasksEnabled(enabled);
-                      if (enabled && subTasks.length === 0) setSubTasks([emptySubTask()]);
-                    }}
-                    className="w-4 h-4 rounded border-border text-primary focus:ring-primary/30"
-                  />
-                  <div>
-                    <p className="text-sm font-semibold text-fg">Do you want to add sub-tasks?</p>
-                    <p className="text-xs text-muted">
-                      Break this task into smaller Normal, Counter, or Timer sub-tasks.
-                    </p>
-                  </div>
-                </label>
-
-                {subTasksEnabled && (
-                  <div className="mt-3 space-y-3">
-                    {subTasks.map((s, i) => (
-                      <div key={i} className="p-3 rounded-xl border border-border space-y-2">
-                        <div className="flex items-end gap-2">
-                          <div className="flex-1">
-                            <Input
-                              label={`Sub-task ${i + 1}`}
-                              value={s.title}
-                              onChange={(e) => updateSubTask(i, { title: e.target.value })}
-                              placeholder="e.g. Read 1 page"
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeSubTask(i)}
-                            aria-label="Remove sub-task"
-                            className="p-2 rounded-lg text-muted hover:text-danger hover:bg-danger/10 transition-colors"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <textarea
-                          aria-label={`Sub-task ${i + 1} description`}
-                          rows={2}
-                          value={s.description}
-                          onChange={(e) => updateSubTask(i, { description: e.target.value })}
-                          placeholder="Optional details"
-                          className="w-full px-3 py-2 rounded-xl border border-border focus:border-primary outline-none text-xs resize-none transition-colors"
-                        />
-                        <div className="grid grid-cols-3 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => updateSubTask(i, { task_type: 'normal' })}
-                            className={`py-2 rounded-lg text-xs font-medium border-2 transition-all
-                              ${s.task_type === 'normal' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted'}`}
-                          >
-                            Normal
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateSubTask(i, { task_type: 'counter' })}
-                            className={`py-2 rounded-lg text-xs font-medium border-2 transition-all
-                              ${s.task_type === 'counter' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-border text-muted'}`}
-                          >
-                            Counter
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateSubTask(i, { task_type: 'timer' })}
-                            className={`py-2 rounded-lg text-xs font-medium border-2 transition-all
-                              ${s.task_type === 'timer' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-border text-muted'}`}
-                          >
-                            Timer
-                          </button>
-                        </div>
-                        {s.task_type === 'counter' && (
-                          <Input
-                            label="Target count"
-                            type="number"
-                            value={s.target_count}
-                            onChange={(e) => updateSubTask(i, { target_count: e.target.value })}
-                          />
-                        )}
-                        {s.task_type === 'timer' && (
-                          <div className="grid grid-cols-2 gap-2">
-                            <Input
-                              label="Hours"
-                              type="number"
-                              min="0"
-                              max="23"
-                              value={s.duration_hours}
-                              onChange={(e) => updateSubTask(i, { duration_hours: e.target.value })}
-                            />
-                            <Input
-                              label="Minutes"
-                              type="number"
-                              min="0"
-                              max="59"
-                              value={s.duration_minutes}
-                              onChange={(e) => updateSubTask(i, { duration_minutes: e.target.value })}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    {errors.sub_tasks && (
-                      <p className="text-xs text-danger">{errors.sub_tasks}</p>
-                    )}
-                    <button
-                      type="button"
-                      onClick={addSubTask}
-                      className="w-full py-2 rounded-xl text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors flex items-center justify-center gap-1"
-                    >
-                      <Plus className="w-4 h-4" /> Add More Sub-Tasks
-                    </button>
-                  </div>
-                )}
+                <Input
+                  label="Minutes"
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  max="59"
+                  value={form.duration_minutes}
+                  onChange={(e) => setForm({ ...form, duration_minutes: e.target.value })}
+                />
               </div>
-              )}
+              <FieldMessage error={errors.duration} />
+            </div>
+          )}
 
-              <Input
-                label="Reward message (shown on completion)"
-                value={form.reward_text}
-                onChange={(e) => setForm({ ...form, reward_text: e.target.value })}
+          {/* Sub-tasks — Normal task type only, see handleNonNormalType's doc comment */}
+          {form.task_type === 'normal' && (
+            <div className="space-y-3">
+              <Checkbox
+                card
+                checked={subTasksEnabled}
+                onChange={(e) => {
+                  const enabled = e.target.checked;
+                  setSubTasksEnabled(enabled);
+                  if (enabled && subTasks.length === 0) setSubTasks([emptySubTask()]);
+                }}
+                label="Split into sub-tasks"
+                description="Break this task into smaller Normal, Counter, or Timer steps."
               />
 
-              {/* Admin: global toggle */}
-              {isAdmin && (
-                <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer
-                  ${forceGlobal
-                    ? 'bg-warning/20 border-warning/40'
-                    : 'bg-warning/10 border-warning/30'}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={form.is_global}
-                    onChange={(e) => setForm({ ...form, is_global: e.target.checked })}
-                    disabled={forceGlobal}
-                    className="w-4 h-4 rounded border-warning/40 text-warning focus:ring-warning/30"
-                  />
-                  <div>
-                    <p className="text-sm font-semibold text-warning">
-                      {forceGlobal ? 'Fixed Task (required)' : 'Make this a Fixed Task'}
-                    </p>
-                    <p className="text-xs text-warning">
-                      {forceGlobal
-                        ? 'Admin panel tasks are always visible to every user.'
-                        : 'Visible to every user — admin-managed'}
-                    </p>
-                  </div>
-                </label>
-              )}
+              <AnimatePresence initial={false}>
+                {subTasksEnabled && (
+                  <m.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <div className="space-y-3">
+                      {subTasks.map((s, i) => (
+                        <div key={i} className="space-y-3 rounded-xl border border-border bg-surface-2 p-3.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold tabular-nums text-muted">Sub-task {i + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeSubTask(i)}
+                              aria-label={`Remove sub-task ${i + 1}`}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-danger/10 hover:text-danger"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <Input
+                            label="Title"
+                            size="md"
+                            value={s.title}
+                            onChange={(e) => updateSubTask(i, { title: e.target.value })}
+                            placeholder="e.g. Read 1 page"
+                          />
+                          <Textarea
+                            label="Description"
+                            optional
+                            rows={2}
+                            value={s.description}
+                            onChange={(e) => updateSubTask(i, { description: e.target.value })}
+                            placeholder="Optional details"
+                          />
+                          <SegmentedControl
+                            fullWidth
+                            size="sm"
+                            ariaLabel={`Sub-task ${i + 1} type`}
+                            options={TYPE_OPTIONS}
+                            value={s.task_type}
+                            onChange={(type) => updateSubTask(i, { task_type: type })}
+                          />
+                          {s.task_type === 'counter' && (
+                            <Input
+                              label="Target count"
+                              size="md"
+                              type="number"
+                              inputMode="numeric"
+                              min="1"
+                              value={s.target_count}
+                              onChange={(e) => updateSubTask(i, { target_count: e.target.value })}
+                            />
+                          )}
+                          {s.task_type === 'timer' && (
+                            <div className="grid grid-cols-2 gap-3">
+                              <Input
+                                label="Hours"
+                                size="md"
+                                type="number"
+                                inputMode="numeric"
+                                min="0"
+                                max="23"
+                                value={s.duration_hours}
+                                onChange={(e) => updateSubTask(i, { duration_hours: e.target.value })}
+                              />
+                              <Input
+                                label="Minutes"
+                                size="md"
+                                type="number"
+                                inputMode="numeric"
+                                min="0"
+                                max="59"
+                                value={s.duration_minutes}
+                                onChange={(e) => updateSubTask(i, { duration_minutes: e.target.value })}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      <FieldMessage error={errors.sub_tasks} />
+                      <Button variant="secondary" fullWidth onClick={addSubTask}>
+                        <Plus className="h-4 w-4" /> Add another sub-task
+                      </Button>
+                    </div>
+                  </m.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
 
-              <div className="flex gap-2 pt-2">
-                <Button type="button" variant="secondary" onClick={onClose} className="flex-1">
-                  Cancel
-                </Button>
-                <Button type="submit" loading={loading} className="flex-1">
-                  {isEdit ? 'Save changes' : 'Create task'}
-                </Button>
-              </div>
-            </form>
-          </m.div>
-        </m.div>
-      )}
-    </AnimatePresence>
+          <Input
+            label="Reward message"
+            optional
+            hint="Shown when the task is completed."
+            value={form.reward_text}
+            onChange={(e) => setForm({ ...form, reward_text: e.target.value })}
+            placeholder="e.g. Well done — keep it up!"
+          />
+
+          {/* Admin: global toggle */}
+          {isAdmin && (
+            <Checkbox
+              card
+              tone="warning"
+              checked={form.is_global}
+              onChange={(e) => setForm({ ...form, is_global: e.target.checked })}
+              disabled={forceGlobal}
+              label={
+                <span className="inline-flex items-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5 text-warning" aria-hidden="true" />
+                  {forceGlobal ? 'Fixed task (required)' : 'Make this a fixed task'}
+                </span>
+              }
+              description={
+                forceGlobal
+                  ? 'Admin panel tasks are always visible to every user.'
+                  : 'Visible to every user — admin-managed.'
+              }
+            />
+          )}
+        </ModalBody>
+
+        <ModalFooter>
+          <Button variant="secondary" onClick={handleClose} disabled={loading}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={loading}>
+            {isEdit ? 'Save changes' : 'Create task'}
+          </Button>
+        </ModalFooter>
+      </form>
+    </Modal>
   );
 }

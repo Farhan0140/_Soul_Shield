@@ -1,40 +1,20 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { m, AnimatePresence } from 'framer-motion';
-import { Mail, ArrowRight, ArrowLeft, CheckCircle2, KeyRound, ShieldCheck } from 'lucide-react';
+import { Mail, ArrowRight, ArrowLeft, KeyRound, ShieldCheck } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { useToast } from '../components/Toast';
-import AuthLayout from './AuthLayout';
+import AuthLayout, { StepIndicator } from './AuthLayout';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
-import { validateNewPassword } from '../utils/validation';
+import Alert from '../components/ui/Alert';
+import { validateNewPassword, PASSWORD_MIN } from '../utils/validation';
 
 const STEPS = [
   { key: 'email',  title: 'Reset your password',  subtitle: "Enter your email to continue." },
   { key: 'verify', title: 'Verify Your Identity',  subtitle: "Please enter the security answer you created when you registered your account." },
   { key: 'new',    title: 'Pick a new password',   subtitle: "Choose something strong — and different from the last one." },
 ];
-
-function StepIndicator({ step }) {
-  return (
-    <div className="flex items-center justify-center gap-2 mb-6">
-      {STEPS.map((s, i) => (
-        <div key={s.key} className="flex items-center gap-2">
-          <m.div
-            animate={{ scale: i === step ? 1.1 : 1 }}
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-colors
-              ${i < step ? 'bg-success text-white' : i === step ? 'bg-primary text-white' : 'bg-bg text-muted'}`}
-          >
-            {i < step ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
-          </m.div>
-          {i < STEPS.length - 1 && (
-            <div className={`w-8 h-0.5 ${i < step ? 'bg-success/70' : 'bg-border'}`} />
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -151,55 +131,54 @@ export default function ForgotPassword() {
   //   }
   // };
 
+  const stepMotion = {
+    initial: { opacity: 0, x: 12 },
+    animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: -12 },
+    transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] },
+  };
+
   return (
     <AuthLayout title={STEPS[step].title} subtitle={STEPS[step].subtitle}>
-      <StepIndicator step={step} />
+      <StepIndicator steps={STEPS} step={step} />
 
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" initial={false}>
         {step === 0 && (
-          <m.form
-            key="email"
-            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-            onSubmit={handleSendOtp} className="space-y-4"
-          >
+          <m.form key="email" {...stepMotion} onSubmit={handleSendOtp} noValidate className="space-y-5">
             <Input
               label="Email address" type="email" icon={Mail}
               value={email} error={errors.email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              placeholder="you@example.com"
             />
-            <Button type="submit" loading={loading} className="w-full">
-              Continue <ArrowRight className="w-4 h-4" />
+            <Button type="submit" size="lg" loading={loading} fullWidth>
+              Continue <ArrowRight className="h-4 w-4" />
             </Button>
           </m.form>
         )}
 
         {/* ===== STEP 2: Verify security answer ===== */}
         {step === 1 && (
-          <m.form
-            key="verify"
-            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-            onSubmit={handleVerifyAnswer} className="space-y-4"
-          >
-            <div className="p-3 rounded-xl bg-primary/10 border border-primary/20 flex items-start gap-3">
-              <ShieldCheck className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-primary">
-                For security purposes, please enter the personal security answer you created when you registered
-                your account.
-              </p>
-            </div>
+          <m.form key="verify" {...stepMotion} onSubmit={handleVerifyAnswer} noValidate className="space-y-5">
+            <Alert tone="neutral" icon={ShieldCheck}>
+              For security purposes, please enter the personal security answer you created when you registered
+              your account.
+            </Alert>
             <Input
-              label="Security Verification Answer" icon={KeyRound}
+              label="Security verification answer" icon={KeyRound}
               value={security_answer} error={errors.security_answer}
               onChange={(e) => setSecurityAnswer(e.target.value)}
               placeholder="Enter your security answer"
               autoComplete="off"
+              autoFocus
             />
-            <div className="flex gap-2">
-              <Button type="button" variant="secondary" onClick={() => setStep(0)} className="flex-1">
-                <ArrowLeft className="w-4 h-4" /> Back
+            <div className="flex gap-2 pt-1">
+              <Button type="button" variant="secondary" size="lg" onClick={() => setStep(0)} disabled={loading}>
+                <ArrowLeft className="h-4 w-4" /> Back
               </Button>
-              <Button type="submit" loading={loading} className="flex-1">
-                Verify <ArrowRight className="w-4 h-4" />
+              <Button type="submit" size="lg" loading={loading} className="flex-1">
+                Verify <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
           </m.form>
@@ -207,32 +186,30 @@ export default function ForgotPassword() {
 
         {/* ===== STEP 3: New password ===== */}
         {step === 2 && (
-          <m.form
-            key="new"
-            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-            onSubmit={handleReset} className="space-y-4"
-          >
+          <m.form key="new" {...stepMotion} onSubmit={handleReset} noValidate className="space-y-5">
             <Input
               label="New password" type="password" icon={KeyRound}
               value={password} error={errors.password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
+              hint={`At least ${PASSWORD_MIN} characters.`}
+              autoFocus
             />
-            <div className="flex gap-2">
-              <Button type="button" variant="secondary" onClick={() => setStep(1)} className="flex-1">
-                <ArrowLeft className="w-4 h-4" /> Back
+            <div className="flex gap-2 pt-1">
+              <Button type="button" variant="secondary" size="lg" onClick={() => setStep(1)} disabled={loading}>
+                <ArrowLeft className="h-4 w-4" /> Back
               </Button>
-              <Button type="submit" loading={loading} className="flex-1">
-                Reset password <ArrowRight className="w-4 h-4" />
+              <Button type="submit" size="lg" loading={loading} className="flex-1">
+                Reset password <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
           </m.form>
         )}
       </AnimatePresence>
 
-      <p className="text-center text-sm text-muted mt-6">
+      <p className="mt-8 text-center text-sm text-muted">
         Remembered it?{' '}
-        <Link to="/login" className="text-primary hover:text-primary/80 font-semibold">
+        <Link to="/login" className="font-semibold text-fg underline decoration-primary decoration-2 underline-offset-4 hover:decoration-primary-ink">
           Back to sign in
         </Link>
       </p>

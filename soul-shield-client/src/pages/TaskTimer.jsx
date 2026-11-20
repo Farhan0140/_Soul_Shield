@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { m } from 'framer-motion';
-import { ArrowLeft, Check, Pause, Play } from 'lucide-react';
+import { ArrowLeft, Check, Pause, Play, SearchX, TimerOff } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { fmtDate } from '../hooks/useTasks';
 import { useTimerTask } from '../hooks/useTimerTask';
 import ExpandableText from '../components/ExpandableText';
 import TimerRing from '../components/TimerRing';
 import RewardModal from '../components/RewardModal';
-import SkeletonCard from '../components/SkeletonCard';
+import Button from '../components/ui/Button';
+import Badge from '../components/ui/Badge';
+import { EmptyState, ErrorState } from '../components/ui/States';
+import { Skeleton, SkeletonGroup } from '../components/ui/Skeleton';
+import { cn } from '../utils/cn';
 
 function formatRemaining(ms) {
   const totalSeconds = Math.max(0, Math.round(ms / 1000));
@@ -89,32 +93,26 @@ export default function TaskTimer() {
   const runId = `${numericTaskId}-${subTaskId ?? 'main'}-${date}`;
 
   return (
-    <div className="max-w-md mx-auto space-y-6">
+    <div className="mx-auto max-w-lg space-y-6">
       <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-sm font-medium text-muted hover:text-fg transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back
-        </button>
-        <span className="text-xs font-semibold uppercase tracking-wide text-muted">Timer</span>
+        <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="-ml-2">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </Button>
+        <Badge tone="neutral">Focus timer</Badge>
       </div>
 
       {loading ? (
-        <SkeletonCard />
+        <SkeletonGroup label="Loading timer…" className="card flex flex-col items-center gap-6 px-6 py-10">
+          <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-[220px] w-[220px] rounded-full" />
+          <Skeleton className="h-14 w-14 rounded-2xl" />
+        </SkeletonGroup>
       ) : error ? (
-        <div className="p-6 rounded-2xl bg-danger/10 border border-danger/30 text-center text-sm text-danger">
-          {error}
-        </div>
+        <ErrorState title="Couldn't load this timer" message={error} />
       ) : notFound ? (
-        <div className="p-6 rounded-2xl bg-surface border border-border text-center text-sm text-muted">
-          This task could not be found.
-        </div>
+        <EmptyState icon={SearchX} title="Task not found" description="This task could not be found." />
       ) : invalidType ? (
-        <div className="p-6 rounded-2xl bg-surface border border-border text-center text-sm text-muted">
-          This task doesn&apos;t have a dedicated timer page.
-        </div>
+        <EmptyState icon={TimerOff} title="No timer for this task" description="This task doesn't have a dedicated timer page." />
       ) : (
         <TaskTimerContent
           key={runId}
@@ -164,82 +162,81 @@ function TaskTimerContent({
     else timer.resume();
   };
 
+  const stateLabel = disabled ? 'Timer complete' : isIdle ? 'Ready' : isRunning ? 'Running' : 'Paused';
+
   return (
-    <div className="flex flex-col items-center gap-6 py-4">
+    <section className="card flex flex-col items-center gap-7 px-5 py-8 sm:px-8 sm:py-10">
       {/* Details-page hierarchy (mirrors the mobile dedicated pages): parent
           task's title on top, current task's title in the SAME size/weight,
           description in a smaller font directly below the current title.
           Long entries collapse to a few lines and expand on tap (sub-task
           descriptions come from the sub-task itself since the description
           feature). */}
-      <div className="text-center px-4">
+      <div className="w-full text-center">
         {parentTitle && (
           <ExpandableText
             as="h2"
             text={parentTitle}
             maxLines={2}
-            className="text-lg font-bold text-fg leading-snug"
+            className="text-lg font-semibold leading-snug text-fg"
           />
         )}
         <ExpandableText
           as="h2"
           text={title}
           maxLines={2}
-          className="text-lg font-bold text-fg leading-snug"
+          className="text-lg font-semibold leading-snug text-fg"
         />
         {description && (
           <ExpandableText
             text={description}
             maxLines={3}
-            className="text-sm text-muted mt-1"
+            className="mt-1 text-sm text-muted"
           />
         )}
       </div>
 
-      <TimerRing progress={timer.progress} size={240} strokeWidth={16}>
-        <span className="text-3xl font-bold text-fg tabular-nums">{formatRemaining(timer.remainingMs)}</span>
-        <span className="text-xs text-muted mt-1">remaining</span>
+      <TimerRing progress={timer.progress} size={232} strokeWidth={12}>
+        <span className="text-[40px] font-semibold leading-none tracking-tight tabular-nums text-fg" aria-live="off">
+          {formatRemaining(timer.remainingMs)}
+        </span>
+        <span className="mt-2 text-xs font-medium uppercase tracking-[0.08em] text-muted">{stateLabel}</span>
       </TimerRing>
 
-      {isCompleted && (
-        <span className="px-3 py-1 rounded-full bg-success/10 text-success text-xs font-semibold uppercase">
-          Completed
-        </span>
-      )}
-      {isMissed && (
-        <span className="px-3 py-1 rounded-full bg-danger/10 text-danger text-xs font-semibold uppercase">
-          Missed
-        </span>
-      )}
+      {isCompleted && <Badge tone="success" dot>Completed</Badge>}
+      {isMissed && <Badge tone="danger" dot>Missed</Badge>}
 
-      <m.button
-        whileTap={{ scale: disabled ? 1 : 0.92 }}
-        onClick={handlePress}
-        disabled={disabled}
-        aria-label={isIdle ? 'Start timer' : isRunning ? 'Pause timer' : 'Resume timer'}
-        className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200 disabled:opacity-40 disabled:cursor-not-allowed transition-shadow"
-      >
-        {isRunning ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-0.5" />}
-      </m.button>
-      <span className="text-xs text-muted">
-        {disabled ? 'Timer complete' : isIdle ? 'Start timer' : isRunning ? 'Pause timer' : 'Resume timer'}
-      </span>
-
-      {!isTimerCompleted && (
+      <div className="flex flex-col items-center gap-2">
         <m.button
           type="button"
-          whileTap={{ scale: isMissed ? 1 : 0.95 }}
+          whileTap={{ scale: disabled ? 1 : 0.94 }}
+          onClick={handlePress}
+          disabled={disabled}
+          aria-label={isIdle ? 'Start timer' : isRunning ? 'Pause timer' : 'Resume timer'}
+          className={cn('btn h-16 w-16 rounded-2xl', isRunning ? 'btn-secondary' : 'btn-primary')}
+        >
+          {isRunning ? <Pause className="h-6 w-6" /> : <Play className="ml-0.5 h-6 w-6" />}
+        </m.button>
+        <span className="text-xs font-medium text-muted">
+          {disabled ? 'Timer complete' : isIdle ? 'Start timer' : isRunning ? 'Pause timer' : 'Resume timer'}
+        </span>
+      </div>
+
+      {!isTimerCompleted && (
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => {
             if (isMissed) return;
             timer.complete();
           }}
           disabled={isMissed}
           aria-label="Complete task now"
-          className="flex items-center gap-1.5 px-4 py-2 rounded-full border border-success text-success text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+          className="text-success hover:!bg-success/10 hover:!text-success"
         >
-          <Check className="w-4 h-4" /> Complete
-        </m.button>
+          <Check className="h-4 w-4" /> Mark as complete now
+        </Button>
       )}
-    </div>
+    </section>
   );
 }

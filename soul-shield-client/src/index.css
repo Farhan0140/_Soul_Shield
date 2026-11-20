@@ -1,8 +1,17 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   SoulShield design system
+   --------------------------------------------------------------------------
+   One accent (lemon green) on a neutral, slightly warm canvas. Depth comes
+   from layered shadows and an inner bottom edge on controls ("subtle 3D"),
+   never from gradients. Every color is a token below; components only use
+   the semantic Tailwind names from @theme (bg-surface, text-muted, ...).
+   ========================================================================== */
+
 /* KFGQPC Uthman Taha Naskh — restricted to the Arabic-script unicode ranges so the
    browser only picks it for Arabic glyphs; Latin/numeric text keeps falling through
-   to Inter/Manrope. This gives automatic per-character Arabic detection with no JS. */
+   to Inter. This gives automatic per-character Arabic detection with no JS. */
 @font-face {
   font-family: 'Uthman Taha Naskh';
   src: url('/fonts/UthmanTN1-Regular.woff2') format('woff2');
@@ -23,156 +32,563 @@
     U+10E60-10E7F, U+1EC70-1ECBF, U+1ED00-1ED4F, U+1EE00-1EEFF;
 }
 
+@custom-variant dark (&:where([data-scheme='dark'], [data-scheme='dark'] *));
+
 @theme {
+  /* Surfaces */
   --color-bg: var(--bg);
   --color-surface: var(--surface);
-  --color-primary: var(--primary);
+  --color-surface-2: var(--surface-2);
+  --color-sunken: var(--sunken);
   --color-border: var(--border-c);
+  --color-border-strong: var(--border-strong);
+
+  /* Text */
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+
+  /* Accent: `primary` is the lemon fill, `primary-ink` is the accent for
+     text/icons on neutral surfaces (lemon itself is too light on white),
+     `on-primary` is text placed on a lemon fill. */
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-ink: var(--primary-ink);
+  --color-primary-soft: var(--primary-soft);
+  --color-on-primary: var(--on-primary);
+
+  /* Status */
   --color-success: var(--success);
   --color-danger: var(--danger);
   --color-warning: var(--warning);
-  --color-fg: var(--fg);
-  --color-muted: var(--muted);
+  --color-info: var(--info);
 
-  --font-sans: 'Uthman Taha Naskh', 'Inter', sans-serif;
-  --font-heading: 'Uthman Taha Naskh', 'Manrope', sans-serif;
+  /* Activity heatmap scale (none -> most) */
+  --color-heat-1: var(--heat-1);
+  --color-heat-2: var(--heat-2);
+  --color-heat-3: var(--heat-3);
+  --color-heat-4: var(--heat-4);
+
+  --font-sans: 'Uthman Taha Naskh', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-heading: 'Uthman Taha Naskh', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, monospace;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-skeleton: skeleton-pulse 1.6s ease-in-out infinite;
+  --animate-spin-slow: spin 0.8s linear infinite;
 }
 
-h1, h2, h3, h4 {
-  font-family: var(--font-heading);
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
-/* Eye-comfort theme palettes. Ratio guide per theme: 60% background, 25%
-   card/surface, 8% primary CTA, 4% border/divider, 3% status accent. */
+/* ---------- Tokens: Lemon Light (default) ---------- */
 :root,
-[data-theme='soft-paper-light'] {
-  --bg: #F6F7F9;
-  --surface: #FCFDFF;
-  --primary: #5A6BD8;
-  --border-c: #E5E9F0;
-  --success: #37946B;
-  --danger: #C86A6A;
-  --warning: #C08A2E;
-  --fg: #253248;
-  --muted: #6A7A90;
+[data-theme='lemon-light'] {
+  --bg: #F4F4F0;
+  --surface: #FFFFFF;
+  --surface-2: #FAFAF7;
+  --sunken: #EEEEE9;
+  --border-c: #E3E3DC;
+  --border-strong: #CDCDC4;
+
+  --fg: #16171A;
+  --fg-2: #3A3C41;
+  --muted: #64676D;
+  --subtle: #9B9DA2;
+
+  --primary: #CDEB4B;
+  --primary-hover: #C2E13C;
+  --primary-press: #B4D32F;
+  --primary-ink: #4B6000;
+  --primary-soft: #F2F8D8;
+  --on-primary: #151A04;
+
+  --success: #1E8550;
+  --danger: #C7362C;
+  --warning: #A86400;
+  --info: #2560A6;
+
+  --focus: #4B6000;
+  --overlay: rgba(14, 15, 16, 0.42);
+
+  --heat-1: #E9F4B9;
+  --heat-2: #CDEB4B;
+  --heat-3: #98B523;
+  --heat-4: #5A7300;
+
+  /* Elevation: a hairline + a soft ambient layer. */
+  --elev-1: 0 1px 2px rgba(17, 18, 20, 0.05), 0 1px 1px rgba(17, 18, 20, 0.03);
+  --elev-2: 0 1px 2px rgba(17, 18, 20, 0.05), 0 6px 16px -4px rgba(17, 18, 20, 0.09);
+  --elev-3: 0 2px 4px rgba(17, 18, 20, 0.04), 0 16px 40px -10px rgba(17, 18, 20, 0.18);
+  --elev-4: 0 4px 8px rgba(17, 18, 20, 0.05), 0 28px 72px -16px rgba(17, 18, 20, 0.30);
+  /* Controls: lit top edge, shaded bottom edge — the "pressable" depth. */
+  --edge-top: rgba(255, 255, 255, 0.55);
+  --edge-bottom: rgba(17, 18, 20, 0.12);
+  --surface-highlight: transparent;
+
   color-scheme: light;
 }
 
-[data-theme='sage-calm-light'] {
-  --bg: #F2F6F2;
-  --surface: #FBFDFB;
-  --primary: #4A7A61;
-  --border-c: #DFE9E2;
-  --success: #2F8A5C;
-  --danger: #C56D6D;
-  --warning: #B8860B;
-  --fg: #24352C;
-  --muted: #69806F;
-  color-scheme: light;
-}
+/* ---------- Tokens: Lemon Dark ---------- */
+[data-theme='lemon-dark'] {
+  --bg: #0E0F10;
+  --surface: #161719;
+  --surface-2: #1B1C1F;
+  --sunken: #111214;
+  --border-c: #26282C;
+  --border-strong: #35373C;
 
-[data-theme='ocean-mist-light'] {
-  --bg: #F1F6F8;
-  --surface: #FAFDFE;
-  --primary: #32708F;
-  --border-c: #DCEAF1;
-  --success: #2F9368;
-  --danger: #C97070;
-  --warning: #C9A227;
-  --fg: #1F3A48;
-  --muted: #5F7A87;
-  color-scheme: light;
-}
+  --fg: #ECEDE8;
+  --fg-2: #C8CAC4;
+  --muted: #989BA0;
+  --subtle: #676A70;
 
-[data-theme='warm-oat-light'] {
-  --bg: #F8F5F0;
-  --surface: #FFFEFB;
-  --primary: #A86E4C;
-  --border-c: #EAE2D7;
-  --success: #5F8D66;
-  --danger: #C36B5E;
-  --warning: #C08A2E;
-  --fg: #372F28;
-  --muted: #7D7266;
-  color-scheme: light;
-}
+  --primary: #D2F05A;
+  --primary-hover: #DCF578;
+  --primary-press: #C3E148;
+  --primary-ink: #D2F05A;
+  --primary-soft: rgba(210, 240, 90, 0.11);
+  --on-primary: #141904;
 
-[data-theme='lavender-haze-light'] {
-  --bg: #F6F4FA;
-  --surface: #FDFCFF;
-  --primary: #6C69B8;
-  --border-c: #E6E2F2;
-  --success: #4C9B75;
-  --danger: #C67070;
-  --warning: #C9A227;
-  --fg: #2F2C44;
-  --muted: #75718F;
-  color-scheme: light;
-}
+  --success: #4CC184;
+  --danger: #F06D61;
+  --warning: #EBAB3F;
+  --info: #6CA7EE;
 
-[data-theme='slate-night-dark'] {
-  --bg: #12161C;
-  --surface: #1B222B;
-  --primary: #7AA0F0;
-  --border-c: #2A3441;
-  --success: #63B48D;
-  --danger: #E08A8A;
-  --warning: #E3B873;
-  --fg: #E7ECF4;
-  --muted: #9AA8BA;
+  --focus: #D2F05A;
+  --overlay: rgba(0, 0, 0, 0.62);
+
+  --heat-1: rgba(210, 240, 90, 0.18);
+  --heat-2: rgba(210, 240, 90, 0.40);
+  --heat-3: rgba(210, 240, 90, 0.70);
+  --heat-4: #D2F05A;
+
+  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --elev-2: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 20px -6px rgba(0, 0, 0, 0.5);
+  --elev-3: 0 2px 4px rgba(0, 0, 0, 0.4), 0 18px 44px -10px rgba(0, 0, 0, 0.65);
+  --elev-4: 0 4px 10px rgba(0, 0, 0, 0.45), 0 30px 80px -16px rgba(0, 0, 0, 0.8);
+  --edge-top: rgba(255, 255, 255, 0.10);
+  --edge-bottom: rgba(0, 0, 0, 0.35);
+  --surface-highlight: rgba(255, 255, 255, 0.035);
+
   color-scheme: dark;
 }
 
-[data-theme='deep-forest-dark'] {
-  --bg: #101714;
-  --surface: #18231D;
-  --primary: #5FAF87;
-  --border-c: #243129;
-  --success: #66BB93;
-  --danger: #DB8C84;
-  --warning: #D9C077;
-  --fg: #E4EFE8;
-  --muted: #93A99C;
-  color-scheme: dark;
+/* ==========================================================================
+   Base
+   ========================================================================== */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    min-height: 100dvh;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-heading);
+    letter-spacing: -0.015em;
+    color: var(--fg);
+  }
+
+  ::selection {
+    background: var(--primary);
+    color: var(--on-primary);
+  }
+
+  /* One visible, consistent focus indicator for every interactive element. */
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+
+  /* Native date pickers and number spinners follow the theme. */
+  input[type='date']::-webkit-calendar-picker-indicator {
+    opacity: 0.6;
+    cursor: pointer;
+  }
+  [data-scheme='dark'] input[type='date']::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
 }
 
-[data-theme='midnight-ocean-dark'] {
-  --bg: #0F1722;
-  --surface: #17222F;
-  --primary: #5FA9CB;
-  --border-c: #243344;
-  --success: #5FB592;
-  --danger: #DC8B87;
-  --warning: #E0BE7A;
-  --fg: #E2EBF3;
-  --muted: #8FA5B7;
-  color-scheme: dark;
-}
+/* ==========================================================================
+   Component primitives (used by src/components/ui/*)
+   ========================================================================== */
+@layer components {
+  /* ---------- Surfaces ---------- */
+  .card {
+    background-color: var(--surface);
+    border: 1px solid var(--border-c);
+    border-radius: 0.875rem;
+    box-shadow: inset 0 1px 0 var(--surface-highlight), var(--elev-1);
+  }
 
-[data-theme='warm-charcoal-dark'] {
-  --bg: #171412;
-  --surface: #221E1B;
-  --primary: #D79A66;
-  --border-c: #332C27;
-  --success: #7FB08A;
-  --danger: #DB8B7E;
-  --warning: #E8C97E;
-  --fg: #F0EAE3;
-  --muted: #A69C92;
-  color-scheme: dark;
-}
+  .card-interactive {
+    transition: border-color 160ms ease, box-shadow 200ms var(--ease-out-soft), transform 200ms var(--ease-out-soft);
+  }
+  .card-interactive:hover {
+    border-color: var(--border-strong);
+    box-shadow: inset 0 1px 0 var(--surface-highlight), var(--elev-2);
+    transform: translateY(-1px);
+  }
+  .card-interactive:active {
+    transform: translateY(0);
+    box-shadow: inset 0 1px 0 var(--surface-highlight), var(--elev-1);
+  }
 
-[data-theme='muted-plum-dark'] {
-  --bg: #171320;
-  --surface: #221B2C;
-  --primary: #A78BDB;
-  --border-c: #322844;
-  --success: #6FBB93;
-  --danger: #DD8CA0;
-  --warning: #DDBB7E;
-  --fg: #ECE7F5;
-  --muted: #A89BB8;
-  color-scheme: dark;
+  .popover-surface {
+    background-color: var(--surface);
+    border: 1px solid var(--border-c);
+    border-radius: 0.75rem;
+    box-shadow: inset 0 1px 0 var(--surface-highlight), var(--elev-3);
+  }
+
+  .dialog-surface {
+    background-color: var(--surface);
+    border: 1px solid var(--border-c);
+    box-shadow: inset 0 1px 0 var(--surface-highlight), var(--elev-4);
+  }
+
+  /* Raised square tile that holds an icon (stat cards, empty states). */
+  .icon-tile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background-color: var(--surface-2);
+    border: 1px solid var(--border-c);
+    border-radius: 0.625rem;
+    box-shadow: inset 0 -1px 0 var(--edge-bottom), var(--elev-1);
+    color: var(--fg-2);
+  }
+  .icon-tile-accent {
+    background-color: var(--primary);
+    border-color: color-mix(in srgb, var(--on-primary) 10%, transparent);
+    color: var(--on-primary);
+    box-shadow: inset 0 1px 0 var(--edge-top), inset 0 -2px 0 var(--edge-bottom), var(--elev-1);
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    white-space: nowrap;
+    user-select: none;
+    border: 1px solid transparent;
+    border-radius: 0.5625rem;
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease,
+      box-shadow 180ms var(--ease-out-soft),
+      transform 180ms var(--ease-out-soft);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:disabled,
+  .btn[aria-disabled='true'] {
+    cursor: not-allowed;
+    opacity: 0.5;
+    transform: none !important;
+  }
+  .btn[aria-busy='true'] {
+    cursor: progress;
+    opacity: 0.85;
+  }
+  /* While busy, the spinner takes the place of the button's own icons. */
+  .btn[aria-busy='true'] > svg:not(.spinner) {
+    display: none;
+  }
+
+  .btn-sm { height: 2rem; padding: 0 0.75rem; font-size: 0.8125rem; gap: 0.375rem; border-radius: 0.5rem; }
+  .btn-md { height: 2.5rem; padding: 0 1rem; font-size: 0.875rem; }
+  .btn-lg { height: 2.875rem; padding: 0 1.25rem; font-size: 0.9375rem; }
+  .btn-icon.btn-sm { width: 2rem; padding: 0; }
+  .btn-icon.btn-md { width: 2.5rem; padding: 0; }
+  .btn-icon.btn-lg { width: 2.875rem; padding: 0; }
+
+  /* Primary — lemon, raised. Lifts on hover, sinks on press. */
+  .btn-primary {
+    background-color: var(--primary);
+    color: var(--on-primary);
+    border-color: color-mix(in srgb, var(--on-primary) 12%, transparent);
+    box-shadow:
+      inset 0 1px 0 var(--edge-top),
+      inset 0 -2px 0 var(--edge-bottom),
+      0 1px 2px rgba(20, 26, 4, 0.16),
+      0 3px 8px -3px rgba(20, 26, 4, 0.22);
+  }
+  .btn-primary:not(:disabled):hover {
+    background-color: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1px 0 var(--edge-top),
+      inset 0 -2px 0 var(--edge-bottom),
+      0 2px 3px rgba(20, 26, 4, 0.14),
+      0 8px 18px -6px rgba(20, 26, 4, 0.3);
+  }
+  .btn-primary:not(:disabled):active {
+    background-color: var(--primary-press);
+    transform: translateY(1px);
+    box-shadow: inset 0 1px 2px rgba(20, 26, 4, 0.22), 0 0 0 rgba(0, 0, 0, 0);
+  }
+
+  /* Secondary — neutral surface, raised. */
+  .btn-secondary {
+    background-color: var(--surface);
+    color: var(--fg);
+    border-color: var(--border-c);
+    box-shadow: inset 0 -1px 0 var(--edge-bottom), var(--elev-1);
+  }
+  .btn-secondary:not(:disabled):hover {
+    background-color: var(--surface-2);
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
+    box-shadow: inset 0 -1px 0 var(--edge-bottom), var(--elev-2);
+  }
+  .btn-secondary:not(:disabled):active {
+    background-color: var(--sunken);
+    transform: translateY(1px);
+    box-shadow: inset 0 1px 2px rgba(17, 18, 20, 0.1);
+  }
+
+  /* Ghost — flat until hovered. */
+  .btn-ghost {
+    background-color: transparent;
+    color: var(--fg-2);
+  }
+  .btn-ghost:not(:disabled):hover {
+    background-color: var(--sunken);
+    color: var(--fg);
+  }
+  .btn-ghost:not(:disabled):active {
+    background-color: color-mix(in srgb, var(--sunken) 70%, var(--border-strong));
+  }
+
+  /* Danger — solid, raised. */
+  .btn-danger {
+    background-color: var(--danger);
+    color: #fff;
+    border-color: color-mix(in srgb, var(--danger) 80%, black);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      inset 0 -2px 0 rgba(0, 0, 0, 0.18),
+      0 1px 2px rgba(0, 0, 0, 0.12),
+      0 3px 8px -3px color-mix(in srgb, var(--danger) 50%, transparent);
+  }
+  .btn-danger:not(:disabled):hover {
+    background-color: color-mix(in srgb, var(--danger) 90%, black);
+    transform: translateY(-1px);
+  }
+  .btn-danger:not(:disabled):active {
+    transform: translateY(1px);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+  }
+
+  /* Danger-soft — a quieter destructive action. */
+  .btn-danger-soft {
+    background-color: transparent;
+    color: var(--danger);
+    border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+  }
+  .btn-danger-soft:not(:disabled):hover {
+    background-color: color-mix(in srgb, var(--danger) 8%, transparent);
+    border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+  }
+  .btn-danger-soft:not(:disabled):active {
+    background-color: color-mix(in srgb, var(--danger) 14%, transparent);
+  }
+
+  /* ---------- Form fields ---------- */
+  .field {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    background-color: var(--surface);
+    border: 1px solid var(--border-c);
+    border-radius: 0.5625rem;
+    box-shadow: inset 0 1px 2px rgba(17, 18, 20, 0.04);
+    transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+  }
+  .field:hover {
+    border-color: var(--border-strong);
+  }
+  .field:focus-within {
+    border-color: var(--primary-ink);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 45%, transparent);
+  }
+  .field[data-invalid='true'] {
+    border-color: var(--danger);
+  }
+  .field[data-invalid='true']:focus-within {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent);
+  }
+  .field[data-disabled='true'] {
+    background-color: var(--sunken);
+    opacity: 0.7;
+  }
+  .field input,
+  .field textarea,
+  .field select {
+    outline: none;
+  }
+  .field input:focus-visible,
+  .field textarea:focus-visible,
+  .field select:focus-visible {
+    outline: none;
+  }
+
+  .field-icon {
+    color: var(--subtle);
+    transition: color 150ms ease;
+  }
+  .field:focus-within .field-icon {
+    color: var(--primary-ink);
+  }
+  .field[data-invalid='true'] .field-icon {
+    color: var(--danger);
+  }
+
+  .field-control {
+    width: 100%;
+    min-width: 0;
+    background: transparent;
+    color: var(--fg);
+    font-size: 1rem; /* 16px stops iOS from zooming on focus */
+  }
+  @media (min-width: 640px) {
+    .field-control { font-size: 0.875rem; }
+  }
+  .field-control::placeholder {
+    color: var(--subtle);
+  }
+
+  /* ---------- Checkbox ---------- */
+  .checkbox {
+    appearance: none;
+    flex-shrink: 0;
+    width: 1.125rem;
+    height: 1.125rem;
+    border-radius: 0.3125rem;
+    border: 1.5px solid var(--border-strong);
+    background-color: var(--surface);
+    box-shadow: inset 0 1px 1px rgba(17, 18, 20, 0.06);
+    display: inline-grid;
+    place-content: center;
+    transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
+  }
+  .checkbox:hover:not(:disabled) {
+    border-color: var(--primary-ink);
+  }
+  .checkbox:active:not(:disabled) {
+    transform: scale(0.92);
+  }
+  .checkbox::after {
+    content: '';
+    width: 0.625rem;
+    height: 0.625rem;
+    transform: scale(0);
+    transition: transform 140ms var(--ease-out-soft);
+    background-color: var(--on-primary);
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  }
+  .checkbox:checked {
+    background-color: var(--primary);
+    border-color: color-mix(in srgb, var(--on-primary) 30%, var(--primary));
+  }
+  .checkbox:checked::after {
+    transform: scale(1);
+  }
+  .checkbox:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* ---------- Skeleton ---------- */
+  .skeleton {
+    background-color: var(--sunken);
+    border-radius: 0.375rem;
+    animation: var(--animate-skeleton);
+  }
+
+  /* ---------- Tooltip (CSS-only, hover/focus) ---------- */
+  .tooltip-host {
+    position: relative;
+    display: inline-flex;
+  }
+  .tooltip {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 6px);
+    z-index: 70;
+    transform: translate(-50%, 2px);
+    padding: 0.3125rem 0.5rem;
+    border-radius: 0.375rem;
+    background-color: var(--fg);
+    color: var(--bg);
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 120ms ease, transform 120ms ease;
+    transition-delay: 0ms;
+  }
+  .tooltip-host:hover > .tooltip,
+  .tooltip-host:focus-within > .tooltip {
+    opacity: 1;
+    transform: translate(-50%, 0);
+    transition-delay: 350ms;
+  }
+  .tooltip-host:focus-within > .tooltip {
+    transition-delay: 0ms;
+  }
+  .tooltip.tooltip-end {
+    left: auto;
+    right: 0;
+    transform: translateY(2px);
+  }
+  .tooltip-host:hover > .tooltip.tooltip-end,
+  .tooltip-host:focus-within > .tooltip.tooltip-end {
+    transform: translateY(0);
+  }
+  @media (hover: none) {
+    .tooltip { display: none; }
+  }
+
+  /* Safe-area helpers for the fixed mobile chrome. */
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, LogIn } from 'lucide-react';
+import { Mail, Lock, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 import AuthLayout from './AuthLayout';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
+import Checkbox from '../components/ui/Checkbox';
+import Alert from '../components/ui/Alert';
+import TakeTourButton from '../components/TakeTourButton';
 
 export default function Login() {
   const { login, sessionExpired } = useAuth();
@@ -27,28 +30,34 @@ export default function Login() {
 
   const handleSubmit = async (ev) => {
     ev.preventDefault();
-    if (!validate()) return;
+    if (loading || !validate()) return;
     setLoading(true);
     try {
       await login(form.email, form.password);
       toast.success("Welcome back! Great to see you again ✨");
       navigate('/', { replace: true });
     } catch (err) {
-      // Humanized errors come from api.js — just surface them on the password field
-      setErrors({ password: err.message });
+      // Humanized errors come from api.js — shown as a form-level alert.
+      setErrors({ form: err.message });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Sign in to continue guarding your day">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {sessionExpired && (
-          <p role="status" className="text-sm rounded-xl px-3 py-2 bg-warning/10 text-warning border border-warning/20">
-            Your session expired. Please sign in again.
-          </p>
+    <AuthLayout title="Welcome back" subtitle="Sign in to continue guarding your day.">
+      <form onSubmit={handleSubmit} noValidate className="space-y-5">
+        {sessionExpired && !errors.form && (
+          <Alert tone="warning" title="Your session expired">
+            Please sign in again to pick up where you left off.
+          </Alert>
         )}
+        {errors.form && (
+          <Alert tone="danger" title="Couldn't sign you in">
+            {errors.form}
+          </Alert>
+        )}
+
         <Input
           label="Email address"
           type="email"
@@ -57,6 +66,7 @@ export default function Login() {
           error={errors.email}
           onChange={(e) => setForm({ ...form, email: e.target.value })}
           autoComplete="email"
+          placeholder="you@example.com"
         />
         <Input
           label="Password"
@@ -66,27 +76,25 @@ export default function Login() {
           error={errors.password}
           onChange={(e) => setForm({ ...form, password: e.target.value })}
           autoComplete="current-password"
+          labelAction={
+            <Link to="/forgot-password" className="text-[13px] font-medium text-primary-ink hover:underline">
+              Forgot password?
+            </Link>
+          }
         />
 
-        <div className="flex items-center justify-between text-sm">
-          <label className="flex items-center gap-2 text-muted cursor-pointer">
-            <input type="checkbox" className="rounded border-border text-primary focus:ring-primary/30" />
-            Remember me
-          </label>
-          <Link to="/forgot-password" className="text-primary hover:text-primary/80 font-medium">
-            Forgot password?
-          </Link>
-        </div>
+        <Checkbox label="Remember me" />
 
-        <Button type="submit" loading={loading} className="w-full">
-          <LogIn className="w-4 h-4" />
-          Sign in
+        <Button type="submit" size="lg" loading={loading} fullWidth>
+          Sign in <ArrowRight className="h-4 w-4" />
         </Button>
       </form>
 
-      <p className="text-center text-sm text-muted mt-6">
+      <TakeTourButton className="mt-6" />
+
+      <p className="mt-8 text-center text-sm text-muted">
         New here?{' '}
-        <Link to="/register" className="text-primary hover:text-primary/80 font-semibold">
+        <Link to="/register" className="font-semibold text-fg underline decoration-primary decoration-2 underline-offset-4 hover:decoration-primary-ink">
           Create an account
         </Link>
       </p>

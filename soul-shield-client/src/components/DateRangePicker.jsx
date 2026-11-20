@@ -1,7 +1,8 @@
-import { m, AnimatePresence } from 'framer-motion';
-import { Calendar, ChevronDown, X } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
-import { fmtDate, prettyDate } from '../hooks/useTasks';
+import { Calendar, ChevronDown } from 'lucide-react';
+import { fmtDate, prettyDate, parseDateKey } from '../hooks/useTasks';
+import Popover from './ui/Popover';
+import Input from './ui/Input';
+import Button from './ui/Button';
 
 const PRESETS = [
   { key: '7d',  label: 'Last 7 days',  days: 6 },
@@ -12,18 +13,7 @@ const PRESETS = [
 ];
 
 export default function DateRangePicker({ range, setRange }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const onClick = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
-  }, []);
-
-  const applyPreset = (preset) => {
+  const applyPreset = (preset, close) => {
     const today = new Date();
     let from, to = new Date(today);
 
@@ -37,98 +27,74 @@ export default function DateRangePicker({ range, setRange }) {
       from.setDate(today.getDate() - preset.days);
     }
     setRange({ from, to });
-    setOpen(false);
+    close();
   };
 
+  // Date inputs give 'YYYY-MM-DD'; read it as a local day (see parseDateKey).
   const handleFromChange = (val) => {
-    const d = new Date(val);
+    if (!val) return;
+    const d = parseDateKey(val);
     if (!isNaN(d) && d <= range.to) setRange({ ...range, from: d });
   };
   const handleToChange = (val) => {
-    const d = new Date(val);
+    if (!val) return;
+    const d = parseDateKey(val);
     if (!isNaN(d) && d >= range.from) setRange({ ...range, to: d });
   };
 
   return (
-    <div className="relative" ref={ref}>
-      <m.button
-        whileTap={{ scale: 0.97 }}
-        onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 px-4 py-2.5 bg-surface border-2 border-border rounded-xl
-          hover:border-primary/50 hover:shadow-sm transition-all text-sm font-medium text-fg"
-      >
-        <Calendar className="w-4 h-4 text-primary" />
-        <span>{prettyDate(range.from)} — {prettyDate(range.to)}</span>
-        <m.div animate={{ rotate: open ? 180 : 0 }}>
-          <ChevronDown className="w-4 h-4 text-muted" />
-        </m.div>
-      </m.button>
+    <Popover
+      label="Choose a date range"
+      align="responsive"
+      panelClassName="w-80 p-4"
+      trigger={(props) => (
+        <Button variant="secondary" {...props}>
+          <Calendar className="h-4 w-4 text-primary-ink" />
+          <span className="tabular-nums">{prettyDate(range.from)} – {prettyDate(range.to)}</span>
+          <ChevronDown className="h-4 w-4 text-muted" />
+        </Button>
+      )}
+    >
+      {({ close }) => (
+        <>
+          <p className="mb-3 text-sm font-semibold text-fg">Date range</p>
 
-      <AnimatePresence>
-        {open && (
-          <m.div
-            initial={{ opacity: 0, y: -8, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.98 }}
-            transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-2 w-80 bg-surface rounded-2xl shadow-xl border border-border p-4 z-30"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-fg">Date range</h3>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="Close date range picker"
-                className="p-1 rounded hover:bg-bg"
-              >
-                <X className="w-4 h-4 text-muted" />
-              </button>
-            </div>
+          {/* Custom inputs */}
+          <div className="mb-4 grid grid-cols-2 gap-2.5">
+            <Input
+              label="From"
+              type="date"
+              size="md"
+              value={fmtDate(range.from)}
+              onChange={(e) => handleFromChange(e.target.value)}
+            />
+            <Input
+              label="To"
+              type="date"
+              size="md"
+              value={fmtDate(range.to)}
+              onChange={(e) => handleToChange(e.target.value)}
+            />
+          </div>
 
-            {/* Custom inputs */}
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              <div>
-                <label htmlFor="date-range-from" className="text-[10px] font-semibold text-muted uppercase tracking-wide">From</label>
-                <input
-                  id="date-range-from"
-                  type="date"
-                  value={fmtDate(range.from)}
-                  onChange={(e) => handleFromChange(e.target.value)}
-                  className="w-full px-2.5 py-2 text-sm border border-border rounded-lg focus:border-primary outline-none"
-                />
-              </div>
-              <div>
-                <label htmlFor="date-range-to" className="text-[10px] font-semibold text-muted uppercase tracking-wide">To</label>
-                <input
-                  id="date-range-to"
-                  type="date"
-                  value={fmtDate(range.to)}
-                  onChange={(e) => handleToChange(e.target.value)}
-                  className="w-full px-2.5 py-2 text-sm border border-border rounded-lg focus:border-primary outline-none"
-                />
-              </div>
+          {/* Presets */}
+          <div className="border-t border-border pt-3">
+            <p className="mb-2 text-xs font-medium text-muted">Quick select</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {PRESETS.map(p => (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => applyPreset(p, close)}
+                  className="h-9 rounded-lg px-3 text-left text-[13px] font-medium text-fg-2 transition-colors hover:bg-sunken hover:text-fg"
+                >
+                  {p.label}
+                </button>
+              ))}
             </div>
-
-            {/* Presets */}
-            <div className="border-t border-border pt-3">
-              <p className="text-[10px] font-semibold text-muted uppercase tracking-wide mb-2">Quick select</p>
-              <div className="grid grid-cols-2 gap-1.5">
-                {PRESETS.map(p => (
-                  <m.button
-                    key={p.key}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => applyPreset(p)}
-                    className="px-3 py-2 text-xs font-medium rounded-lg bg-bg hover:bg-primary/10 hover:text-primary text-muted transition-colors text-left"
-                  >
-                    {p.label}
-                  </m.button>
-                ))}
-              </div>
-            </div>
-          </m.div>
-        )}
-      </AnimatePresence>
-    </div>
+          </div>
+        </>
+      )}
+    </Popover>
   );
 }

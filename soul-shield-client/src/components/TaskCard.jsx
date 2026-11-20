@@ -1,16 +1,28 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { m, AnimatePresence } from 'framer-motion';
-import { Check, ChevronDown, Edit2, Trash2, Shield, Sparkles, Loader2, Timer, ArrowUpRight, PlusCircle, CheckCircle2 } from 'lucide-react';
+import { ChevronDown, Pencil, Trash2, Shield, Sparkles, Timer, ArrowUpRight, PlusCircle, CheckCircle2 } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { useToast } from './Toast';
 import { useAuth } from '../context/AuthContext';
+import { cn } from '../utils/cn';
 import ExpandableText from './ExpandableText';
 import { fmtDate } from '../hooks/useTasks';
 import CounterWidget from './CounterWidget';
 import SubTaskList from './SubTaskList';
 import RewardModal from './RewardModal';
+import ConfirmModal from './ConfirmModal';
 import TaskDetailsInline from './TaskDetailsInline';
+import TaskCheck from './TaskCheck';
+import Badge from './ui/Badge';
+import Button from './ui/Button';
+import Tooltip from './ui/Tooltip';
+
+const STATUS_BADGE = {
+  completed: { tone: 'success', label: 'Completed' },
+  partially_completed: { tone: 'warning', label: 'Partially completed' },
+  missed: { tone: 'danger', label: 'Missed' },
+};
 
 // variant="template" renders a fixed/admin task as a read-only template card —
 // no completion controls or personal progress, just an "Add to Your Own Tasks"
@@ -24,6 +36,8 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
   const [adding, setAdding] = useState(false);
   const [rewardText, setRewardText] = useState(null);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const isTemplate = variant === 'template';
   const isCounter = task.task_type === 'counter';
@@ -86,62 +100,70 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
     }
   };
 
+  // Runs once the user confirms in the dialog (replaces window.confirm).
   const handleDelete = async () => {
-    if (!confirm('Delete this task? This cannot be undone.')) return;
+    setDeleting(true);
     try {
       await deleteTask(task.task_id);
+      setConfirmDeleteOpen(false);
       onDelete(task.task_id);
       toast.success('Task deleted');
     } catch (err) {
       toast.error(err.message);
+    } finally {
+      setDeleting(false);
     }
+  };
+
+  const requestDelete = (e) => {
+    e.stopPropagation();
+    setConfirmDeleteOpen(true);
   };
 
   const handleCounterUpdate = (patch) => {
     onUpdate(patch);
   };
 
+  const toggleDetails = () => (opensTimerPage ? handleOpenTimer() : setDetailsExpanded((v) => !v));
+  const statusBadge = STATUS_BADGE[task.status];
+
   return (
-    <m.div
-      layout
-      initial={{ opacity: 0, y: 10 }}
+    <m.article
+      layout="position"
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      whileHover={{ y: -2 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
       onClick={opensTimerPage ? handleOpenTimer : undefined}
-      className={`relative rounded-2xl border-2 bg-surface p-4 transition-all overflow-hidden
-        ${opensTimerPage ? 'cursor-pointer' : ''}
-        ${isCompleted ? 'border-success/30 bg-success/10' : ''}
-        ${isPartiallyCompleted ? 'border-warning/30 bg-warning/10' : ''}
-        ${isMissed ? 'border-danger/30 bg-danger/10 opacity-80' : ''}
-        ${!isCompleted && !isPartiallyCompleted && !isMissed ? 'border-border hover:border-border hover:shadow-md' : ''}
-      `}
-      style={{ borderLeftWidth: '4px', borderLeftColor: categoryColor }}
+      className={cn(
+        'card flex flex-col p-4',
+        opensTimerPage && 'card-interactive cursor-pointer',
+        isCompleted && !isTemplate && 'bg-surface-2',
+        isPartiallyCompleted && !isTemplate && '!border-warning/35',
+        isMissed && 'opacity-80'
+      )}
     >
       {/* Header row */}
       <div className="flex items-start gap-3">
         {/* Checkbox (normal tasks only, and only when there are no sub-tasks —
             a sub-tasked parent's completion is derived, not directly toggled) */}
         {!isTemplate && !isCounter && !isTimer && !hasSubTasks && (
-          <m.button
-            whileTap={{ scale: 0.85 }}
+          <TaskCheck
+            checked={isCompleted}
+            pending={completing}
+            disabled={isMissed || isReadOnly}
             onClick={handleToggleComplete}
-            disabled={isMissed || completing || isReadOnly}
-            aria-label={isCompleted ? `Mark "${task.title}" as not done` : `Mark "${task.title}" as done`}
-            className={`mt-0.5 flex-shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all
-              ${isCompleted ? 'bg-success border-success' : 'border-border hover:border-primary'}
-              disabled:cursor-not-allowed`}
-          >
-            {completing ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-            ) : isCompleted ? (
-              <Check className="w-4 h-4 text-white" strokeWidth={3} />
-            ) : null}
-          </m.button>
+            label={isCompleted ? `Mark "${task.title}" as not done` : `Mark "${task.title}" as done`}
+          />
+        )}
+        {!isTemplate && isTimer && !hasSubTasks && (
+          <span className="icon-tile mt-px h-[22px] w-[22px] rounded-md text-primary-ink" aria-hidden="true">
+            <Timer className="h-3.5 w-3.5" />
+          </span>
         )}
 
         {/* Title + meta */}
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           {/* Only the title/description block expands the inline details
               section below — checkbox, counter, and sub-task controls
               above/below live outside this wrapper so tapping them never
@@ -149,14 +171,18 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
           <div
             role="button"
             tabIndex={0}
-            onClick={() => (opensTimerPage ? handleOpenTimer() : setDetailsExpanded((v) => !v))}
+            aria-expanded={opensTimerPage ? undefined : detailsExpanded}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleDetails();
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                opensTimerPage ? handleOpenTimer() : setDetailsExpanded((v) => !v);
+                toggleDetails();
               }
             }}
-            className="cursor-pointer"
+            className="-m-1 cursor-pointer rounded-md p-1"
           >
             <div className="flex items-start justify-between gap-2">
               {/* ExpandableText claims the click only when the title is long
@@ -166,23 +192,19 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
                 as="h3"
                 text={task.title}
                 maxLines={2}
-                className={`flex-1 min-w-0 font-semibold text-fg leading-snug ${isCompleted ? 'line-through text-muted' : ''}`}
+                className={cn(
+                  'min-w-0 flex-1 text-[15px] font-semibold leading-snug',
+                  isCompleted ? 'text-muted line-through decoration-muted/60' : 'text-fg'
+                )}
               />
-              <div className="flex items-center gap-1 flex-shrink-0">
-                {task.is_global && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning/10 text-warning text-[10px] font-semibold uppercase tracking-wide">
-                    <Shield className="w-3 h-3" /> Fixed
-                  </span>
-                )}
-                {isPartiallyCompleted && !isReadOnly && (
-                  <span className="text-[10px] font-semibold text-warning uppercase">Partially Completed</span>
-                )}
-                {isMissed && !isReadOnly && (
-                  <span className="text-[10px] font-semibold text-danger uppercase">Missed</span>
-                )}
-                {!opensTimerPage && (
+              <div className="flex shrink-0 items-center gap-1.5">
+                {statusBadge && !isTemplate && <Badge tone={statusBadge.tone} dot>{statusBadge.label}</Badge>}
+                {opensTimerPage ? (
+                  <ArrowUpRight className="h-4 w-4 text-subtle" aria-hidden="true" />
+                ) : (
                   <ChevronDown
-                    className={`w-4 h-4 text-muted transition-transform ${detailsExpanded ? 'rotate-180' : ''}`}
+                    className={cn('h-4 w-4 text-subtle transition-transform duration-200', detailsExpanded && 'rotate-180')}
+                    aria-hidden="true"
                   />
                 )}
               </div>
@@ -192,21 +214,31 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
               <ExpandableText
                 text={task.description}
                 maxLines={2}
-                className="text-sm text-muted mt-0.5"
+                className="mt-1 text-[13px] leading-relaxed text-muted"
               />
             )}
-
-            {!opensTimerPage && detailsExpanded && <TaskDetailsInline task={task} />}
           </div>
 
-          {task.category_name && (
-            <span
-              className="inline-block mt-2 px-2 py-0.5 rounded-full text-[11px] font-medium text-white"
-              style={{ backgroundColor: categoryColor }}
-            >
-              {task.category_name}
-            </span>
+          {(task.category_name || task.is_global) && (
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              {task.category_name && <Badge color={categoryColor}>{task.category_name}</Badge>}
+              {task.is_global && <Badge tone="warning" icon={Shield}>Fixed</Badge>}
+            </div>
           )}
+
+          <AnimatePresence initial={false}>
+            {!opensTimerPage && detailsExpanded && (
+              <m.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                className="overflow-hidden"
+              >
+                <TaskDetailsInline task={task} />
+              </m.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -223,15 +255,18 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
 
       {/* Timer task — always opens the dedicated countdown page, never inline */}
       {!isTemplate && isTimer && !hasSubTasks && (
-        <m.button
-          whileTap={{ scale: 0.97 }}
-          onClick={handleOpenTimer}
-          className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-semibold text-sm hover:shadow-lg hover:shadow-indigo-200 transition-shadow"
+        <Button
+          variant="secondary"
+          fullWidth
+          className="mt-4"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleOpenTimer();
+          }}
         >
-          <Timer className="w-4 h-4" />
+          <Timer className="h-4 w-4" />
           {isCompleted ? 'View timer' : 'Start timer'}
-          <ArrowUpRight className="w-3.5 h-3.5" />
-        </m.button>
+        </Button>
       )}
 
       {/* Sub-tasks */}
@@ -252,80 +287,56 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="mt-3 flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 border border-warning/30"
+            className="overflow-hidden"
           >
-            <m.div
-              animate={{ rotate: [0, -10, 10, -10, 0] }}
-              transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 2 }}
-            >
-              <Sparkles className="w-4 h-4 text-warning" fill="currentColor" />
-            </m.div>
-            <span className="text-sm font-medium text-warning">{task.reward_text}</span>
+            <div className="mt-3 flex items-center gap-2 rounded-lg border border-primary-ink/15 bg-primary-soft px-3 py-2">
+              <Sparkles className="h-4 w-4 shrink-0 text-primary-ink" aria-hidden="true" />
+              <span className="text-[13px] font-medium text-fg">{task.reward_text}</span>
+            </div>
           </m.div>
         )}
       </AnimatePresence>
 
       {/* Add-to-your-tasks action (template/fixed tasks only) */}
       {isTemplate && (
-        <div className="mt-3 pt-3 border-t border-border flex items-center gap-2">
+        <div className="mt-4 flex items-center gap-2 border-t border-border pt-3">
           {task.already_added ? (
-            <div className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-success/10 text-success font-semibold text-sm">
-              <CheckCircle2 className="w-4 h-4" /> Already Added
+            <div className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[9px] border border-success/20 bg-success/10 text-sm font-semibold text-success">
+              <CheckCircle2 className="h-4 w-4" /> Already added
             </div>
           ) : (
-            <m.button
-              whileTap={{ scale: 0.97 }}
-              onClick={handleAddToMyTasks}
-              disabled={adding}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-semibold text-sm hover:shadow-lg hover:shadow-indigo-200 transition-shadow disabled:opacity-60"
-            >
-              {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
-              Add to Your Own Tasks
-            </m.button>
+            <Button onClick={handleAddToMyTasks} loading={adding} className="flex-1">
+              <PlusCircle className="h-4 w-4" />
+              Add to your tasks
+            </Button>
           )}
 
           {canDeleteTemplate && (
-            <m.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDelete();
-              }}
-              aria-label="Delete fixed task"
-              className="flex-shrink-0 p-2.5 rounded-xl border-2 border-danger/30 text-danger hover:bg-danger/10 transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-            </m.button>
+            <Tooltip label="Delete fixed task" align="end">
+              <Button variant="danger-soft" iconOnly onClick={requestDelete} aria-label="Delete fixed task">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </Tooltip>
           )}
         </div>
       )}
 
       {/* Action buttons */}
       {canManage && (
-        <div className="flex items-center justify-end gap-1 mt-3 pt-3 border-t border-border">
-          <m.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+        <div className="mt-4 flex items-center justify-end gap-1 border-t border-border pt-3">
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={(e) => {
               e.stopPropagation();
               onEdit(task);
             }}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted hover:bg-bg transition-colors"
           >
-            <Edit2 className="w-3.5 h-3.5" /> Edit
-          </m.button>
-          <m.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDelete();
-            }}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-danger hover:bg-danger/10 transition-colors"
-          >
-            <Trash2 className="w-3.5 h-3.5" /> Delete
-          </m.button>
+            <Pencil className="h-3.5 w-3.5" /> Edit
+          </Button>
+          <Button variant="ghost" size="sm" onClick={requestDelete} className="text-danger hover:!bg-danger/10 hover:!text-danger">
+            <Trash2 className="h-3.5 w-3.5" /> Delete
+          </Button>
         </div>
       )}
 
@@ -335,6 +346,22 @@ export default function TaskCard({ task, date, onEdit, onDelete, onUpdate, isRea
         taskTitle={task.title}
         onClose={() => setRewardText(null)}
       />
-    </m.div>
+
+      <ConfirmModal
+        open={confirmDeleteOpen}
+        onClose={() => !deleting && setConfirmDeleteOpen(false)}
+        onConfirm={handleDelete}
+        loading={deleting}
+        icon={Trash2}
+        title={task.is_global ? 'Delete this fixed task?' : 'Delete this task?'}
+        message={
+          task.is_global
+            ? `“${task.title}” will be removed from every user's dashboard. This can't be undone.`
+            : `“${task.title}” will be deleted. This can't be undone.`
+        }
+        confirmLabel="Delete task"
+        variant="danger"
+      />
+    </m.article>
   );
 }

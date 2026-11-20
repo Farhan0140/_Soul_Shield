@@ -1,70 +1,54 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { m } from 'framer-motion';
-import { Home, Calendar, Tags, User, Shield } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { cn } from '../utils/cn';
+import { MAIN_LINKS, ADMIN_LINKS } from './navigation';
 
-const LINKS = [
-  { to: '/',           icon: Home,     label: 'Home' },
-  { to: '/history',    icon: Calendar, label: 'History' },
-  { to: '/categories', icon: Tags,     label: 'Categories' },
-  { to: '/profile',    icon: User,     label: 'Profile' },
-];
-
+/** Bottom tab bar for phones and tablets (hidden from `lg`, where the
+ * sidebar takes over). Admins get the Admin Panel as a fifth tab. */
 export default function MobileBottomNav() {
   const { isAdmin } = useAuth();
-  const { pathname } = useLocation();
-  const isAdminRoute = pathname.startsWith('/admin');
+  const links = isAdmin ? [...MAIN_LINKS, ...ADMIN_LINKS] : MAIN_LINKS;
 
   return (
-    <>
-      {/* Spacer so content doesn't get hidden behind the nav */}
-      <div className="lg:hidden h-20" />
-
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface/95 backdrop-blur-md border-t border-border shadow-lg">
-        <div className="flex items-center justify-around px-2 py-2">
-          {LINKS.map(link => {
-            const Icon = link.icon;
-            return (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                end={link.to === '/'}
-                className={({ isActive }) =>
-                  `relative flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-colors min-w-[60px]
-                    ${isActive ? 'text-primary' : 'text-muted'}`
-                }
-              >
-                {({ isActive }) => (
-                  <>
+    <nav
+      aria-label="Main"
+      className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface lg:hidden"
+    >
+      <div className="mx-auto grid max-w-lg" style={{ gridTemplateColumns: `repeat(${links.length}, minmax(0, 1fr))` }}>
+        {links.map((link) => {
+          const Icon = link.icon;
+          return (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              end={link.end}
+              className={({ isActive }) =>
+                cn(
+                  'flex min-h-[60px] flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors',
+                  isActive ? 'text-fg' : 'text-muted hover:text-fg'
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <span className="relative flex h-7 w-12 items-center justify-center">
                     {isActive && (
-                      <m.div
+                      <m.span
                         layoutId="mobile-nav-pill"
-                        className="absolute inset-0 bg-primary/10 rounded-xl -z-0"
-                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                        className="absolute inset-0 rounded-full bg-primary-soft"
+                        transition={{ type: 'spring', stiffness: 500, damping: 40 }}
                       />
                     )}
-                    <div className="relative z-10">
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <span className="relative z-10 text-[10px] font-semibold">{link.label}</span>
-                  </>
-                )}
-              </NavLink>
-            );
-          })}
-
-          {/* Admin link — only if admin AND on admin route (to save space) */}
-          {isAdmin && isAdminRoute && (
-            <NavLink
-              to="/admin/tasks"
-              className="relative flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl text-warning min-w-[60px]"
-            >
-              <Shield className="w-5 h-5" />
-              <span className="text-[10px] font-semibold">Admin</span>
+                    <Icon className={cn('relative h-5 w-5', isActive && 'text-primary-ink')} aria-hidden="true" />
+                  </span>
+                  <span className="max-w-full truncate px-1">{link.shortLabel || link.label}</span>
+                </>
+              )}
             </NavLink>
-          )}
-        </div>
-      </nav>
-    </>
+          );
+        })}
+      </div>
+    </nav>
   );
 }

@@ -1,6 +1,11 @@
 import { m } from 'framer-motion';
-import { Edit2, Trash2, Shield, Tag, Calendar, Repeat, Check } from 'lucide-react';
+import { Pencil, Trash2, Shield, Calendar, Repeat, Hash } from 'lucide-react';
+import { cn } from '../utils/cn';
 import UsageBadge from './UsageBadge';
+import Checkbox from './ui/Checkbox';
+import Badge from './ui/Badge';
+import Button from './ui/Button';
+import Tooltip from './ui/Tooltip';
 
 const RECURRENCE_LABELS = {
   daily: 'Every day',
@@ -21,104 +26,82 @@ export default function AdminTaskRow({ task, usage, selected, onSelect, onEdit, 
 
   return (
     <m.div
-      layout
+      layout="position"
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      className={`group bg-surface rounded-2xl border-2 overflow-hidden transition-all
-        ${selected ? 'border-primary/60 bg-primary/5 shadow-md' : 'border-border hover:border-border hover:shadow-sm'}
-      `}
-      style={{ borderLeftWidth: '4px', borderLeftColor: categoryColor }}
+      exit={{ opacity: 0, x: -12 }}
+      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+      className={cn(
+        'card p-4 transition-[border-color,background-color] sm:p-5',
+        selected && '!border-primary-ink/40 bg-primary-soft/60'
+      )}
     >
-      <div className="p-4 flex items-start gap-3">
+      <div className="flex items-start gap-3">
         {/* Selection checkbox */}
-        <m.button
-          whileTap={{ scale: 0.85 }}
-          onClick={() => onSelect(!selected)}
-          role="checkbox"
-          aria-checked={selected}
-          aria-label="Select task"
-          className={`mt-1 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all
-            ${selected ? 'bg-primary border-primary' : 'border-border hover:border-primary'}
-          `}
-        >
-          {selected && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
-        </m.button>
+        <Checkbox
+          checked={selected}
+          onChange={(e) => onSelect(e.target.checked)}
+          aria-label={`Select "${task.title}"`}
+          className="mt-0.5"
+        />
 
         {/* Main content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="font-bold text-fg text-base leading-snug truncate">
-                {task.title}
-              </h3>
+              <h3 className="truncate text-[15px] font-semibold leading-snug text-fg">{task.title}</h3>
               {task.description && (
-                <p className="text-sm text-muted mt-0.5 line-clamp-1">{task.description}</p>
+                <p className="mt-0.5 line-clamp-1 text-[13px] text-muted">{task.description}</p>
               )}
             </div>
 
-            {/* Badges */}
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              {task.task_type === 'counter' && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold uppercase tracking-wide">
-                  🔢 Counter · {task.target_count}
-                </span>
-              )}
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning/15 text-warning text-[10px] font-bold uppercase tracking-wide">
-                <Shield className="w-3 h-3" /> Fixed
-              </span>
+            {/* Actions */}
+            <div className="-mt-1 -mr-1 flex shrink-0 items-center gap-0.5">
+              <Tooltip label="Edit">
+                <Button variant="ghost" size="sm" iconOnly onClick={() => onEdit(task)} aria-label={`Edit "${task.title}"`}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </Tooltip>
+              <Tooltip label="Delete" align="end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  onClick={() => onDelete(task)}
+                  aria-label={`Delete "${task.title}"`}
+                  className="hover:!bg-danger/10 hover:!text-danger"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </Tooltip>
             </div>
           </div>
 
           {/* Meta row */}
-          <div className="flex items-center gap-3 flex-wrap text-xs text-muted">
-            <span className="inline-flex items-center gap-1">
-              <Repeat className="w-3.5 h-3.5" />
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+            <Badge tone="warning" icon={Shield}>Fixed</Badge>
+            {task.task_type === 'counter' && (
+              <Badge tone="neutral" icon={Hash}>Counter · {task.target_count}</Badge>
+            )}
+            {task.category_name && <Badge color={categoryColor}>{task.category_name}</Badge>}
+            <span className="inline-flex items-center gap-1 px-1 text-xs text-muted">
+              <Repeat className="h-3.5 w-3.5" aria-hidden="true" />
               {recurrenceLabel}
             </span>
             {dayPills && (
-              <span className="inline-flex items-center gap-1">
-                <Calendar className="w-3.5 h-3.5" />
+              <span className="inline-flex items-center gap-1 px-1 text-xs text-muted">
+                <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
                 {dayPills}
-              </span>
-            )}
-            {task.category_name && (
-              <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold text-white"
-                style={{ backgroundColor: categoryColor }}
-              >
-                <Tag className="w-3 h-3" />
-                {task.category_name}
               </span>
             )}
           </div>
 
           {/* Usage stats */}
-          <div className="mt-3">
-            <UsageBadge usage={usage} />
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <m.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => onEdit(task)}
-            className="p-2 rounded-lg text-muted hover:bg-primary/10 hover:text-primary transition-colors"
-            aria-label="Edit task"
-          >
-            <Edit2 className="w-4 h-4" />
-          </m.button>
-          <m.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => onDelete(task)}
-            className="p-2 rounded-lg text-muted hover:bg-danger/10 hover:text-danger transition-colors"
-            aria-label="Delete task"
-          >
-            <Trash2 className="w-4 h-4" />
-          </m.button>
+          {usage && (
+            <div className="mt-3.5">
+              <UsageBadge usage={usage} />
+            </div>
+          )}
         </div>
       </div>
     </m.div>

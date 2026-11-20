@@ -1,24 +1,38 @@
 import { useState } from 'react';
-import { m } from 'framer-motion';
 import {
-  User, Mail, Shield, LogOut, KeyRound, Target, Flame, Trophy,
-  Sparkles, Calendar, Trash2, Info, Palette
+  Mail, Shield, LogOut, KeyRound, Target, Flame, Trophy,
+  Sparkles, Calendar, Trash2, ChevronRight, Palette, BadgeCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 import { usePersonalStats } from '../hooks/usePersonalStats';
-import AnimatedAvatar from '../components/AnimatedAvatar';
+import Avatar from '../components/ui/Avatar';
 import StatCard from '../components/StatCard';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import DeleteAccountModal from '../components/DeleteAccountModal';
 import ConfirmModal from '../components/ConfirmModal';
 import ThemePicker from '../components/ThemePicker';
+import PageHeader, { SectionHeader } from '../components/ui/PageHeader';
+import Badge from '../components/ui/Badge';
+import Button from '../components/ui/Button';
+import Alert from '../components/ui/Alert';
+import { SkeletonGroup, StatGridSkeleton } from '../components/ui/Skeleton';
 
-const pageVariants = {
-  initial: { opacity: 0, y: 10 },
-  animate: { opacity: 1, y: 0, transition: { staggerChildren: 0.08 } },
-};
-const child = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } };
+/** One row of a settings list: icon tile, title + description, trailing slot. */
+function SettingRow({ icon: Icon, title, description, trailing, danger = false }) {
+  return (
+    <div className="flex items-center gap-4 px-4 py-4 sm:px-5">
+      <span className={`icon-tile h-9 w-9 ${danger ? 'text-danger' : ''}`}>
+        <Icon className="h-4 w-4" aria-hidden="true" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-fg">{title}</p>
+        {description && <p className="mt-0.5 break-words text-[13px] leading-snug text-muted">{description}</p>}
+      </div>
+      {trailing && <div className="shrink-0">{trailing}</div>}
+    </div>
+  );
+}
 
 export default function Profile() {
   const { user, logout, isAdmin } = useAuth();
@@ -35,258 +49,150 @@ export default function Profile() {
   };
 
   return (
-    <m.div
-      variants={pageVariants}
-      initial="initial"
-      animate="animate"
-      className="space-y-6 max-w-5xl"
-    >
-      {/* Header */}
-      <m.div variants={child}>
-        <h1 className="text-2xl md:text-3xl font-bold text-fg flex items-center gap-2">
-          <User className="w-7 h-7 text-primary" />
-          Profile
-        </h1>
-        <p className="text-sm text-muted mt-1">
-          This is you — take a look at your journey so far ✨
-        </p>
-      </m.div>
+    <div className="max-w-4xl space-y-8">
+      <PageHeader title="Profile" description="Your account, appearance and progress at a glance." />
 
-      {/* User info card */}
-      <m.div
-        variants={child}
-        className="bg-surface rounded-2xl border border-border overflow-hidden"
-      >
-        {/* Gradient banner */}
-        <div className="h-24 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 relative">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.2),transparent_50%)]" />
-        </div>
-
-        <div className="px-6 pb-6 -mt-12 relative">
-          <div className="flex items-end gap-4 flex-wrap">
-            <div className="ring-4 ring-white rounded-full">
-              <AnimatedAvatar name={user?.full_name} size={96} />
-            </div>
-            <div className="flex-1 min-w-0 pb-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-xl font-bold text-fg truncate">{user?.full_name}</h2>
-                {isAdmin && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning/15 text-warning text-[10px] font-bold uppercase tracking-wide">
-                    <Shield className="w-3 h-3" /> Admin
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-4 mt-1.5 text-sm text-muted flex-wrap">
-                <span className="flex items-center gap-1.5">
-                  <Mail className="w-4 h-4 text-muted" />
-                  {user?.email}
-                </span>
-              </div>
-            </div>
+      {/* Identity */}
+      <section aria-label="Account" className="card flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:p-6">
+        <Avatar name={user?.full_name} size={64} />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="truncate text-lg font-semibold">{user?.full_name}</h2>
+            {isAdmin && <Badge tone="warning" icon={Shield}>Admin</Badge>}
           </div>
+          <p className="mt-1 flex items-center gap-1.5 truncate text-sm text-muted">
+            <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            {user?.email}
+          </p>
         </div>
-      </m.div>
-
-      {/* Appearance */}
-      <m.div variants={child}>
-        <h3 className="text-xs font-bold uppercase tracking-wider text-muted mb-3 flex items-center gap-2">
-          <span className="w-6 h-0.5 bg-border" />
-          Appearance
-        </h3>
-        <div className="bg-surface rounded-2xl border border-border p-4 flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Palette className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="font-semibold text-fg">Theme</p>
-              <p className="text-xs text-muted">Pick an eye-comfort color theme</p>
-            </div>
-          </div>
-          <ThemePicker />
-        </div>
-      </m.div>
+      </section>
 
       {/* Personal stats */}
-      <m.div variants={child}>
-        <h3 className="text-xs font-bold uppercase tracking-wider text-muted mb-3 flex items-center gap-2">
-          <span className="w-6 h-0.5 bg-border" />
-          Your journey
-        </h3>
+      <section aria-label="Your journey">
+        <SectionHeader title="Your journey" meta="Last 12 months" />
 
         {statsLoading || !stats ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="bg-surface rounded-2xl border border-border p-5 animate-pulse">
-                <div className="w-10 h-10 rounded-xl bg-bg mb-3" />
-                <div className="h-3 bg-bg rounded w-1/2 mb-2" />
-                <div className="h-7 bg-bg rounded w-3/4" />
-              </div>
-            ))}
-          </div>
+          <SkeletonGroup label="Loading your stats…">
+            <StatGridSkeleton />
+          </SkeletonGroup>
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatCard
               icon={Trophy}
               label="Completed"
               value={stats.totalCompleted}
               sub={`of ${stats.totalTasks} total tasks`}
-              gradient="from-emerald-500 to-teal-500"
-              delay={0}
             />
             <StatCard
               icon={Target}
+              accent
               label="Completion rate"
               value={stats.completionRate}
               suffix="%"
               sub="over the last year"
-              gradient="from-indigo-500 to-purple-600"
-              delay={0.05}
+              delay={0.04}
             />
             <StatCard
               icon={Flame}
               label="Current streak"
               value={stats.streak}
               sub={stats.streak > 0 ? "Keep it going 🔥" : "Start one today!"}
-              gradient="from-orange-500 to-rose-500"
-              delay={0.1}
+              delay={0.08}
             />
             <StatCard
               icon={stats.favoriteCategory ? Sparkles : Calendar}
               label="Favorite category"
               value={stats.favoriteCategory || '—'}
               sub={stats.favoriteCategory ? `${stats.favoriteCategoryCount} completions` : 'No completions yet'}
-              gradient="from-sky-500 to-indigo-500"
-              delay={0.15}
+              delay={0.12}
             />
           </div>
         )}
 
         {stats?.bestDay && (
-          <m.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            className="mt-3 p-3 rounded-xl bg-primary/5 border border-primary/20 flex items-center gap-3"
-          >
-            <Calendar className="w-5 h-5 text-primary flex-shrink-0" />
-            <p className="text-sm text-fg">
-              Your most productive day is <strong>{stats.bestDay}</strong> — maybe schedule important tasks then?
-            </p>
-          </m.div>
+          <Alert tone="neutral" icon={Calendar} className="mt-3">
+            Your most productive day is <strong className="font-semibold text-fg">{stats.bestDay}</strong> — maybe schedule important tasks then?
+          </Alert>
         )}
-      </m.div>
+      </section>
 
-      {/* Account settings */}
-      <m.div variants={child}>
-        <h3 className="text-xs font-bold uppercase tracking-wider text-muted mb-3 flex items-center gap-2">
-          <span className="w-6 h-0.5 bg-border" />
-          Account settings
-        </h3>
-
-        <div className="bg-surface rounded-2xl border border-border divide-y divide-border">
-          {/* Change password */}
-          <button
-            type="button"
-            onClick={() => setPasswordModalOpen(true)}
-            className="w-full flex items-center gap-4 p-4 hover:bg-bg transition-colors text-left group"
-          >
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:scale-105 transition-transform">
-              <KeyRound className="w-5 h-5 text-primary" />
+      {/* Appearance + account */}
+      <section aria-label="Settings">
+        <SectionHeader title="Settings" />
+        <div className="card divide-y divide-border">
+          <div className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:gap-4 sm:px-5">
+            <div className="flex min-w-0 flex-1 items-center gap-4">
+              <span className="icon-tile h-9 w-9">
+                <Palette className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-fg">Appearance</p>
+                <p className="mt-0.5 text-[13px] text-muted">Light, dark, or match your device.</p>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-fg">Change password</p>
-              <p className="text-xs text-muted">Confirm your current password, then pick a new one</p>
-            </div>
-            <span className="text-xs font-medium text-primary group-hover:translate-x-1 transition-transform">
-              Update →
-            </span>
-          </button>
-
-          {/* Email (read-only with info) */}
-          <div className="flex items-center gap-4 p-4">
-            <div className="w-10 h-10 rounded-xl bg-bg flex items-center justify-center">
-              <Mail className="w-5 h-5 text-muted" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-fg">Email address</p>
-              <p className="text-xs text-muted">{user?.email}</p>
-            </div>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-success/15 text-success text-[10px] font-bold uppercase">
-              Verified
-            </span>
+            <ThemePicker />
           </div>
 
-          {/* Role (read-only) */}
-          <div className="flex items-center gap-4 p-4">
-            <div className="w-10 h-10 rounded-xl bg-bg flex items-center justify-center">
-              <Shield className="w-5 h-5 text-muted" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-fg">Role</p>
-              <p className="text-xs text-muted">
-                {isAdmin ? 'Administrator — you can manage fixed tasks for all users' : 'Standard user'}
-              </p>
-            </div>
-          </div>
+          <SettingRow
+            icon={KeyRound}
+            title="Password"
+            description="Confirm your current password, then pick a new one."
+            trailing={
+              <Button variant="secondary" size="sm" onClick={() => setPasswordModalOpen(true)}>
+                Change <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            }
+          />
+
+          <SettingRow
+            icon={Mail}
+            title="Email address"
+            description={user?.email}
+            trailing={<Badge tone="success" icon={BadgeCheck}>Verified</Badge>}
+          />
+
+          <SettingRow
+            icon={Shield}
+            title="Role"
+            description={isAdmin ? 'Administrator — you can manage fixed tasks for all users' : 'Standard user'}
+          />
         </div>
-      </m.div>
+      </section>
 
       {/* Danger zone */}
-      <m.div variants={child}>
-        <h3 className="text-xs font-bold uppercase tracking-wider text-danger mb-3 flex items-center gap-2">
-          <span className="w-6 h-0.5 bg-danger/50" />
-          Danger zone
-        </h3>
-
-        <div className="bg-surface rounded-2xl border-2 border-danger/30 overflow-hidden">
-          {/* Logout */}
-          <button
-            type="button"
-            onClick={() => setLogoutConfirmOpen(true)}
-            className="w-full flex items-center gap-4 p-4 hover:bg-danger/5 transition-colors text-left group"
-          >
-            <div className="w-10 h-10 rounded-xl bg-danger/10 flex items-center justify-center group-hover:scale-105 transition-transform">
-              <LogOut className="w-5 h-5 text-danger" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-fg">Log out</p>
-              <p className="text-xs text-muted">You'll need to sign in again to access your tasks</p>
-            </div>
-          </button>
-
+      <section aria-label="Danger zone">
+        <SectionHeader title="Danger zone" tone="danger" />
+        <div className="card divide-y divide-border !border-danger/25">
+          <SettingRow
+            icon={LogOut}
+            title="Log out"
+            description="You'll need to sign in again to access your tasks."
+            trailing={
+              <Button variant="secondary" size="sm" onClick={() => setLogoutConfirmOpen(true)}>
+                Log out
+              </Button>
+            }
+          />
           {/* Delete account (admins manage everyone's fixed tasks, so the API refuses self-deletion for them) */}
-          <div className="border-t-2 border-danger/20 flex items-center gap-4 p-4 bg-danger/5">
-            <div className="w-10 h-10 rounded-xl bg-danger/10 flex items-center justify-center">
-              <Trash2 className="w-5 h-5 text-danger" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-fg">Delete account</p>
-              <p className="text-xs text-muted">
-                {isAdmin
-                  ? "Admin accounts can't be deleted from the app"
-                  : 'Permanently remove your account and all data'}
-              </p>
-            </div>
-            <button
-              type="button"
-              disabled={isAdmin}
-              onClick={() => setDeleteModalOpen(true)}
-              className="px-3 py-1.5 rounded-lg bg-danger text-white text-xs font-semibold hover:bg-danger/90 transition-colors disabled:bg-danger/10 disabled:text-danger/50 disabled:cursor-not-allowed"
-            >
-              Delete…
-            </button>
-          </div>
+          <SettingRow
+            icon={Trash2}
+            danger
+            title="Delete account"
+            description={
+              isAdmin
+                ? "Admin accounts can't be deleted from the app."
+                : 'Permanently remove your account and all data.'
+            }
+            trailing={
+              <Button variant="danger-soft" size="sm" disabled={isAdmin} onClick={() => setDeleteModalOpen(true)}>
+                Delete…
+              </Button>
+            }
+          />
         </div>
-      </m.div>
+      </section>
 
-      {/* Footer note */}
-      <m.p
-        variants={child}
-        className="text-center text-xs text-muted pt-4"
-      >
-        SoulShield · Guarding your daily deeds ✨
-      </m.p>
+      <p className="pt-2 text-center text-xs text-subtle">SoulShield · Guarding your daily deeds</p>
 
       {/* Modals */}
       <ChangePasswordModal
@@ -305,17 +211,14 @@ export default function Profile() {
         onConfirm={handleLogout}
         title="Log out?"
         message="You'll need to sign in again to see your tasks. Don't worry — nothing will be lost."
-        confirmLabel="Yes, log me out"
+        confirmLabel="Log out"
         variant="primary"
         icon={LogOut}
       >
-        <div className="flex items-start gap-2 p-3 rounded-xl bg-primary/5 border border-primary/20 mt-1">
-          <Info className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-fg">
-            Your tasks, categories, and history will all be here when you come back.
-          </p>
-        </div>
+        <Alert tone="neutral">
+          Your tasks, categories, and history will all be here when you come back.
+        </Alert>
       </ConfirmModal>
-    </m.div>
+    </div>
   );
 }

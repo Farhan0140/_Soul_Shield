@@ -1,16 +1,6 @@
 import { m } from 'framer-motion';
-import { Target, CheckCircle2 } from 'lucide-react';
-
-// Diagonal stripe fill for the "partially completed" section of the bar -
-// the same warning tone TaskCard already uses for a partially_completed
-// task, with a translucent white diagonal overlay so it reads as "in
-// progress" rather than a second solid color competing with the completed
-// section's fill.
-const STRIPE_BACKGROUND = {
-  backgroundColor: 'var(--color-warning, #C08A2E)',
-  backgroundImage:
-    'repeating-linear-gradient(45deg, rgba(255,255,255,0.35) 0, rgba(255,255,255,0.35) 4px, transparent 4px, transparent 8px)',
-};
+import { CheckCircle2 } from 'lucide-react';
+import Badge from './ui/Badge';
 
 export default function ProgressSummary({ tasks }) {
   // Only the user's own tasks count - admin-managed fixed tasks (is_global)
@@ -22,47 +12,64 @@ export default function ProgressSummary({ tasks }) {
   const partiallyCompleted = myTasks.filter(t => t.status === 'partially_completed').length;
   const pct = total === 0 ? 0 : (completed / total) * 100;
   const partialPct = total === 0 ? 0 : (partiallyCompleted / total) * 100;
+  const allDone = completed === total && total > 0;
 
   return (
-    <div className="bg-surface rounded-2xl border border-border p-4 flex items-center gap-4">
-      <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50">
-        <Target className="w-6 h-6 text-primary" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline justify-between mb-1.5">
-          <p className="text-sm font-medium text-fg">
-            <span className="text-lg font-bold text-fg">{completed}</span>
-            <span className="text-muted"> / {total} completed</span>
-            {partiallyCompleted > 0 && (
-              <span className="text-muted text-xs"> &middot; {partiallyCompleted} partial</span>
-            )}
+    <section aria-label="Today's progress" className="card p-4 sm:p-5">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+        <div>
+          <p className="text-xs font-medium text-muted">Daily progress</p>
+          <p className="mt-1 text-[26px] font-semibold leading-none tracking-tight tabular-nums text-fg">
+            {completed}
+            <span className="text-base font-medium text-muted"> / {total} done</span>
           </p>
-          {completed === total && total > 0 && (
-            <m.span
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="flex items-center gap-1 text-xs font-semibold text-success"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" /> All done!
-            </m.span>
-          )}
         </div>
-        <div className="h-2 bg-bg rounded-full overflow-hidden flex">
-          <m.div
-            className="h-full bg-gradient-to-r from-indigo-500 to-purple-500"
-            animate={{ width: `${pct}%` }}
-            transition={{ type: 'spring', stiffness: 100, damping: 20 }}
-          />
-          {partiallyCompleted > 0 && (
-            <m.div
-              className="h-full"
-              style={STRIPE_BACKGROUND}
-              animate={{ width: `${partialPct}%` }}
-              transition={{ type: 'spring', stiffness: 100, damping: 20 }}
-            />
+        <div className="flex items-center gap-3">
+          {allDone ? (
+            <Badge tone="success" icon={CheckCircle2}>All done</Badge>
+          ) : (
+            <span className="text-sm font-semibold tabular-nums text-fg-2">{Math.round(pct)}%</span>
           )}
         </div>
       </div>
-    </div>
+
+      <div
+        className="mt-4 flex h-2 overflow-hidden rounded-full bg-sunken"
+        role="progressbar"
+        aria-label="Tasks completed today"
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-valuenow={completed}
+      >
+        <m.div
+          className="h-full bg-primary shadow-[inset_0_-1px_0_var(--edge-bottom)]"
+          initial={false}
+          animate={{ width: `${pct}%` }}
+          transition={{ type: 'spring', stiffness: 110, damping: 22 }}
+        />
+        {partiallyCompleted > 0 && (
+          <m.div
+            className="h-full bg-warning/55"
+            initial={false}
+            animate={{ width: `${partialPct}%` }}
+            transition={{ type: 'spring', stiffness: 110, damping: 22 }}
+          />
+        )}
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-primary ring-1 ring-primary-ink/40" aria-hidden="true" /> {completed} completed
+        </span>
+        {partiallyCompleted > 0 && (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-warning" aria-hidden="true" /> {partiallyCompleted} partial
+          </span>
+        )}
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-border-strong" aria-hidden="true" /> {total - completed - partiallyCompleted} to go
+        </span>
+      </div>
+    </section>
   );
 }

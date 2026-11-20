@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react';
-import { m, AnimatePresence } from 'framer-motion';
-import { Check, AlertCircle } from 'lucide-react';
+import { useState, useId } from 'react';
+import { Check } from 'lucide-react';
+import { FieldMessage } from './ui/Field';
 
 function isValidHex(hex) {
   return /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/.test(hex);
@@ -9,7 +9,7 @@ function isValidHex(hex) {
 export default function ColorPicker({ value, onChange, label = 'Color' }) {
   const [hex, setHex] = useState(value || '#4F46E5');
   const [error, setError] = useState('');
-  const inputRef = useRef(null);
+  const id = useId();
 
   // Follow the controlled value when the parent changes it (adjusting state
   // during render, React's recommended alternative to a syncing effect).
@@ -45,63 +45,44 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
   return (
     <div>
       {label && (
-        <label className="text-xs font-semibold text-muted mb-1.5 block">{label}</label>
+        <label htmlFor={`${id}-hex`} className="mb-1.5 block text-[13px] font-medium text-fg-2">{label}</label>
       )}
 
-      {/* Color picker trigger + hex input */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2.5">
+        {/* Native OS/browser color picker — any color can be chosen. */}
         <label
-          className="relative w-12 h-12 rounded-xl border-2 border-white shadow-md flex-shrink-0 cursor-pointer overflow-hidden block"
+          className="relative block h-11 w-11 shrink-0 cursor-pointer overflow-hidden rounded-[10px] border border-border shadow-[inset_0_-2px_0_rgba(0,0,0,0.12),var(--elev-1)] transition-transform active:scale-95"
           title="Pick a color"
+          style={{ backgroundColor: isValidHex(hex) ? hex : 'var(--sunken)' }}
         >
-          <m.div
-            key={hex}
-            initial={{ scale: 0.8 }}
-            animate={{ scale: 1 }}
-            className="absolute inset-0"
-            style={{ backgroundColor: isValidHex(hex) ? hex : '#e2e8f0' }}
-          />
-          {/* Native OS/browser color picker — replaces the old curated preset palette so any color can be chosen. */}
           <input
             type="color"
             value={isValidHex(hex) ? hex : '#4F46E5'}
             onChange={(e) => handleNativePick(e.target.value)}
             aria-label="Pick a color"
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
           />
         </label>
-        <div className="flex-1 relative">
+        <div className="field relative h-11 flex-1" data-invalid={!!error || undefined}>
           <input
-            ref={inputRef}
+            id={`${id}-hex`}
             type="text"
             value={hex}
             onChange={(e) => handleHexChange(e.target.value)}
             maxLength={7}
             placeholder="#4F46E5"
             aria-label="Hex color code"
-            className={`w-full px-3 py-2.5 rounded-xl border-2 font-mono text-sm uppercase outline-none transition-colors
-              ${error ? 'border-danger' : 'border-border focus:border-primary'}`}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? `${id}-msg` : undefined}
+            className="field-control h-full px-3 font-mono uppercase"
           />
           {isValidHex(hex) && !error && (
-            <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-success" />
+            <Check className="absolute right-3 h-4 w-4 text-success" aria-hidden="true" />
           )}
         </div>
       </div>
 
-      {/* Error */}
-      <AnimatePresence>
-        {error && (
-          <m.p
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="mt-2 flex items-center gap-1 text-xs text-danger"
-          >
-            <AlertCircle className="w-3.5 h-3.5" />
-            {error}
-          </m.p>
-        )}
-      </AnimatePresence>
+      <FieldMessage id={`${id}-msg`} error={error} />
     </div>
   );
 }

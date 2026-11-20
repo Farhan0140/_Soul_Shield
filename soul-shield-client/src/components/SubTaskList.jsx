@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, ArrowUpRight } from 'lucide-react';
+import { ChevronDown, ArrowUpRight, Timer } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { useToast } from './Toast';
 import ExpandableText from './ExpandableText';
+import TaskCheck from './TaskCheck';
+import Pagination from './ui/Pagination';
+import { cn } from '../utils/cn';
 import { fmtDate } from '../hooks/useTasks';
 
 const QUICK_AMOUNTS = [1, 10];
@@ -77,27 +80,24 @@ export default function SubTaskList({ task, date, onUpdate, onRewardEarned, disa
       <div
         key={s.sub_task_id}
         onClick={isTimer ? () => handleOpenTimer(s.sub_task_id) : undefined}
-        className={`flex items-start gap-2 rounded-xl border border-border bg-bg p-2.5 ${isTimer ? 'cursor-pointer' : ''}`}
+        className={cn(
+          'flex items-start gap-2.5 rounded-lg border border-border bg-surface-2 px-3 py-2.5 transition-colors',
+          isTimer && 'cursor-pointer hover:border-border-strong'
+        )}
       >
         {!isCounter && !isTimer && (
-          <button
-            type="button"
+          <TaskCheck
+            size="sm"
+            checked={isCompleted}
+            pending={isPending}
+            disabled={disabled}
             onClick={() => handleComplete(s)}
-            disabled={isDisabled}
-            aria-label={isCompleted ? `Mark "${s.title}" as not done` : `Mark "${s.title}" as done`}
-            className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all
-              ${isCompleted ? 'bg-success border-success' : 'border-border hover:border-primary'}
-              disabled:cursor-not-allowed`}
-          >
-            {isPending ? (
-              <Loader2 className="w-3 h-3 animate-spin text-primary" />
-            ) : isCompleted ? (
-              <Check className="w-3 h-3 text-white" strokeWidth={3} />
-            ) : null}
-          </button>
+            label={isCompleted ? `Mark "${s.title}" as not done` : `Mark "${s.title}" as done`}
+          />
         )}
+        {isTimer && <Timer className="mt-0.5 h-4 w-4 shrink-0 text-primary-ink" aria-hidden="true" />}
 
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             {/* Truncated titles expand on tap; short titles pass clicks through
                 (the timer row above keeps routing). */}
@@ -105,16 +105,19 @@ export default function SubTaskList({ task, date, onUpdate, onRewardEarned, disa
               as="p"
               text={s.title}
               maxLines={2}
-              className={`flex-1 min-w-0 text-sm ${isCompleted ? 'line-through text-muted' : 'text-fg'}`}
+              className={cn('min-w-0 flex-1 text-[13px] font-medium', isCompleted ? 'text-muted line-through' : 'text-fg')}
             />
             {isTimer && (
               <button
                 type="button"
-                onClick={() => handleOpenTimer(s.sub_task_id)}
-                aria-label="Open timer"
-                className="text-primary hover:text-indigo-700 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenTimer(s.sub_task_id);
+                }}
+                aria-label={`Open timer for "${s.title}"`}
+                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-sunken hover:text-fg"
               >
-                <ArrowUpRight className="w-3.5 h-3.5" />
+                <ArrowUpRight className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
@@ -124,28 +127,29 @@ export default function SubTaskList({ task, date, onUpdate, onRewardEarned, disa
               as="p"
               text={s.description}
               maxLines={2}
-              className={`mt-0.5 text-xs leading-4 ${isCompleted ? 'line-through text-muted' : 'text-muted'}`}
+              className={cn('mt-0.5 text-xs leading-4 text-muted', isCompleted && 'line-through')}
             />
           )}
 
           {isCounter && (
-            <div className="mt-1 space-y-1.5">
+            <div className="mt-2 space-y-2">
               <div className="flex items-center gap-2">
-                <div className="flex-1 h-1.5 bg-bg rounded-full overflow-hidden">
-                  <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-sunken">
+                  <div className="h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${pct}%` }} />
                 </div>
-                <span className="text-[11px] text-muted tabular-nums">
+                <span className="text-[11px] font-medium tabular-nums text-muted">
                   {s.progress_count || 0}/{s.target_count}
                 </span>
               </div>
-              <div className="flex gap-1">
+              <div className="flex gap-1.5">
                 {QUICK_AMOUNTS.map((amount) => (
                   <button
                     key={amount}
                     type="button"
                     onClick={() => handleIncrement(s, amount)}
                     disabled={isDisabled || isCompleted}
-                    className="px-2 py-1 rounded-md bg-primary/10 text-primary text-[11px] font-semibold hover:bg-primary/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    aria-busy={isPending || undefined}
+                    className="btn btn-secondary h-7 rounded-md px-2.5 text-xs tabular-nums"
                   >
                     +{amount}
                   </button>
@@ -176,47 +180,37 @@ export default function SubTaskList({ task, date, onUpdate, onRewardEarned, disa
   );
 
   return (
-    <div className="mt-3 pt-3 border-t border-border space-y-2.5">
+    <div className="mt-4 space-y-2 border-t border-border pt-3">
+      <p className="text-xs font-medium text-muted">
+        Sub-tasks
+        <span className="ml-1.5 tabular-nums text-subtle">
+          {completedSubTasks.length}/{task.sub_tasks.length} done
+        </span>
+      </p>
+
       {pageRows.map(renderRow)}
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-1 pt-0.5">
-          <button
-            type="button"
-            onClick={() => setPage(Math.max(1, currentPage - 1))}
-            disabled={currentPage <= 1}
-            className="flex items-center gap-0.5 text-xs font-semibold text-primary hover:text-indigo-700 disabled:text-muted disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" /> Previous
-          </button>
-          <span className="text-xs font-semibold text-muted">
-            Page {currentPage} of {totalPages}
-          </span>
-          <button
-            type="button"
-            onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
-            disabled={currentPage >= totalPages}
-            className="flex items-center gap-0.5 text-xs font-semibold text-primary hover:text-indigo-700 disabled:text-muted disabled:cursor-not-allowed transition-colors"
-          >
-            Next <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        <Pagination
+          compact
+          page={currentPage}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          label="Sub-task pages"
+          className="pt-0.5"
+        />
       )}
 
       {completedSubTasks.length > 0 && (
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           <button
             type="button"
             onClick={() => setCompletedExpanded((v) => !v)}
             aria-expanded={completedExpanded}
-            className="flex items-center gap-1 text-xs font-semibold text-success hover:opacity-80 transition-opacity"
+            className="inline-flex h-7 items-center gap-1 rounded-md px-1 text-xs font-semibold text-success transition-colors hover:bg-success/10"
           >
-            {completedExpanded ? (
-              <ChevronUp className="w-3.5 h-3.5" />
-            ) : (
-              <ChevronDown className="w-3.5 h-3.5" />
-            )}
-            Completed Sub-Tasks ({completedSubTasks.length})
+            <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', completedExpanded ? 'rotate-180' : '')} />
+            Completed sub-tasks ({completedSubTasks.length})
           </button>
 
           {completedExpanded && completedSubTasks.map(renderRow)}

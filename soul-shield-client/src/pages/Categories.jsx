@@ -1,19 +1,30 @@
 import { useState, useEffect, useMemo } from 'react';
-import { m, AnimatePresence } from 'framer-motion';
-import { Plus, Tags, AlertCircle, Inbox, Info } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
+import { Plus, Tags, Trash2 } from 'lucide-react';
+import { fmtDate } from '../hooks/useTasks';
 import { useApi } from '../context/ApiContext';
 import { useToast } from '../components/Toast';
 import CategoryCard from '../components/CategoryCard';
 import CategoryFormModal from '../components/CategoryFormModal';
 import ConfirmModal from '../components/ConfirmModal';
 import Button from '../components/ui/Button';
-import SkeletonCard from '../components/SkeletonCard';
+import Alert from '../components/ui/Alert';
+import PageHeader from '../components/ui/PageHeader';
+import { EmptyState, ErrorState } from '../components/ui/States';
+import { Skeleton, SkeletonGroup } from '../components/ui/Skeleton';
 
-const pageVariants = {
-  initial: { opacity: 0, y: 10 },
-  animate: { opacity: 1, y: 0, transition: { staggerChildren: 0.06 } },
-};
-const child = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } };
+function CategorySkeleton() {
+  return (
+    <div className="card flex items-center gap-4 p-4 sm:p-5">
+      <Skeleton className="h-12 w-12 rounded-xl" />
+      <div className="flex-1 space-y-2">
+        <Skeleton className="h-4 w-1/2" />
+        <Skeleton className="h-3 w-1/3" />
+      </div>
+      <Skeleton className="h-8 w-16" />
+    </div>
+  );
+}
 
 export default function Categories() {
   const toast = useToast();
@@ -49,8 +60,8 @@ export default function Categories() {
       const to = new Date();
       const from = new Date();
       from.setDate(to.getDate() - 30);
-      const fmt = (d) => d.toISOString().slice(0, 10);
-      const history = await getTasksHistory(fmt(from), fmt(to));
+      // Local calendar days, matching every other date the app sends.
+      const history = await getTasksHistory(fmtDate(from), fmtDate(to));
       const counts = {};
       (Array.isArray(history) ? history : []).forEach(t => {
         if (t.category_id) {
@@ -110,98 +121,57 @@ export default function Categories() {
   }, [categories, usageCounts]);
 
   return (
-    <m.div
-      variants={pageVariants}
-      initial="initial"
-      animate="animate"
-      className="space-y-6"
-    >
-      {/* Header */}
-      <m.div variants={child} className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-fg flex items-center gap-2">
-            <Tags className="w-7 h-7 text-primary" />
-            Categories
-          </h1>
-          <p className="text-sm text-muted mt-1">
-            Organize your tasks with colors and labels — makes them easier to find.
-          </p>
-        </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="w-4 h-4" /> New category
-        </Button>
-      </m.div>
+    <div className="space-y-6 sm:space-y-8">
+      <PageHeader
+        title="Categories"
+        description="Organize your tasks with names and colors — it makes them easier to find."
+        actions={
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="h-4 w-4" /> New category
+          </Button>
+        }
+      />
 
-      {/* Info banner */}
-      <m.div
-        variants={child}
-        className="flex items-start gap-3 p-4 rounded-2xl bg-primary/10 border border-primary/20"
-      >
-        <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-        <div className="text-sm text-primary">
-          <p className="font-semibold mb-0.5">Deleting is safe</p>
-          <p className="text-primary/80">
-            If you delete a category, its tasks won't disappear — they'll just become "Uncategorized".
-          </p>
-        </div>
-      </m.div>
+      <Alert tone="neutral" title="Deleting is safe">
+        If you delete a category, its tasks won't disappear — they'll just become "Uncategorized".
+      </Alert>
 
-      {/* Error */}
-      {error && (
-        <m.div variants={child} className="p-6 rounded-2xl bg-danger/10 border border-danger/20 text-center">
-          <AlertCircle className="w-8 h-8 text-danger mx-auto mb-2" />
-          <p className="text-sm text-danger mb-3">{error}</p>
-          <Button variant="secondary" onClick={load}>Try again</Button>
-        </m.div>
-      )}
+      {error && !loading && <ErrorState title="Couldn't load your categories" message={error} onRetry={load} />}
 
-      {/* Loading */}
       {loading && (
-        <div className="grid gap-3 md:grid-cols-2">
-          {[1, 2, 3, 4].map(i => <SkeletonCard key={i} />)}
-        </div>
+        <SkeletonGroup label="Loading categories…" className="grid gap-3 md:grid-cols-2">
+          {[1, 2, 3, 4].map(i => <CategorySkeleton key={i} />)}
+        </SkeletonGroup>
       )}
 
-      {/* List */}
       {!loading && !error && (
-        <>
-          {sorted.length > 0 ? (
-            <m.div variants={child} className="grid gap-3 md:grid-cols-2">
-              <AnimatePresence>
-                {sorted.map(cat => (
-                  <CategoryCard
-                    key={cat.id}
-                    category={cat}
-                    taskCount={usageCounts[cat.id] || 0}
-                    onUpdate={handleUpdate}
-                    onDelete={(id) => setCategories(prev => prev.filter(c => c.id !== id))}
-                    onRequestDelete={setDeleting}
-                  />
-                ))}
-              </AnimatePresence>
-            </m.div>
-          ) : (
-            <m.div
-              variants={child}
-              className="text-center py-16 bg-surface rounded-2xl border border-border"
-            >
-              <m.div
-                animate={{ y: [0, -8, 0] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 mb-4"
-              >
-                <Inbox className="w-8 h-8 text-primary" />
-              </m.div>
-              <h3 className="text-lg font-semibold text-fg mb-1">No categories yet</h3>
-              <p className="text-sm text-muted mb-4 max-w-sm mx-auto">
-                Categories help you group similar tasks together — like "Ibadah", "Work", or "Health".
-              </p>
+        sorted.length > 0 ? (
+          <div className="grid items-start gap-3 md:grid-cols-2">
+            <AnimatePresence initial={false}>
+              {sorted.map(cat => (
+                <CategoryCard
+                  key={cat.id}
+                  category={cat}
+                  taskCount={usageCounts[cat.id] || 0}
+                  onUpdate={handleUpdate}
+                  onDelete={(id) => setCategories(prev => prev.filter(c => c.id !== id))}
+                  onRequestDelete={setDeleting}
+                />
+              ))}
+            </AnimatePresence>
+          </div>
+        ) : (
+          <EmptyState
+            icon={Tags}
+            title="No categories yet"
+            description='Categories help you group similar tasks together — like "Ibadah", "Work", or "Health".'
+            action={
               <Button onClick={() => setCreateOpen(true)}>
-                <Plus className="w-4 h-4" /> Create your first category
+                <Plus className="h-4 w-4" /> Create your first category
               </Button>
-            </m.div>
-          )}
-        </>
+            }
+          />
+        )
       )}
 
       {/* Create modal */}
@@ -217,21 +187,20 @@ export default function Categories() {
         onClose={() => !deleteLoading && setDeleting(null)}
         onConfirm={handleDelete}
         loading={deleteLoading}
+        icon={Trash2}
         title={`Delete "${deleting?.name}"?`}
         message="This can't be undone — but don't worry, your tasks are safe."
-        confirmLabel="Yes, delete it"
+        confirmLabel="Delete category"
         variant="danger"
       >
         {deleting && (usageCounts[deleting.id] || 0) > 0 && (
-          <div className="p-3 rounded-xl bg-warning/10 border border-warning/20">
-            <p className="text-sm text-warning">
-              <strong>{usageCounts[deleting.id]}</strong> task
-              {usageCounts[deleting.id] === 1 ? '' : 's'} using this category will become{' '}
-              <strong>Uncategorized</strong>. They won't be deleted.
-            </p>
-          </div>
+          <Alert tone="warning">
+            <strong className="font-semibold text-fg">{usageCounts[deleting.id]}</strong> task
+            {usageCounts[deleting.id] === 1 ? '' : 's'} using this category will become{' '}
+            <strong className="font-semibold text-fg">Uncategorized</strong>. They won't be deleted.
+          </Alert>
         )}
       </ConfirmModal>
-    </m.div>
+    </div>
   );
 }

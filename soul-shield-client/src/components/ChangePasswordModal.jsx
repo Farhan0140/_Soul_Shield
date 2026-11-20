@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { m, AnimatePresence } from 'framer-motion';
-import { X, Lock, KeyRound, ArrowRight } from 'lucide-react';
+import { Lock, KeyRound } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { setToken } from '../services/api';
 import { validateNewPassword } from '../utils/validation';
@@ -8,6 +7,8 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from './Toast';
 import Input from './ui/Input';
 import Button from './ui/Button';
+import Alert from './ui/Alert';
+import Modal, { ModalBody, ModalFooter } from './ui/Modal';
 
 
 // 4xx bodies carry a specific reason ("Your current password is incorrect");
@@ -53,6 +54,7 @@ export default function ChangePasswordModal({ open, onClose }) {
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
+    if (loading) return;
     const invalid = validate();
     if (invalid) return setErrors(invalid);
 
@@ -74,68 +76,51 @@ export default function ChangePasswordModal({ open, onClose }) {
     }
   };
 
-  return (
-    <AnimatePresence>
-      {open && (
-        <m.div
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
-          onClick={onClose}
-        >
-          <m.div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="change-password-title"
-            initial={{ scale: 0.95, y: 20, opacity: 0 }}
-            animate={{ scale: 1, y: 0, opacity: 1 }}
-            exit={{ scale: 0.95, y: 20, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-surface rounded-2xl shadow-2xl overflow-hidden"
-          >
-            <div className="px-6 pt-6 pb-4 flex items-center justify-between">
-              <div>
-                <h2 id="change-password-title" className="text-lg font-bold text-fg">Change your password</h2>
-                <p className="text-xs text-muted mt-0.5">For {user?.email}</p>
-              </div>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Close"
-                className="p-1.5 rounded-lg hover:bg-bg transition-colors"
-              >
-                <X className="w-5 h-5 text-muted" />
-              </button>
-            </div>
+  const handleClose = () => {
+    if (!loading) onClose();
+  };
 
-            <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4">
-              <Input
-                label="Current password" type="password" icon={Lock}
-                autoComplete="current-password"
-                value={form.current} error={errors.current}
-                onChange={setField('current')}
-                autoFocus
-              />
-              <Input
-                label="New password" type="password" icon={KeyRound}
-                autoComplete="new-password"
-                value={form.next} error={errors.next}
-                onChange={setField('next')}
-              />
-              <Input
-                label="Confirm new password" type="password" icon={KeyRound}
-                autoComplete="new-password"
-                value={form.confirm} error={errors.confirm}
-                onChange={setField('confirm')}
-              />
-              {errors.form && <p className="text-sm text-danger">{errors.form}</p>}
-              <Button type="submit" loading={loading} className="w-full">
-                Update password <ArrowRight className="w-4 h-4" />
-              </Button>
-            </form>
-          </m.div>
-        </m.div>
-      )}
-    </AnimatePresence>
+  return (
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title="Change your password"
+      description={`For ${user?.email ?? 'your account'}. Other devices will be signed out.`}
+      icon={KeyRound}
+      size="md"
+    >
+      <form onSubmit={handleSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
+        <ModalBody className="space-y-4">
+          {errors.form && <Alert tone="danger">{errors.form}</Alert>}
+          <Input
+            label="Current password" type="password" icon={Lock}
+            autoComplete="current-password"
+            value={form.current} error={errors.current}
+            onChange={setField('current')}
+            data-autofocus
+          />
+          <Input
+            label="New password" type="password" icon={KeyRound}
+            autoComplete="new-password"
+            value={form.next} error={errors.next}
+            onChange={setField('next')}
+          />
+          <Input
+            label="Confirm new password" type="password" icon={KeyRound}
+            autoComplete="new-password"
+            value={form.confirm} error={errors.confirm}
+            onChange={setField('confirm')}
+          />
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={handleClose} disabled={loading}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={loading}>
+            Update password
+          </Button>
+        </ModalFooter>
+      </form>
+    </Modal>
   );
 }

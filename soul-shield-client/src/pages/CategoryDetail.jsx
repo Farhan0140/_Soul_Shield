@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
+import { ArrowLeft, Inbox, CheckCircle2 } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { fmtDate, prettyDate } from '../hooks/useTasks';
 import TaskCard from '../components/TaskCard';
 import TaskFormModal from '../components/TaskFormModal';
-import SkeletonCard from '../components/SkeletonCard';
+import Button from '../components/ui/Button';
+import PageHeader from '../components/ui/PageHeader';
+import Badge from '../components/ui/Badge';
+import { EmptyState, ErrorState } from '../components/ui/States';
+import { SkeletonGroup, TaskCardSkeleton } from '../components/ui/Skeleton';
 
 const SPECIAL_CATEGORY_IDS = ['fixed', 'uncategorized', 'completed'];
 
@@ -27,7 +32,7 @@ export default function CategoryDetail() {
   const name = searchParams.get('name') || 'Category';
   const dateParam = searchParams.get('date');
   const navigate = useNavigate();
-  const { getTasks, getCategories, deleteTask } = useApi();
+  const { getTasks, getCategories } = useApi();
 
   const specialId = SPECIAL_CATEGORY_IDS.includes(id) ? id : null;
   const categoryId = Number(id);
@@ -39,6 +44,8 @@ export default function CategoryDetail() {
   const [error, setError] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  // Bumped by "Try again" to re-run the load effect.
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     getCategories().then(setCategories).catch(() => {});
@@ -62,7 +69,7 @@ export default function CategoryDetail() {
     return () => {
       cancelled = true;
     };
-  }, [date, getTasks]);
+  }, [date, getTasks, reloadKey]);
 
   const categoryTasks = useMemo(() => {
     if (specialId === 'fixed') return tasks.filter((t) => t.is_global && !t.already_added);
@@ -72,11 +79,15 @@ export default function CategoryDetail() {
   }, [specialId, categoryId, tasks]);
 
   const sortedTasks = specialId === 'completed' ? categoryTasks : sortActiveFirst(categoryTasks);
+  const doneCount = categoryTasks.filter((t) => t.status === 'completed').length;
 
   const updateLocalTask = (taskId, patch) => {
     setTasks((prev) => prev.map((t) => (t.task_id === taskId ? { ...t, ...patch } : t)));
   };
 
+  // TaskCard confirms and performs the DELETE itself, then reports the id
+  // here; this page only drops it from the list. (It used to confirm and
+  // call DELETE a second time, which 404'd and left the task on screen.)
   const removeLocalTask = (taskId) => {
     setTasks((prev) => prev.filter((t) => t.task_id !== taskId));
   };
@@ -98,71 +109,77 @@ export default function CategoryDetail() {
     }
   };
 
-  const handleDelete = async (taskId) => {
-    if (!confirm('Delete this task? This cannot be undone.')) return;
-    try {
-      await deleteTask(taskId);
-      removeLocalTask(taskId);
-    } catch {
-      // Best-effort — the task list will simply show it again on next load
-      // if the delete failed; no toast context available on this page.
-    }
-  };
+  const isReadOnly = dateParam ? dateParam !== fmtDate(new Date()) : false;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-1.5 text-sm font-medium text-muted hover:text-fg transition-colors mb-2"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back
-          </button>
-          <h1 className="text-2xl font-bold text-fg">{name}</h1>
-          <p className="text-sm text-muted mt-0.5">{prettyDate(date)}</p>
-        </div>
-      </div>
+    <div className="mx-auto max-w-4xl space-y-6">
+      <PageHeader
+        back={
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="-ml-2">
+            <ArrowLeft className="h-4 w-4" /> Back
+          </Button>
+        }
+        eyebrow={prettyDate(date)}
+        title={name}
+        actions={
+          !loading && !error && sortedTasks.length > 0 ? (
+            specialId === 'completed' ? (
+              <Badge tone="success" icon={CheckCircle2}>
+                {sortedTasks.length} completed
+              </Badge>
+            ) : (
+              <Badge tone="neutral">
+                {doneCount} of {sortedTasks.length} done
+              </Badge>
+            )
+          ) : null
+        }
+      />
 
-      {loading ? (
-        <div className="space-y-3">
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-        </div>
-      ) : error ? (
-        <div className="p-6 rounded-2xl bg-danger/10 border border-danger/30 text-center text-sm text-danger">
-          {error}
-        </div>
-      ) : sortedTasks.length === 0 ? (
-        <div className="p-10 rounded-2xl bg-surface border border-border text-center">
-          <p className="text-sm text-muted">
-            {specialId === 'completed' ? 'Nothing completed here yet today.' : 'No tasks in this category for this date.'}
-          </p>
-        </div>
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          {sortedTasks.map((task) => (
-            <TaskCard
-              key={task.task_id}
-              task={task}
-              date={date}
-              variant={specialId === 'fixed' ? 'template' : 'full'}
-              isReadOnly={dateParam ? dateParam !== fmtDate(new Date()) : false}
-              onEdit={openEdit}
-              onDelete={handleDelete}
-              onUpdate={(patch) => updateLocalTask(task.task_id, patch)}
-            />
-          ))}
-        </div>
+      {isReadOnly && !loading && !error && sortedTasks.length > 0 && (
+        <p className="text-[13px] text-muted">You're viewing a past or future day, so these tasks are read-only.</p>
       )}
 
-      <p className="text-center text-xs text-muted">
-        {specialId === 'completed'
-          ? `${sortedTasks.length} task${sortedTasks.length === 1 ? '' : 's'} completed`
-          : `${sortedTasks.length} task${sortedTasks.length === 1 ? '' : 's'} total`}
-      </p>
+      {loading ? (
+        <SkeletonGroup label="Loading tasks…" className="grid gap-3 md:grid-cols-2">
+          <TaskCardSkeleton />
+          <TaskCardSkeleton />
+          <TaskCardSkeleton />
+          <TaskCardSkeleton />
+        </SkeletonGroup>
+      ) : error ? (
+        <ErrorState title="Couldn't load these tasks" message={error} onRetry={() => setReloadKey((k) => k + 1)} />
+      ) : sortedTasks.length === 0 ? (
+        <EmptyState
+          icon={Inbox}
+          title={specialId === 'completed' ? 'Nothing completed yet' : 'No tasks here'}
+          description={
+            specialId === 'completed' ? 'Nothing completed here yet today.' : 'No tasks in this category for this date.'
+          }
+          action={
+            <Button variant="secondary" onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-4 w-4" /> Go back
+            </Button>
+          }
+        />
+      ) : (
+        <div className="grid items-start gap-3 md:grid-cols-2">
+          <AnimatePresence initial={false}>
+            {sortedTasks.map((task) => (
+              <TaskCard
+                key={task.task_id}
+                task={task}
+                date={date}
+                variant={specialId === 'fixed' ? 'template' : 'full'}
+                isReadOnly={isReadOnly}
+                onEdit={openEdit}
+                onDelete={removeLocalTask}
+                onUpdate={(patch) => updateLocalTask(task.task_id, patch)}
+              />
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
 
       <TaskFormModal
         open={modalOpen}

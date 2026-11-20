@@ -1,22 +1,52 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { m } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Plus, RotateCcw, Inbox, AlertCircle, Shield, CheckCircle2, Tag } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, CalendarCheck, Shield, CheckCircle2, Tag, Inbox, SearchX } from 'lucide-react';
 import { useTasks, prettyDate, fmtDate } from '../hooks/useTasks';
 import { useApi } from '../context/ApiContext';
 import CategoryRow from '../components/CategoryRow';
 import FilterRow from '../components/FilterRow';
 import ProgressSummary from '../components/ProgressSummary';
 import TaskFormModal from '../components/TaskFormModal';
-import SkeletonCard from '../components/SkeletonCard';
 import Button from '../components/ui/Button';
+import PageHeader, { SectionHeader } from '../components/ui/PageHeader';
+import Tooltip from '../components/ui/Tooltip';
+import { EmptyState, ErrorState } from '../components/ui/States';
+import { Skeleton, SkeletonGroup, ListSkeleton } from '../components/ui/Skeleton';
 
 const FIXED_SECTION_ID = 'fixed';
 const UNCATEGORIZED_SECTION_ID = 'uncategorized';
 const COMPLETED_SECTION_ID = 'completed';
 
+/** `?date=YYYY-MM-DD` (e.g. from a History heatmap click) opens that day,
+ * parsed as a local date; anything else falls back to today. */
+function parseDateParam(value) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return new Date();
+  const [y, mo, d] = value.split('-').map(Number);
+  const parsed = new Date(y, mo - 1, d);
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
+function DashboardSkeleton() {
+  return (
+    <SkeletonGroup label="Loading your tasks…" className="space-y-6">
+      <div className="card p-5">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="mt-2.5 h-7 w-32" />
+        <Skeleton className="mt-5 h-2 w-full rounded-full" />
+      </div>
+      <Skeleton className="h-9 w-72 max-w-full rounded-[10px]" />
+      <ListSkeleton rows={4} />
+    </SkeletonGroup>
+  );
+}
+
 export default function Dashboard() {
-  const { date, tasks, loading, error, shiftDate, goToday, isToday, updateTask, reload } = useTasks();
+  const [searchParams] = useSearchParams();
+  const { date, tasks, loading, error, shiftDate, goToday, isToday, updateTask, reload } = useTasks(
+    parseDateParam(searchParams.get('date'))
+  );
   const [categories, setCategories] = useState([]);
   const [activeStatus, setActiveStatus] = useState('all');
   const [modalOpen, setModalOpen] = useState(false);
@@ -36,6 +66,13 @@ export default function Dashboard() {
       return true;
     });
   }, [tasks, activeStatus]);
+
+  const statusCounts = useMemo(() => ({
+    all: tasks.length,
+    pending: tasks.filter(t => t.status === 'pending').length,
+    completed: tasks.filter(t => t.status === 'completed').length,
+    missed: tasks.filter(t => t.status === 'missed').length,
+  }), [tasks]);
 
   // Completed tasks get pulled into their own row regardless of category;
   // every other row only ever counts active (non-completed) tasks.
@@ -77,6 +114,9 @@ export default function Dashboard() {
     ];
   }, [categories, myTasks]);
 
+  const visibleSections = categorySections.filter((section) => section.count > 0);
+  const groupCount = (fixedTasks.length > 0 ? 1 : 0) + visibleSections.length + (completedTasks.length > 0 ? 1 : 0);
+
   const openCreate = () => { setEditingTask(null); setModalOpen(true); };
 
   const openSection = (id, title) => {
@@ -96,164 +136,165 @@ export default function Dashboard() {
     // Refresh categories in case a new one was created inline (future)
   };
 
+  const canCreate = isToday && !loading;
+  const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-fg">
-            {isToday ? "Today's Tasks" : prettyDate(date)}
-          </h1>
-          <p className="text-sm text-muted mt-1">
-            {isToday ? "Let's make today count ✨" : fmtDate(date)}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="flex items-center bg-surface border border-border rounded-xl overflow-hidden">
-            <m.button
-              whileTap={{ scale: 0.9 }}
-              onClick={() => shiftDate(-1)}
-              className="p-2.5 hover:bg-bg transition-colors"
-              aria-label="Previous day"
-            >
-              <ChevronLeft className="w-5 h-5 text-muted" />
-            </m.button>
-            <div className="px-3 py-2 border-x border-border min-w-[110px] text-center">
-              <p className="text-sm font-semibold text-fg">{prettyDate(date)}</p>
+    <div className="space-y-6 sm:space-y-8">
+      <PageHeader
+        eyebrow={isToday ? `${weekday} · Today` : weekday}
+        title={isToday ? "Today's tasks" : prettyDate(date)}
+        description={isToday ? "Let's make today count." : `Viewing ${fmtDate(date)}`}
+        actions={
+          <>
+            {/* Day stepper */}
+            <div className="inline-flex h-10 items-center rounded-[9px] border border-border bg-surface shadow-[inset_0_-1px_0_var(--edge-bottom),var(--elev-1)]">
+              <Tooltip label="Previous day">
+                <button
+                  type="button"
+                  onClick={() => shiftDate(-1)}
+                  aria-label="Previous day"
+                  className="inline-flex h-[38px] w-9 items-center justify-center rounded-l-[8px] text-muted transition-colors hover:bg-sunken hover:text-fg"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+              </Tooltip>
+              <span className="min-w-[104px] border-x border-border px-3 text-center text-[13px] font-semibold tabular-nums text-fg" aria-live="polite">
+                {prettyDate(date)}
+              </span>
+              <Tooltip label="Next day">
+                <button
+                  type="button"
+                  onClick={() => shiftDate(1)}
+                  aria-label="Next day"
+                  className="inline-flex h-[38px] w-9 items-center justify-center rounded-r-[8px] text-muted transition-colors hover:bg-sunken hover:text-fg"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </Tooltip>
             </div>
-            <m.button
-              whileTap={{ scale: 0.9 }}
-              onClick={() => shiftDate(1)}
-              className="p-2.5 hover:bg-bg transition-colors"
-              aria-label="Next day"
-            >
-              <ChevronRight className="w-5 h-5 text-muted" />
-            </m.button>
-          </div>
 
-          {!isToday && (
-            <Button variant="secondary" onClick={goToday} className="!py-2.5 !px-3">
-              <RotateCcw className="w-4 h-4" /> Today
-            </Button>
-          )}
-        </div>
-      </div>
+            {!isToday && (
+              <Button variant="secondary" onClick={goToday}>
+                <CalendarCheck className="h-4 w-4" /> Today
+              </Button>
+            )}
 
-      {/* Progress */}
-      {!loading && !error && tasks.some(t => !t.is_global) && (
-        <ProgressSummary tasks={tasks} />
+            {canCreate && (
+              <Button onClick={openCreate} className="hidden sm:inline-flex">
+                <Plus className="h-4 w-4" /> New task
+              </Button>
+            )}
+          </>
+        }
+      />
+
+      {loading && <DashboardSkeleton />}
+
+      {error && !loading && (
+        <ErrorState title="Couldn't load your tasks" message={error} onRetry={() => reload()} />
       )}
 
-      {/* Filters */}
-      {!loading && !error && tasks.length > 0 && (
-        <FilterRow activeStatus={activeStatus} setActiveStatus={setActiveStatus} />
-      )}
-
-      {/* Error state */}
-      {error && (
-        <m.div
-          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-          className="p-6 rounded-2xl bg-danger/10 border border-danger/30 text-center"
-        >
-          <AlertCircle className="w-8 h-8 text-danger mx-auto mb-2" />
-          <p className="text-sm text-danger mb-3">{error}</p>
-          <Button variant="secondary" onClick={reload}>Try again</Button>
-        </m.div>
-      )}
-
-      {/* Loading */}
-      {loading && (
-        <div className="space-y-3">
-          {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
-        </div>
-      )}
-
-      {/* Category-wise rows — collapsed summaries, each opening its own
-          dedicated page (see pages/CategoryDetail.jsx) rather than showing
-          every task inline here, mirroring the mobile app's dashboard. */}
-      {!loading && !error && filteredTasks.length > 0 && (
-        <div className="space-y-2.5">
-          {fixedTasks.length > 0 && (
-            <CategoryRow
-              title="Fixed Tasks"
-              count={fixedTasks.length}
-              accentColor="var(--color-warning)"
-              icon={Shield}
-              onClick={() => openSection(FIXED_SECTION_ID, 'Fixed Tasks')}
-            />
-          )}
-          {categorySections.filter((section) => section.count > 0).map((section) => (
-            <CategoryRow
-              key={section.id}
-              title={section.title}
-              count={section.count}
-              accentColor={section.accentColor}
-              icon={section.id === UNCATEGORIZED_SECTION_ID ? Tag : undefined}
-              onClick={() => openSection(section.id, section.title)}
-            />
-          ))}
-          {completedTasks.length > 0 && (
-            <CategoryRow
-              title="Completed Tasks"
-              count={completedTasks.length}
-              accentColor="var(--color-success)"
-              icon={CheckCircle2}
-              onClick={() => openSection(COMPLETED_SECTION_ID, 'Completed Tasks')}
-            />
-          )}
-        </div>
-      )}
-
-      {/* Empty state */}
       {!loading && !error && (
         <>
-          {filteredTasks.length === 0 && tasks.length === 0 && isToday && (
-            <m.div
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              className="text-center py-16"
-            >
-              <m.div
-                animate={{ y: [0, -8, 0] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 mb-4"
-              >
-                <Inbox className="w-8 h-8 text-primary" />
-              </m.div>
-              <h3 className="text-lg font-semibold text-fg mb-1">No tasks yet</h3>
-              <p className="text-sm text-muted mb-4">Your day is a blank canvas — add your first task!</p>
-              <Button onClick={openCreate}>
-                <Plus className="w-4 h-4" /> Add a task
-              </Button>
-            </m.div>
+          {/* Progress */}
+          {tasks.some(t => !t.is_global) && <ProgressSummary tasks={tasks} />}
+
+          {tasks.length > 0 && (
+            <section aria-label="Task groups">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <SectionHeader title="Task groups" meta={groupCount} className="!mb-0" />
+                <FilterRow activeStatus={activeStatus} setActiveStatus={setActiveStatus} counts={statusCounts} />
+              </div>
+
+              {/* Category-wise rows — collapsed summaries, each opening its own
+                  dedicated page (see pages/CategoryDetail.jsx) rather than showing
+                  every task inline here, mirroring the mobile app's dashboard. */}
+              {filteredTasks.length > 0 ? (
+                <m.div
+                  key={activeStatus}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.18 }}
+                  className="card divide-y divide-border overflow-hidden"
+                >
+                  {fixedTasks.length > 0 && (
+                    <CategoryRow
+                      title="Fixed Tasks"
+                      count={fixedTasks.length}
+                      accentColor="var(--color-warning)"
+                      icon={Shield}
+                      onClick={() => openSection(FIXED_SECTION_ID, 'Fixed Tasks')}
+                    />
+                  )}
+                  {visibleSections.map((section) => (
+                    <CategoryRow
+                      key={section.id}
+                      title={section.title}
+                      count={section.count}
+                      accentColor={section.accentColor}
+                      icon={section.id === UNCATEGORIZED_SECTION_ID ? Tag : undefined}
+                      onClick={() => openSection(section.id, section.title)}
+                    />
+                  ))}
+                  {completedTasks.length > 0 && (
+                    <CategoryRow
+                      title="Completed Tasks"
+                      count={completedTasks.length}
+                      accentColor="var(--color-success)"
+                      icon={CheckCircle2}
+                      onClick={() => openSection(COMPLETED_SECTION_ID, 'Completed Tasks')}
+                    />
+                  )}
+                </m.div>
+              ) : (
+                <EmptyState
+                  icon={SearchX}
+                  title="No tasks match this filter"
+                  description="Try another status, or show everything for this day."
+                  action={<Button variant="secondary" onClick={() => setActiveStatus('all')}>Show all tasks</Button>}
+                />
+              )}
+            </section>
           )}
 
-          {filteredTasks.length === 0 && tasks.length > 0 && (
-            <m.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              className="text-center py-12 text-sm text-muted"
-            >
-              No tasks match these filters. Try clearing them.
-            </m.div>
+          {tasks.length === 0 && (
+            isToday ? (
+              <EmptyState
+                icon={Inbox}
+                title="No tasks yet"
+                description="Your day is a blank canvas — add your first task to get started."
+                action={<Button onClick={openCreate}><Plus className="h-4 w-4" /> Add a task</Button>}
+              />
+            ) : (
+              <EmptyState
+                icon={Inbox}
+                title="Nothing scheduled"
+                description="There were no tasks on this day."
+                action={<Button variant="secondary" onClick={goToday}><CalendarCheck className="h-4 w-4" /> Back to today</Button>}
+              />
+            )
           )}
         </>
       )}
 
-      {/* Floating add button */}
-      {isToday && !loading && (
+      {/* Floating add button (phones; larger screens use the header button).
+          Portaled so the page's entrance animation can never offset it. */}
+      {canCreate && createPortal(
         <m.button
-          initial={{ scale: 0 }} animate={{ scale: 1 }}
-          whileHover={{ scale: 1.1, rotate: 90 }}
-          whileTap={{ scale: 0.9 }}
+          type="button"
+          initial={{ scale: 0.6, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 28 }}
           onClick={openCreate}
-          className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-xl shadow-indigo-300 flex items-center justify-center z-40"
+          className="btn btn-primary fixed right-4 bottom-[calc(76px+env(safe-area-inset-bottom))] z-30 h-14 w-14 rounded-2xl sm:hidden"
           aria-label="Add task"
         >
-          <Plus className="w-6 h-6" />
-        </m.button>
+          <Plus className="h-6 w-6" />
+        </m.button>,
+        document.body
       )}
 
-      {/* Modal */}
       <TaskFormModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}

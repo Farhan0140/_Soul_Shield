@@ -1,32 +1,49 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
 
-// Lazy-load pages so the bundle stays light
-import Login from './pages/Login';
-import Register from './pages/Register';
-import ForgotPassword from './pages/ForgotPassword';
-import Dashboard from './pages/Dashboard';
-import History from './pages/History';
-import Categories from './pages/Categories';
-import Profile from './pages/Profile';
-import AdminTasks from './pages/AdminTasks';
-import TaskTimer from './pages/TaskTimer';
-import CategoryDetail from './pages/CategoryDetail';
 import AppLayout from './components/AppLayout';
-import NotFound from './pages/NotFound';
+
+// Each page is its own chunk, downloaded the first time it's opened, so the
+// initial load only carries the app shell. Pages inside the app show a page
+// skeleton meanwhile (Suspense in AppLayout).
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const History = lazy(() => import('./pages/History'));
+const Categories = lazy(() => import('./pages/Categories'));
+const Profile = lazy(() => import('./pages/Profile'));
+const AdminTasks = lazy(() => import('./pages/AdminTasks'));
+const TaskTimer = lazy(() => import('./pages/TaskTimer'));
+const CategoryDetail = lazy(() => import('./pages/CategoryDetail'));
+const NotFound = lazy(() => import('./pages/NotFound'));
 import OnboardingTooltip from './components/OnboardingTooltip';
 import ServerWakeBanner from './components/ServerWakeBanner';
+import AppBootSkeleton from './components/AppBootSkeleton';
 
 export default function App() {
   const { user, loading } = useAuth();
 
-  // The initial /users/me check can sit through a server cold start: keep the
-  // wake-up banner visible instead of a blank page.
-  if (loading) return <ServerWakeBanner />;
+  // The initial /users/me check can sit through a server cold start: show the
+  // app's own frame as a skeleton (plus the wake-up pill if it takes a while)
+  // instead of a blank or full-screen loading page.
+  if (loading) {
+    return (
+      <>
+        <AppBootSkeleton />
+        <ServerWakeBanner />
+      </>
+    );
+  }
 
   return (
     <>
+      {/* Fallback for the full-screen pages (sign-in, sign-up, 404): their
+          chunks are small, so a brief blank page on the theme background beats
+          a skeleton of a different layout. */}
+      <Suspense fallback={null}>
       <Routes>
         {/* Public routes — redirect to home if already logged in */}
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
@@ -47,6 +64,7 @@ export default function App() {
         {/* Unknown URLs show the 404 page (it links back home). */}
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
       
       <OnboardingTooltip />
       <ServerWakeBanner />

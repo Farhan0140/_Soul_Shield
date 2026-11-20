@@ -23,46 +23,40 @@ function formatDurationLabel(totalSeconds) {
   return `${minutes} min`;
 }
 
+function Row({ icon: Icon, children, className = 'text-muted' }) {
+  return (
+    <div className={`flex items-start gap-2 text-[13px] leading-snug ${className}`}>
+      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      <span className="min-w-0">{children}</span>
+    </div>
+  );
+}
+
 /** Extra fields that don't fit in the card's collapsed header, shown inline
  * (not as a modal) directly below it when the title/description is clicked —
  * recurrence, task type, reminder time, and an upcoming-reward preview for
- * tasks not yet completed (the amber reward banner elsewhere already covers
- * the completed case). */
+ * tasks not yet completed (the reward banner elsewhere already covers the
+ * completed case). */
 export default function TaskDetailsInline({ task }) {
   const isCounter = task.task_type === 'counter';
   const isTimer = task.task_type === 'timer';
   const isCompleted = task.status === 'completed';
 
   return (
-    <div className="mt-2 pt-2 border-t border-border space-y-1.5">
-      <div className="flex items-center gap-2 text-xs text-muted">
-        <Repeat className="w-3.5 h-3.5 text-muted flex-shrink-0" />
-        <span>{recurrenceLabel(task)}</span>
-      </div>
-
-      <div className="flex items-center gap-2 text-xs text-muted">
-        <Hash className="w-3.5 h-3.5 text-muted flex-shrink-0" />
-        <span>
-          {isCounter
-            ? `Counter task — target ${task.target_count}`
-            : isTimer
-              ? `Timer task — ${formatDurationLabel(task.duration_seconds)}`
-              : 'Normal task'}
-        </span>
-      </div>
-
-      {task.reminder_time && (
-        <div className="flex items-center gap-2 text-xs text-muted">
-          <Bell className="w-3.5 h-3.5 text-muted flex-shrink-0" />
-          <span>Reminder at {task.reminder_time}</span>
-        </div>
-      )}
-
+    <div className="mt-3 space-y-1.5 rounded-lg border border-border bg-surface-2 px-3 py-2.5">
+      <Row icon={Repeat}>{recurrenceLabel(task)}</Row>
+      <Row icon={Hash}>
+        {isCounter
+          ? `Counter task — target ${task.target_count}`
+          : isTimer
+            ? `Timer task — ${formatDurationLabel(task.duration_seconds)}`
+            : 'Normal task'}
+      </Row>
+      {task.reminder_time && <Row icon={Bell}>Reminder at {task.reminder_time}</Row>}
       {!isCompleted && task.reward_text && (
-        <div className="flex items-center gap-2 text-xs text-success">
-          <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
-          <span>{task.reward_text}</span>
-        </div>
+        <Row icon={Sparkles} className="text-primary-ink">
+          {task.reward_text}
+        </Row>
       )}
     </div>
   );

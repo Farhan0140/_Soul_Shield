@@ -1,7 +1,10 @@
-import { m, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
+import Modal, { ModalBody, ModalFooter } from './ui/Modal';
 import Button from './ui/Button';
 
+/** Yes/no confirmation built on the shared Modal. While `loading`, the
+ * confirm button shows a spinner and both buttons are locked so the action
+ * can't be sent twice (callers also ignore onClose until it finishes). */
 export default function ConfirmModal({
   open,
   onClose,
@@ -16,73 +19,24 @@ export default function ConfirmModal({
   children, // extra content (e.g., warning details)
 }) {
   return (
-    <AnimatePresence>
-      {open && (
-        <m.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
-          onClick={onClose}
-        >
-          <m.div
-            initial={{ scale: 0.95, y: 20, opacity: 0 }}
-            animate={{ scale: 1, y: 0, opacity: 1 }}
-            exit={{ scale: 0.95, y: 20, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-surface rounded-2xl shadow-2xl overflow-hidden"
-          >
-            <div className="p-6">
-              {/* Header */}
-              <div className="flex items-start gap-4">
-                <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center
-                  ${variant === 'danger' ? 'bg-danger/10' : 'bg-primary/10'}`}>
-                  {(() => {
-                    const Icon = icon;
-                    return <Icon className={`w-6 h-6 ${variant === 'danger' ? 'text-danger' : 'text-primary'}`} />;
-                  })()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-bold text-fg">{title}</h3>
-                  <p className="text-sm text-muted mt-1">{message}</p>
-                  {children && <div className="mt-3">{children}</div>}
-                </div>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  aria-label="Close"
-                  className="p-1.5 rounded-lg hover:bg-bg transition-colors -mr-1 -mt-1"
-                >
-                  <X className="w-5 h-5 text-muted" />
-                </button>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-2 mt-6">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={onClose}
-                  disabled={loading}
-                  className="flex-1"
-                >
-                  {cancelLabel}
-                </Button>
-                <Button
-                  type="button"
-                  variant={variant}
-                  onClick={onConfirm}
-                  loading={loading}
-                  className="flex-1"
-                >
-                  {confirmLabel}
-                </Button>
-              </div>
-            </div>
-          </m.div>
-        </m.div>
-      )}
-    </AnimatePresence>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={title}
+      description={message}
+      icon={icon}
+      iconTone={variant === 'danger' ? 'danger' : 'accent'}
+      size="md"
+    >
+      {children && <ModalBody>{children}</ModalBody>}
+      <ModalFooter>
+        <Button variant="secondary" onClick={onClose} disabled={loading}>
+          {cancelLabel}
+        </Button>
+        <Button variant={variant === 'danger' ? 'danger' : 'primary'} onClick={onConfirm} loading={loading}>
+          {confirmLabel}
+        </Button>
+      </ModalFooter>
+    </Modal>
   );
 }

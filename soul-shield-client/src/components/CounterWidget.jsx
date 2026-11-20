@@ -1,6 +1,7 @@
 import { m, AnimatePresence } from 'framer-motion';
-import { Plus, Zap } from 'lucide-react';
+import { Plus, Sparkles } from 'lucide-react';
 import { useCounter } from '../hooks/useCounter';
+import Button from './ui/Button';
 
 export default function CounterWidget({ task, date, onUpdate, onRewardEarned, disabled = false }) {
   const { localProgress, increment } = useCounter(
@@ -14,74 +15,61 @@ export default function CounterWidget({ task, date, onUpdate, onRewardEarned, di
 
   const pct = Math.min(100, (localProgress / task.target_count) * 100);
   const done = localProgress >= task.target_count;
+  const locked = done || task.status === 'completed' || disabled;
 
   return (
-    <div className="mt-3 space-y-2">
-      {/* Progress bar */}
-      <div className="flex items-center gap-2">
-        <div className="flex-1 h-2.5 bg-bg rounded-full overflow-hidden">
+    <div className="mt-4 space-y-3">
+      {/* Progress */}
+      <div>
+        <div className="mb-1.5 flex items-baseline justify-between">
+          <span className="text-xs font-medium text-muted">Progress</span>
+          <span className="text-[13px] font-semibold tabular-nums text-fg">
+            {localProgress}
+            <span className="font-normal text-muted"> / {task.target_count}</span>
+          </span>
+        </div>
+        <div
+          className="h-2 overflow-hidden rounded-full bg-sunken"
+          role="progressbar"
+          aria-label={`${task.title} progress`}
+          aria-valuemin={0}
+          aria-valuemax={task.target_count}
+          aria-valuenow={localProgress}
+        >
           <m.div
-            className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
+            className="h-full rounded-full bg-primary shadow-[inset_0_-1px_0_var(--edge-bottom)]"
+            initial={false}
             animate={{ width: `${pct}%` }}
-            transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+            transition={{ type: 'spring', stiffness: 140, damping: 24 }}
           />
         </div>
-        <span className="text-xs font-semibold text-muted tabular-nums min-w-[60px] text-right">
-          {localProgress} / {task.target_count}
-        </span>
       </div>
 
-      {/* Tap buttons */}
+      {/* Taps are batched locally and synced by useCounter, so these stay
+          responsive instead of waiting on a request per tap. */}
       <div className="flex items-center gap-2">
-        <m.button
-          whileTap={{ scale: 0.9 }}
-          whileHover={{ scale: 1.05 }}
-          onClick={() => increment(1)}
-          disabled={done || task.status === 'completed' || disabled}
-          className="flex-1 py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-semibold text-sm
-            hover:shadow-lg hover:shadow-indigo-200 transition-shadow disabled:opacity-40 disabled:cursor-not-allowed
-            flex items-center justify-center gap-1"
-        >
-          <Plus className="w-4 h-4" /> Tap
-        </m.button>
-        <m.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => increment(10)}
-          disabled={done || task.status === 'completed' || disabled}
-          className="px-3 py-2.5 rounded-xl bg-primary/10 text-primary font-semibold text-sm
-            hover:bg-primary/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
+        <Button onClick={() => increment(1)} disabled={locked} className="flex-1">
+          <Plus className="h-4 w-4" /> Tap
+        </Button>
+        <Button variant="secondary" onClick={() => increment(10)} disabled={locked} className="tabular-nums">
           +10
-        </m.button>
-        <m.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => increment(33)}
-          disabled={done || task.status === 'completed' || disabled}
-          className="px-3 py-2.5 rounded-xl bg-purple-50 text-purple-700 font-semibold text-sm
-            hover:bg-purple-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
+        </Button>
+        <Button variant="secondary" onClick={() => increment(33)} disabled={locked} className="tabular-nums">
           +33
-        </m.button>
+        </Button>
       </div>
 
-      {/* Celebration when target reached */}
+      {/* Target reached */}
       <AnimatePresence>
         {done && (
           <m.div
-            initial={{ opacity: 0, scale: 0.8, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 border border-warning/30"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="flex items-center gap-2 rounded-lg border border-primary-ink/15 bg-primary-soft px-3 py-2"
           >
-            <m.div
-              animate={{ rotate: [0, -10, 10, -10, 0] }}
-              transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 2 }}
-            >
-              <Zap className="w-4 h-4 text-warning" fill="currentColor" />
-            </m.div>
-            <span className="text-sm font-medium text-warning">
-              {task.reward_text || 'Target reached! ✨'}
-            </span>
+            <Sparkles className="h-4 w-4 shrink-0 text-primary-ink" aria-hidden="true" />
+            <span className="text-[13px] font-medium text-fg">{task.reward_text || 'Target reached! ✨'}</span>
           </m.div>
         )}
       </AnimatePresence>

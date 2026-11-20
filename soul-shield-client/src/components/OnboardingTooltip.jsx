@@ -1,37 +1,81 @@
 import { useState, useEffect } from 'react';
-import { m, AnimatePresence } from 'framer-motion';
-import { X, ArrowRight } from 'lucide-react';
+import { m } from 'framer-motion';
+import { ArrowRight, ArrowLeft, Hand, Plus, Target, CalendarDays, ListChecks, Timer } from 'lucide-react';
+import { isDemoMode, DEMO_ONBOARDING_KEY } from '../demo/demoMode';
+import Modal, { ModalBody, ModalFooter } from './ui/Modal';
+import Button from './ui/Button';
+import { cn } from '../utils/cn';
 
-const TIPS = [
+const SEEN_KEY = 'soulshield_onboarding_seen';
+
+// In the tour, the walkthrough introduces the sample data and is shown once
+// per tour (session storage) rather than once per browser.
+const DEMO = isDemoMode();
+const storage = () => (DEMO ? sessionStorage : localStorage);
+const seenKey = DEMO ? DEMO_ONBOARDING_KEY : SEEN_KEY;
+
+const DEMO_TIPS = [
   {
-    emoji: '👋',
+    icon: Hand,
+    title: 'Welcome to the SoulShield tour',
+    body: 'This is a sandbox filled with sample tasks. Tap, count and complete anything you like — nothing here touches a real account.',
+  },
+  {
+    icon: ListChecks,
+    title: 'Every kind of task',
+    body: 'Salat has a sub-task for each prayer, Morning dhikr counts to 100, and the Workout mixes push-up counters with a plank timer.',
+  },
+  {
+    icon: Timer,
+    title: 'Counters and timers',
+    body: 'Open Read Quran to run a focus timer, or tap a counter to add one, ten or thirty-three at a time.',
+  },
+  {
+    icon: CalendarDays,
+    title: 'Look back anytime',
+    body: 'History has four months of sample streaks and a heatmap. As an admin you can also manage the fixed tasks everyone sees.',
+  },
+];
+
+const STANDARD_TIPS = [
+  {
+    icon: Hand,
     title: 'Welcome to SoulShield!',
     body: "We're here to help you build better daily habits. Let's start with your first task.",
   },
   {
-    emoji: '✨',
+    icon: Plus,
     title: 'Tap the + button',
     body: "Create a task — like 'Fajr prayer' or 'Read 10 pages'. You can set it to repeat daily.",
   },
   {
-    emoji: '🎯',
+    icon: Target,
     title: 'Track your progress',
     body: "Check off tasks as you complete them. Counter tasks (like dhikr) let you tap to count.",
   },
   {
-    emoji: '📅',
+    icon: CalendarDays,
     title: 'Look back anytime',
     body: "The History page shows your streaks and completion heatmap. Keep going!",
   },
 ];
+
+const TIPS = DEMO ? DEMO_TIPS : STANDARD_TIPS;
+
+function readSeen() {
+  try {
+    return !!storage().getItem(seenKey);
+  } catch {
+    return true; // storage blocked: don't nag every load
+  }
+}
 
 export default function OnboardingTooltip() {
   const [step, setStep] = useState(0);
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    const seen = localStorage.getItem('soulshield_onboarding_seen');
-    if (!seen) {
+    if (!readSeen()) {
       // Delay slightly so the page loads first
       const t = setTimeout(() => setShow(true), 800);
       return () => clearTimeout(t);
@@ -40,7 +84,11 @@ export default function OnboardingTooltip() {
 
   const dismiss = () => {
     setShow(false);
-    localStorage.setItem('soulshield_onboarding_seen', '1');
+    try {
+      storage().setItem(seenKey, '1');
+    } catch {
+      /* storage unavailable — nothing to persist */
+    }
   };
 
   const next = () => {
@@ -52,93 +100,59 @@ export default function OnboardingTooltip() {
   };
 
   const tip = TIPS[step];
+  const Icon = tip.icon;
 
   return (
-    <AnimatePresence>
-      {show && (
-        <m.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 bg-slate-900/30 backdrop-blur-sm"
-          onClick={() => dismiss()}
-        >
-          <m.div
-            initial={{ y: 40, scale: 0.95, opacity: 0 }}
-            animate={{ y: 0, scale: 1, opacity: 1 }}
-            exit={{ y: 40, scale: 0.95, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm bg-surface rounded-2xl shadow-2xl overflow-hidden"
-          >
-            {/* Progress dots */}
-            <div className="flex items-center justify-center gap-1.5 pt-4">
-              {TIPS.map((_, i) => (
-                <div
-                  key={i}
-                  className={`h-1.5 rounded-full transition-all ${
-                    i === step ? 'w-6 bg-primary' : 'w-1.5 bg-border'
-                  }`}
-                />
-              ))}
-            </div>
-
-            {/* Close button */}
-            <button
-              type="button"
-              onClick={() => dismiss()}
-              className="absolute top-3 right-3 p-1.5 rounded-lg hover:bg-bg transition-colors"
-              aria-label="Close"
-            >
-              <X className="w-4 h-4 text-muted" />
-            </button>
-
-            {/* Content */}
-            <div className="p-6 text-center">
-              <m.div
-                key={step}
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="text-5xl mb-3"
-              >
-                {tip.emoji}
-              </m.div>
-              <h3 className="text-lg font-bold text-fg mb-1.5">{tip.title}</h3>
-              <p className="text-sm text-muted leading-relaxed">{tip.body}</p>
-            </div>
-
-            {/* Actions */}
-            <div className="px-6 pb-6 flex items-center gap-2">
-              {step > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setStep(s => s - 1)}
-                  className="px-3 py-2 text-sm text-muted hover:text-fg font-medium"
-                >
-                  Back
-                </button>
+    <Modal open={show} onClose={dismiss} size="sm" ariaLabel="Getting started">
+      <ModalBody className="pt-2 text-center">
+        {/* Progress dots */}
+        <div className="flex items-center justify-center gap-1.5" aria-hidden="true">
+          {TIPS.map((_, i) => (
+            <span
+              key={i}
+              className={cn(
+                'h-1.5 rounded-full transition-all duration-300',
+                i === step ? 'w-6 bg-primary' : 'w-1.5 bg-border-strong'
               )}
-              <div className="flex-1" />
-              <button
-                type="button"
-                onClick={() => dismiss()}
-                className="px-3 py-2 text-sm text-muted hover:text-fg font-medium"
-              >
-                Skip
-              </button>
-              <m.button
-                type="button"
-                whileTap={{ scale: 0.95 }}
-                onClick={next}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-indigo-200 transition-shadow"
-              >
-                {step === TIPS.length - 1 ? "Let's go!" : 'Next'}
-                <ArrowRight className="w-4 h-4" />
-              </m.button>
-            </div>
-          </m.div>
+            />
+          ))}
+        </div>
+
+        <m.div
+          key={step}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          className="pt-6 pb-2"
+        >
+          <span className="icon-tile icon-tile-accent mx-auto h-14 w-14 rounded-2xl">
+            <Icon className="h-6 w-6" aria-hidden="true" />
+          </span>
+          <h2 className="mt-4 text-lg font-semibold text-fg">{tip.title}</h2>
+          <p className="mx-auto mt-1.5 max-w-xs text-sm leading-relaxed text-muted">{tip.body}</p>
+          <p className="mt-3 text-xs text-subtle" aria-live="polite">
+            Step {step + 1} of {TIPS.length}
+          </p>
         </m.div>
-      )}
-    </AnimatePresence>
+      </ModalBody>
+
+      <ModalFooter className="sm:justify-between">
+        <div className="flex gap-2">
+          {step > 0 ? (
+            <Button variant="ghost" onClick={() => setStep(s => s - 1)}>
+              <ArrowLeft className="h-4 w-4" /> Back
+            </Button>
+          ) : (
+            <Button variant="ghost" onClick={dismiss}>
+              Skip
+            </Button>
+          )}
+        </div>
+        <Button onClick={next} data-autofocus>
+          {step === TIPS.length - 1 ? "Let's go!" : 'Next'}
+          <ArrowRight className="h-4 w-4" />
+        </Button>
+      </ModalFooter>
+    </Modal>
   );
 }

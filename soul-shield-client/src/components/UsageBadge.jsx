@@ -1,5 +1,19 @@
-import { m } from 'framer-motion';
 import { Users, CheckCircle2, TrendingUp } from 'lucide-react';
+import { cn } from '../utils/cn';
+
+const rateTone = (rate) => (rate >= 75 ? 'text-success' : rate >= 50 ? 'text-warning' : 'text-danger');
+
+function Metric({ icon: Icon, label, children, title }) {
+  return (
+    <div className="flex min-w-0 items-center gap-2.5 px-3 py-2.5" title={title}>
+      <Icon className="h-4 w-4 shrink-0 text-subtle" aria-hidden="true" />
+      <div className="min-w-0">
+        <p className="text-[11px] font-medium text-muted">{label}</p>
+        <p className="truncate text-sm font-semibold tabular-nums text-fg">{children}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function UsageBadge({ usage, compact = false }) {
   if (!usage) return null;
@@ -8,15 +22,11 @@ export default function UsageBadge({ usage, compact = false }) {
     return (
       <div className="flex items-center gap-3 text-xs">
         <span className="flex items-center gap-1 text-muted">
-          <CheckCircle2 className="w-3.5 h-3.5 text-success" />
+          <CheckCircle2 className="h-3.5 w-3.5 text-success" />
           <span className="font-semibold tabular-nums">{usage.completions}</span>
           <span className="text-muted" title="Most completions possible: scheduled days × active users">/ {usage.total}</span>
         </span>
-        <span className={`font-semibold tabular-nums ${
-          usage.completionRate >= 75 ? 'text-success' :
-          usage.completionRate >= 50 ? 'text-warning' :
-          'text-danger'
-        }`}>
+        <span className={cn('font-semibold tabular-nums', rateTone(usage.completionRate))}>
           {usage.completionRate}%
         </span>
       </div>
@@ -24,53 +34,17 @@ export default function UsageBadge({ usage, compact = false }) {
   }
 
   return (
-    <m.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="flex items-center gap-4 p-3 rounded-xl bg-gradient-to-r from-slate-50 to-indigo-50/50 border border-border"
-    >
-      <div className="flex items-center gap-1.5">
-        <div className="w-7 h-7 rounded-lg bg-success/10 flex items-center justify-center">
-          <CheckCircle2 className="w-4 h-4 text-success" />
-        </div>
-        <div>
-          <p className="text-[10px] font-semibold text-muted uppercase">Completions</p>
-          <p className="text-sm font-bold text-fg tabular-nums">
-            {usage.completions}
-            <span className="text-muted font-normal" title="Most completions possible: scheduled days × active users"> / {usage.total}</span>
-          </p>
-        </div>
-      </div>
-
-      <div className="h-8 w-px bg-border" />
-
-      <div className="flex items-center gap-1.5">
-        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-          <TrendingUp className="w-4 h-4 text-primary" />
-        </div>
-        <div>
-          <p className="text-[10px] font-semibold text-muted uppercase">Rate</p>
-          <p className={`text-sm font-bold tabular-nums ${
-            usage.completionRate >= 75 ? 'text-success' :
-            usage.completionRate >= 50 ? 'text-warning' :
-            'text-danger'
-          }`}>
-            {usage.completionRate}%
-          </p>
-        </div>
-      </div>
-
-      <div className="h-8 w-px bg-border" />
-
-      <div className="flex items-center gap-1.5">
-        <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center">
-          <Users className="w-4 h-4 text-purple-600" />
-        </div>
-        <div>
-          <p className="text-[10px] font-semibold text-muted uppercase">Users</p>
-          <p className="text-sm font-bold text-fg tabular-nums" title={`${usage.addedBy ?? 0} added it to their own tasks`}>{usage.users}</p>
-        </div>
-      </div>
-    </m.div>
+    <div className="grid grid-cols-3 divide-x divide-border rounded-lg border border-border bg-surface-2">
+      <Metric icon={CheckCircle2} label="Completions" title="Most completions possible: scheduled days × active users">
+        {usage.completions}
+        <span className="font-normal text-muted"> / {usage.total}</span>
+      </Metric>
+      <Metric icon={TrendingUp} label="Rate">
+        <span className={rateTone(usage.completionRate)}>{usage.completionRate}%</span>
+      </Metric>
+      <Metric icon={Users} label="Users" title={`${usage.addedBy ?? 0} added it to their own tasks`}>
+        {usage.users}
+      </Metric>
+    </div>
   );
 }

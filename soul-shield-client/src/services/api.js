@@ -77,6 +77,25 @@ function timeZone() {
 let serverWaking = false;
 const statusListeners = new Set();
 
+// Session memory of "the server answered recently". Once it has woken up we
+// don't ping /healthz again on every page load in the same tab session; the
+// host only naps after ~15 min idle, so a recent answer means it's still up.
+const AWAKE_KEY = 'soulshield_server_awake_at';
+const AWAKE_TTL_MS = 10 * 60 * 1000;
+let lastAwakeAt = (() => {
+  try { return Number(sessionStorage.getItem(AWAKE_KEY)) || 0; } catch { return 0; }
+})();
+
+function markServerAwake() {
+  lastAwakeAt = Date.now();
+  try { sessionStorage.setItem(AWAKE_KEY, String(lastAwakeAt)); } catch { /* storage blocked */ }
+}
+
+/** True when the server answered within the last few minutes of this session. */
+export function isServerKnownAwake() {
+  return Date.now() - lastAwakeAt < AWAKE_TTL_MS;
+}
+
 function setServerWaking(value) {
   if (serverWaking === value) return;
   serverWaking = value;
@@ -118,6 +137,7 @@ async function fetchWithWake(url, init, retry) {
       if (retry && WAKING_STATUSES.has(res.status) && Date.now() - started < WAKE_BUDGET_MS) {
         setServerWaking(true);
       } else {
+        if (!WAKING_STATUSES.has(res.status)) markServerAwake();
         setServerWaking(false);
         return res;
       }
@@ -135,11 +155,17 @@ async function fetchWithWake(url, init, retry) {
 }
 
 /** Pings /healthz so a sleeping server starts booting while the user is still
- * on the login screen. Never throws. */
-export async function warmUpServer() {
-  try {
-    await fetchWithWake(`${BASE_URL}/healthz`, { method: 'GET' }, true);
-  } catch { /* the real requests will report it */ }
+ * on the login screen. Never throws. Skipped when the server already answered
+ * recently in this session, and concurrent calls share one in-flight ping. */
+let warmUpInFlight = null;
+export function warmUpServer() {
+  if (isServerKnownAwake()) return Promise.resolve();
+  if (!warmUpInFlight) {
+    warmUpInFlight = fetchWithWake(`${BASE_URL}/healthz`, { method: 'GET' }, true)
+      .catch(() => { /* the real requests will report it */ })
+      .finally(() => { warmUpInFlight = null; });
+  }
+  return warmUpInFlight;
 }
 
 // ---- Requests ---------------------------------------------------------------

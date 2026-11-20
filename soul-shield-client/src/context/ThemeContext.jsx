@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
-import { THEME_KEYS, DEFAULT_LIGHT_THEME, DEFAULT_DARK_THEME } from './themes';
+import { THEMES, DEFAULT_LIGHT_THEME, DEFAULT_DARK_THEME, migrateThemePreference } from './themes';
 
 const THEME_KEY = 'soulshield_theme';
 const ThemeContext = createContext(null);
@@ -8,12 +8,16 @@ function getSystemScheme() {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
-export function ThemeProvider({ children }) {
-  const [preference, setPreferenceState] = useState(() => {
-    const saved = localStorage.getItem(THEME_KEY);
-    if (saved === 'system' || THEME_KEYS.includes(saved)) return saved;
+function readSavedPreference() {
+  try {
+    return migrateThemePreference(localStorage.getItem(THEME_KEY));
+  } catch {
     return 'system';
-  });
+  }
+}
+
+export function ThemeProvider({ children }) {
+  const [preference, setPreferenceState] = useState(readSavedPreference);
   const [systemScheme, setSystemScheme] = useState(getSystemScheme);
 
   useEffect(() => {
@@ -30,18 +34,25 @@ export function ThemeProvider({ children }) {
     return preference;
   }, [preference, systemScheme]);
 
+  const scheme = THEMES.find((t) => t.key === resolvedTheme)?.scheme ?? 'light';
+
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', resolvedTheme);
-  }, [resolvedTheme]);
+    const root = document.documentElement;
+    root.setAttribute('data-theme', resolvedTheme);
+    root.setAttribute('data-scheme', scheme);
+    // Keep the mobile browser chrome in step with the canvas color.
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', scheme === 'dark' ? '#0E0F10' : '#F4F4F0');
+  }, [resolvedTheme, scheme]);
 
   const setPreference = useCallback((next) => {
     setPreferenceState(next);
-    localStorage.setItem(THEME_KEY, next);
+    try { localStorage.setItem(THEME_KEY, next); } catch { /* storage blocked */ }
   }, []);
 
   const value = useMemo(
-    () => ({ preference, resolvedTheme, setPreference }),
-    [preference, resolvedTheme, setPreference]
+    () => ({ preference, resolvedTheme, scheme, setPreference }),
+    [preference, resolvedTheme, scheme, setPreference]
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

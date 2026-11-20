@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { m } from 'framer-motion';
-import { Edit2, Trash2, Check, X, Loader2, Tag } from 'lucide-react';
+import { m, AnimatePresence } from 'framer-motion';
+import { Pencil, Trash2, Check, Tag } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import ColorPicker from './ColorPicker';
 import Input from './ui/Input';
+import Button from './ui/Button';
+import Alert from './ui/Alert';
+import Tooltip from './ui/Tooltip';
 
 export default function CategoryCard({ category, taskCount, onUpdate, onRequestDelete }) {
   const { updateCategory } = useApi();
@@ -14,6 +17,7 @@ export default function CategoryCard({ category, taskCount, onUpdate, onRequestD
   const [loading, setLoading] = useState(false);
 
   const handleSave = async () => {
+    if (loading) return;
     const errs = {};
     if (!name.trim()) errs.name = "Categories need a name — what should we call this one?";
     else if (name.trim().length < 2) errs.name = "A bit longer please — at least 2 characters.";
@@ -48,86 +52,79 @@ export default function CategoryCard({ category, taskCount, onUpdate, onRequestD
 
   return (
     <m.div
-      layout
-      initial={{ opacity: 0, y: 10 }}
+      layout="position"
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      className="bg-surface rounded-2xl border-2 border-border overflow-hidden hover:border-border hover:shadow-md transition-all"
+      exit={{ opacity: 0, scale: 0.98 }}
+      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+      className="card p-4 sm:p-5"
     >
-      <div className="p-5">
+      <AnimatePresence mode="wait" initial={false}>
         {editing ? (
           /* ---------- EDIT MODE ---------- */
-          <m.div
+          <m.form
+            key="edit"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSave();
+            }}
+            noValidate
             className="space-y-4"
           >
-            <div className="flex items-center gap-3">
-              <m.div
-                animate={{ backgroundColor: color }}
-                className="w-12 h-12 rounded-xl shadow-md flex-shrink-0"
-              />
-              <div className="flex-1">
-                <Input
-                  label="Category name"
-                  value={name}
-                  error={errors.name || errors.form}
-                  onChange={(e) => setName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-                  autoFocus
-                />
-              </div>
-            </div>
+            {errors.form && <Alert tone="danger">{errors.form}</Alert>}
+            <Input
+              label="Category name"
+              size="md"
+              value={name}
+              error={errors.name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Escape' && handleCancel()}
+              autoFocus
+            />
 
             <ColorPicker value={color} onChange={setColor} />
 
-            <div className="flex gap-2 pt-2">
-              <m.button
-                whileTap={{ scale: 0.95 }}
-                onClick={handleCancel}
-                disabled={loading}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border-2 border-border text-sm font-medium text-muted hover:bg-bg transition-colors disabled:opacity-50"
-              >
-                <X className="w-4 h-4" /> Cancel
-              </m.button>
-              <m.button
-                whileTap={{ scale: 0.95 }}
-                onClick={handleSave}
-                disabled={loading}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-medium hover:shadow-lg hover:shadow-primary/20 transition-shadow disabled:opacity-50"
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                Save
-              </m.button>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="secondary" size="sm" onClick={handleCancel} disabled={loading}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" loading={loading}>
+                <Check className="h-3.5 w-3.5" /> Save
+              </Button>
             </div>
-          </m.div>
+          </m.form>
         ) : (
           /* ---------- VIEW MODE ---------- */
-          <div className="flex items-start gap-4">
+          <m.div
+            key="view"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="flex items-center gap-4"
+          >
             {/* Color swatch */}
-            <m.div
-              whileHover={{ scale: 1.05, rotate: 3 }}
-              className="w-14 h-14 rounded-xl shadow-md flex-shrink-0 flex items-center justify-center"
+            <span
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.25),inset_0_-2px_0_rgba(0,0,0,0.16),var(--elev-1)]"
               style={{ backgroundColor: category.color_hex }}
+              aria-hidden="true"
             >
-              <Tag className="w-6 h-6 text-white/90" />
-            </m.div>
+              <Tag className="h-5 w-5 text-white/90" />
+            </span>
 
             {/* Info */}
-            <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-fg text-lg truncate">{category.name}</h3>
-              <div className="flex items-center gap-3 mt-1.5">
-                <span
-                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-mono font-semibold"
-                  style={{
-                    backgroundColor: `${category.color_hex}15`,
-                    color: category.color_hex,
-                  }}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: category.color_hex }} />
+            <div className="min-w-0 flex-1">
+              <h3 className="truncate text-[15px] font-semibold text-fg">{category.name}</h3>
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+                <span className="inline-flex items-center gap-1.5 font-mono">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: category.color_hex }} aria-hidden="true" />
                   {category.color_hex}
                 </span>
-                <span className="text-xs text-muted">
+                <span>
                   {taskCount === 0
                     ? 'No tasks yet'
                     : `${taskCount} task${taskCount === 1 ? '' : 's'} using this`}
@@ -136,29 +133,28 @@ export default function CategoryCard({ category, taskCount, onUpdate, onRequestD
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <m.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setEditing(true)}
-                className="p-2 rounded-lg text-muted hover:bg-primary/10 hover:text-primary transition-colors"
-                aria-label="Edit category"
-              >
-                <Edit2 className="w-4 h-4" />
-              </m.button>
-              <m.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => onRequestDelete(category)}
-                className="p-2 rounded-lg text-muted hover:bg-danger/10 hover:text-danger transition-colors"
-                aria-label="Delete category"
-              >
-                <Trash2 className="w-4 h-4" />
-              </m.button>
+            <div className="flex shrink-0 items-center gap-0.5">
+              <Tooltip label="Edit">
+                <Button variant="ghost" size="sm" iconOnly onClick={() => setEditing(true)} aria-label={`Edit ${category.name}`}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </Tooltip>
+              <Tooltip label="Delete" align="end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  onClick={() => onRequestDelete(category)}
+                  aria-label={`Delete ${category.name}`}
+                  className="hover:!bg-danger/10 hover:!text-danger"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </Tooltip>
             </div>
-          </div>
+          </m.div>
         )}
-      </div>
+      </AnimatePresence>
     </m.div>
   );
 }

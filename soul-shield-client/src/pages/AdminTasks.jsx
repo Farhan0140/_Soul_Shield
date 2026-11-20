@@ -1,8 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
-import { m, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import {
-  Shield, Plus, Search, Filter, AlertCircle, Inbox, Users,
-  TrendingUp, CheckCircle2, XCircle, ArrowUpDown
+  Shield, Plus, Search, Users, TrendingUp, CheckCircle2, XCircle, ArrowUpDown, Trash2, SearchX,
 } from 'lucide-react';
 import { useAdminTasks } from '../hooks/useAdminTasks';
 import { useApi } from '../context/ApiContext';
@@ -12,8 +11,16 @@ import TaskFormModal from '../components/TaskFormModal';
 import ConfirmModal from '../components/ConfirmModal';
 import BulkActionBar from '../components/BulkActionBar';
 import CommunityOverview from '../components/CommunityOverview';
+import StatCard from '../components/StatCard';
 import Button from '../components/ui/Button';
-import SkeletonCard from '../components/SkeletonCard';
+import Input from '../components/ui/Input';
+import Select from '../components/ui/Select';
+import Alert from '../components/ui/Alert';
+import SegmentedControl from '../components/ui/SegmentedControl';
+import Pagination from '../components/ui/Pagination';
+import PageHeader, { SectionHeader } from '../components/ui/PageHeader';
+import { EmptyState, ErrorState } from '../components/ui/States';
+import { Skeleton, SkeletonGroup, StatGridSkeleton } from '../components/ui/Skeleton';
 
 const SORT_OPTIONS = [
   { key: 'recent',   label: 'Most recent' },
@@ -23,16 +30,26 @@ const SORT_OPTIONS = [
 ];
 
 const STATUS_FILTERS = [
-  { key: 'all',      label: 'All',       icon: null },
-  { key: 'normal',   label: 'Normal',    icon: CheckCircle2 },
-  { key: 'counter',  label: 'Counter',   icon: null },
+  { key: 'all',      label: 'All' },
+  { key: 'normal',   label: 'Normal' },
+  { key: 'counter',  label: 'Counter' },
 ];
 
-const pageVariants = {
-  initial: { opacity: 0, y: 10 },
-  animate: { opacity: 1, y: 0, transition: { staggerChildren: 0.06 } },
-};
-const child = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } };
+// Fixed tasks per page in the list below.
+const TASKS_PER_PAGE = 10;
+
+function AdminRowSkeleton() {
+  return (
+    <div className="card flex items-start gap-3 p-4 sm:p-5">
+      <Skeleton className="mt-1 h-[18px] w-[18px] rounded-[5px]" />
+      <div className="flex-1 space-y-2.5">
+        <Skeleton className="h-4 w-2/5" />
+        <Skeleton className="h-3 w-3/5" />
+        <Skeleton className="mt-3 h-12 w-full rounded-lg" />
+      </div>
+    </div>
+  );
+}
 
 export default function AdminTasks() {
   const toast = useToast();
@@ -43,6 +60,12 @@ export default function AdminTasks() {
   const [sortBy, setSortBy] = useState('recent');
   const [typeFilter, setTypeFilter] = useState('all');
   const [selected, setSelected] = useState(new Set());
+  const [page, setPage] = useState(1);
+
+  // Changing what's listed starts again from the first page.
+  const updateSearch = (value) => { setSearch(value); setPage(1); };
+  const updateTypeFilter = (value) => { setTypeFilter(value); setPage(1); };
+  const updateSortBy = (value) => { setSortBy(value); setPage(1); };
 
   // Modals
   const [createOpen, setCreateOpen] = useState(false);
@@ -179,195 +202,165 @@ export default function AdminTasks() {
     };
   }, [tasks, usage]);
 
+  // ---------- Pagination (client-side over the filtered list) ----------
+  const totalPages = Math.max(1, Math.ceil(filteredTasks.length / TASKS_PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+  const pageTasks = filteredTasks.slice((currentPage - 1) * TASKS_PER_PAGE, currentPage * TASKS_PER_PAGE);
+
   return (
-    <m.div
-      variants={pageVariants}
-      initial="initial"
-      animate="animate"
-      className="space-y-6"
-    >
-      {/* Header */}
-      <m.div variants={child} className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-fg flex items-center gap-2">
-            <Shield className="w-7 h-7 text-warning" />
-            Admin Panel
-          </h1>
-          <p className="text-sm text-muted mt-1">
-            Manage Fixed Tasks — these are visible to every user in the system.
-          </p>
-        </div>
-        <Button onClick={openCreate}>
-          <Plus className="w-4 h-4" /> New Fixed Task
-        </Button>
-      </m.div>
+    <div className="space-y-6 sm:space-y-8">
+      <PageHeader
+        eyebrow="Administration"
+        title="Fixed tasks"
+        description="Fixed tasks are visible to every user in the system."
+        actions={
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4" /> New fixed task
+          </Button>
+        }
+      />
 
       {/* Summary cards */}
-      <m.div variants={child} className="grid grid-cols-3 gap-3">
-        <div className="bg-surface rounded-2xl border border-border p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-            <Shield className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-muted">Fixed Tasks</p>
-            <p className="text-xl font-bold text-fg tabular-nums">{summaryStats.totalTasks}</p>
-          </div>
+      {loading ? (
+        <SkeletonGroup label="Loading summary…">
+          <StatGridSkeleton count={3} className="grid grid-cols-1 gap-3 sm:grid-cols-3" />
+        </SkeletonGroup>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <StatCard icon={Shield} accent label="Fixed tasks" value={summaryStats.totalTasks} />
+          <StatCard icon={CheckCircle2} label="Completions (30d)" value={summaryStats.totalCompletions} delay={0.04} />
+          <StatCard icon={TrendingUp} label="Avg. completion rate" value={summaryStats.avgRate} suffix="%" delay={0.08} />
         </div>
-        <div className="bg-surface rounded-2xl border border-border p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
-            <CheckCircle2 className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-muted">Completions (30d)</p>
-            <p className="text-xl font-bold text-fg tabular-nums">{summaryStats.totalCompletions}</p>
-          </div>
-        </div>
-        <div className="bg-surface rounded-2xl border border-border p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
-            <TrendingUp className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-muted">Avg. completion rate</p>
-            <p className="text-xl font-bold text-fg tabular-nums">{summaryStats.avgRate}%</p>
-          </div>
-        </div>
-      </m.div>
+      )}
 
       {/* Search + Filters */}
-      <m.div variants={child} className="space-y-3">
-        {/* Search bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search fixed tasks by title, description, or category..."
-            aria-label="Search fixed tasks"
-            className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-border focus:border-primary outline-none text-sm transition-colors"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch('')}
-              aria-label="Clear search"
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-bg"
-            >
-              <XCircle className="w-4 h-4 text-muted" />
-            </button>
-          )}
-        </div>
-
-        {/* Filter row */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <Filter className="w-4 h-4 text-muted" />
-
-          {/* Type filter */}
-          {STATUS_FILTERS.map(f => {
-            const active = typeFilter === f.key;
-            return (
-              <m.button
-                key={f.key}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setTypeFilter(f.key)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-all
-                  ${active ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted hover:border-border'}
-                `}
+      <section aria-label="Search and filters" className="card flex flex-col gap-3 p-3 sm:p-4 lg:flex-row lg:items-end">
+        <Input
+          className="flex-1"
+          size="md"
+          label="Search"
+          type="search"
+          icon={Search}
+          value={search}
+          onChange={(e) => updateSearch(e.target.value)}
+          placeholder="Title, description, or category"
+          trailing={
+            search ? (
+              <button
+                type="button"
+                onClick={() => updateSearch('')}
+                aria-label="Clear search"
+                className="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-sunken hover:text-fg"
               >
-                {f.label}
-              </m.button>
-            );
-          })}
-
-          <div className="ml-auto flex items-center gap-2">
-            <ArrowUpDown className="w-4 h-4 text-muted" />
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              aria-label="Sort fixed tasks"
-              className="px-3 py-1.5 rounded-lg border border-border text-xs font-medium bg-surface outline-none focus:border-primary"
-            >
-              {SORT_OPTIONS.map(o => (
-                <option key={o.key} value={o.key}>{o.label}</option>
-              ))}
-            </select>
+                <XCircle className="h-4 w-4" />
+              </button>
+            ) : null
+          }
+        />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div>
+            <p className="mb-1.5 text-[13px] font-medium text-fg-2">Type</p>
+            <SegmentedControl
+              ariaLabel="Filter by task type"
+              options={STATUS_FILTERS.map((f) => ({ value: f.key, label: f.label }))}
+              value={typeFilter}
+              onChange={updateTypeFilter}
+              size="lg"
+            />
           </div>
+          <Select
+            label="Sort by"
+            size="md"
+            icon={ArrowUpDown}
+            value={sortBy}
+            onChange={(e) => updateSortBy(e.target.value)}
+            className="sm:w-48"
+          >
+            {SORT_OPTIONS.map(o => (
+              <option key={o.key} value={o.key}>{o.label}</option>
+            ))}
+          </Select>
         </div>
-      </m.div>
+      </section>
 
       {/* Error */}
-      {error && (
-        <m.div variants={child} className="p-6 rounded-2xl bg-danger/10 border border-danger/20 text-center">
-          <AlertCircle className="w-8 h-8 text-danger mx-auto mb-2" />
-          <p className="text-sm text-danger mb-3">{error}</p>
-          <Button variant="secondary" onClick={reload}>Try again</Button>
-        </m.div>
-      )}
+      {error && !loading && <ErrorState title="Couldn't load fixed tasks" message={error} onRetry={() => reload()} />}
 
       {/* Loading */}
       {loading && (
-        <div className="space-y-3">
-          {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
-        </div>
+        <SkeletonGroup label="Loading fixed tasks…" className="space-y-3">
+          {[1, 2, 3].map(i => <AdminRowSkeleton key={i} />)}
+        </SkeletonGroup>
       )}
 
       {/* Task list */}
       {!loading && !error && (
         <>
           {filteredTasks.length > 0 ? (
-            <m.div variants={child} className="space-y-3">
-              <AnimatePresence>
-                {filteredTasks.map(task => (
-                  <AdminTaskRow
-                    key={task.task_id}
-                    task={task}
-                    usage={usage[task.task_id]}
-                    selected={selected.has(task.task_id)}
-                    onSelect={(val) => toggleSelect(task.task_id, val)}
-                    onEdit={openEdit}
-                    onDelete={setDeletingTask}
-                  />
-                ))}
-              </AnimatePresence>
-            </m.div>
+            <section aria-label="Fixed tasks">
+              <SectionHeader
+                title="All fixed tasks"
+                meta={filteredTasks.length === tasks.length ? tasks.length : `${filteredTasks.length} of ${tasks.length}`}
+              />
+              <div className="space-y-3">
+                <AnimatePresence initial={false}>
+                  {pageTasks.map(task => (
+                    <AdminTaskRow
+                      key={task.task_id}
+                      task={task}
+                      usage={usage[task.task_id]}
+                      selected={selected.has(task.task_id)}
+                      onSelect={(val) => toggleSelect(task.task_id, val)}
+                      onEdit={openEdit}
+                      onDelete={setDeletingTask}
+                    />
+                  ))}
+                </AnimatePresence>
+              </div>
+              <Pagination
+                className="mt-5"
+                page={currentPage}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                label="Fixed task pages"
+              />
+            </section>
           ) : tasks.length === 0 ? (
-            <m.div
-              variants={child}
-              className="text-center py-16 bg-surface rounded-2xl border border-border"
-            >
-              <m.div
-                animate={{ y: [0, -8, 0] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 mb-4"
-              >
-                <Inbox className="w-8 h-8 text-warning" />
-              </m.div>
-              <h3 className="text-lg font-semibold text-fg mb-1">No fixed tasks yet</h3>
-              <p className="text-sm text-muted mb-4 max-w-sm mx-auto">
-                Fixed tasks appear on every user's dashboard — great for daily reminders, ibadah routines, or company-wide goals.
-              </p>
-              <Button onClick={openCreate}>
-                <Plus className="w-4 h-4" /> Create first fixed task
-              </Button>
-            </m.div>
+            <EmptyState
+              icon={Shield}
+              title="No fixed tasks yet"
+              description="Fixed tasks appear on every user's dashboard — great for daily reminders, ibadah routines, or company-wide goals."
+              action={
+                <Button onClick={openCreate}>
+                  <Plus className="h-4 w-4" /> Create first fixed task
+                </Button>
+              }
+            />
           ) : (
-            <m.div
-              variants={child}
-              className="text-center py-12 text-sm text-muted"
-            >
-              No fixed tasks match these filters.
-            </m.div>
+            <EmptyState
+              icon={SearchX}
+              title="No matches"
+              description="No fixed tasks match these filters."
+              action={
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    updateSearch('');
+                    updateTypeFilter('all');
+                  }}
+                >
+                  Clear filters
+                </Button>
+              }
+            />
           )}
 
-          {/* Leaderboard */}
-          {!loading && tasks.length > 0 && (
-            <m.div variants={child}>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-muted mb-3 flex items-center gap-2">
-                <span className="w-6 h-0.5 bg-border" />
-                Community
-              </h2>
+          {/* Community */}
+          {tasks.length > 0 && (
+            <section aria-label="Community">
+              <SectionHeader title="Community" />
               <CommunityOverview overview={overview} />
-            </m.div>
+            </section>
           )}
         </>
       )}
@@ -388,25 +381,17 @@ export default function AdminTasks() {
         onClose={() => !deleteLoading && setDeletingTask(null)}
         onConfirm={handleDeleteConfirm}
         loading={deleteLoading}
+        icon={Trash2}
         title={`Delete "${deletingTask?.title}"?`}
         message="This fixed task will be removed from every user's dashboard immediately."
-        confirmLabel="Yes, delete it"
+        confirmLabel="Delete task"
         variant="danger"
       >
         {deletingTask && usage[deletingTask.task_id] && (
-          <div className="p-3 rounded-xl bg-warning/10 border border-warning/20">
-            <div className="flex items-start gap-2">
-              <Users className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-warning">
-                <p>
-                  <strong>{usage[deletingTask.task_id].completions}</strong> completions recorded in the last 30 days.
-                </p>
-                <p className="text-xs text-warning/80 mt-1">
-                  Past completion history is preserved — only the task itself will be removed.
-                </p>
-              </div>
-            </div>
-          </div>
+          <Alert tone="warning" icon={Users}>
+            <strong className="font-semibold text-fg">{usage[deletingTask.task_id].completions}</strong> completions recorded in the last 30 days.
+            Past completion history is preserved — only the task itself will be removed.
+          </Alert>
         )}
       </ConfirmModal>
 
@@ -416,9 +401,10 @@ export default function AdminTasks() {
         onClose={() => !deleteLoading && setBulkDeleteOpen(false)}
         onConfirm={handleBulkDelete}
         loading={deleteLoading}
+        icon={Trash2}
         title={`Delete ${selected.size} fixed task${selected.size === 1 ? '' : 's'}?`}
         message="This will remove them from every user's dashboard. Past completion history is preserved."
-        confirmLabel="Yes, delete all"
+        confirmLabel="Delete all selected"
         variant="danger"
       />
 
@@ -428,6 +414,6 @@ export default function AdminTasks() {
         onClear={clearSelection}
         onDeleteSelected={() => setBulkDeleteOpen(true)}
       />
-    </m.div>
+    </div>
   );
 }

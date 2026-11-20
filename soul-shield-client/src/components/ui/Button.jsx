@@ -1,34 +1,59 @@
-import { m } from 'framer-motion';
-import { Loader2 } from 'lucide-react';
+import { forwardRef } from 'react';
+import { cn } from '../../utils/cn';
+import Spinner from './Spinner';
 
-const variants = {
-  primary:   'bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:shadow-lg hover:shadow-indigo-200 hover:scale-[1.02]',
-  secondary: 'bg-surface border-2 border-border text-fg hover:border-primary hover:text-primary',
-  ghost:     'bg-transparent text-muted hover:bg-bg',
-  danger:    'bg-danger text-white hover:bg-danger/90 hover:shadow-lg hover:shadow-rose-200',
+const VARIANTS = {
+  primary: 'btn-primary',
+  secondary: 'btn-secondary',
+  ghost: 'btn-ghost',
+  danger: 'btn-danger',
+  'danger-soft': 'btn-danger-soft',
 };
 
-export default function Button({
-  children,
-  loading = false,
-  variant = 'primary', // primary | secondary | ghost | danger
-  className = '',
-  disabled,
-  type = 'button',
-  ...props
-}) {
+const SPINNER_SIZE = { sm: 14, md: 16, lg: 18 };
+
+/**
+ * The one button used across the app.
+ *
+ * `loading` puts it into a busy state: it is disabled (so a second click can't
+ * send a duplicate request), shows a spinner in place of its icons and sets
+ * aria-busy. It returns to normal as soon as the caller clears `loading`.
+ */
+const Button = forwardRef(function Button(
+  {
+    children,
+    loading = false,
+    variant = 'primary', // primary | secondary | ghost | danger | danger-soft
+    size = 'md', // sm | md | lg
+    iconOnly = false,
+    fullWidth = false,
+    className = '',
+    disabled,
+    type = 'button',
+    ...props
+  },
+  ref
+) {
   return (
-    <m.button
+    <button
+      ref={ref}
       type={type}
-      whileTap={{ scale: 0.97 }}
       disabled={disabled || loading}
-      className={`inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-medium text-sm
-        transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
-        ${variants[variant]} ${className}`}
+      aria-busy={loading || undefined}
+      className={cn(
+        'btn',
+        VARIANTS[variant] || VARIANTS.primary,
+        `btn-${size}`,
+        iconOnly && 'btn-icon',
+        fullWidth && 'w-full',
+        className
+      )}
       {...props}
     >
-      {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-      {children}
-    </m.button>
+      {loading && <Spinner size={SPINNER_SIZE[size]} />}
+      {loading && iconOnly ? null : children}
+    </button>
   );
-}
+});
+
+export default Button;

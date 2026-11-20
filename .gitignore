@@ -1,1 +1,9 @@
 PROJECT_ANALYSIS.md
+
+# Expo generated native folders & caches for the mobile app.
+# Must live in the ROOT .gitignore: eas-cli on Windows does not apply nested
+# .gitignore files, so the app-level "/android" rule is skipped and the local
+# android/ (with Windows-path autolinking cache) gets uploaded to EAS.
+soul-shield-mobile-app/android
+soul-shield-mobile-app/ios
+soul-shield-mobile-app/.expo
