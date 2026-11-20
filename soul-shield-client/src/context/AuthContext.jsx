@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { useApi } from './ApiContext';
 import { SESSION_EXPIRED_EVENT, clearToken, getToken, setToken } from '../services/api';
+import { isDemoMode, exitDemo } from '../demo/demoMode';
 
 const AuthContext = createContext(null);
 
@@ -14,7 +15,9 @@ export function AuthProvider({ children }) {
 
   // On mount: if token exists, fetch /users/me to validate & populate user
   useEffect(() => {
-    if (!getToken()) {
+    // The demo signs the visitor in as its sample user (getMe is the demo
+    // API's here); there is no token involved.
+    if (!getToken() && !isDemoMode()) {
       Promise.resolve().then(() => setLoading(false));
       return;
     }
@@ -50,6 +53,12 @@ export function AuthProvider({ children }) {
   }, [loginUser, getMe]);
 
   const logout = useCallback(() => {
+    // Leaving the demo discards its sample data and returns to sign-in; it
+    // never touches a real session's token.
+    if (isDemoMode()) {
+      exitDemo();
+      return;
+    }
     clearToken();
     setSessionExpired(false);
     setUser(null);

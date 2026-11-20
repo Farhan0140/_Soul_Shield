@@ -74,8 +74,11 @@ const apiValue = {
   deleteAccount,
 };
 
-export function ApiProvider({ children }) {
-  return <ApiContext.Provider value={apiValue}>{children}</ApiContext.Provider>;
+/** `demoApi` is the in-browser demo API while a tour runs ("Take a tour"):
+ * main.jsx loads it before the first render and it stays fixed for the whole
+ * page load, so the value is stable. Otherwise the real server is used. */
+export function ApiProvider({ demoApi = null, children }) {
+  return <ApiContext.Provider value={demoApi ?? apiValue}>{children}</ApiContext.Provider>;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components -- the provider's hook lives beside it
