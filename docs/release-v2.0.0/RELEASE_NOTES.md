@@ -73,15 +73,39 @@ The Android app works fully offline. Everything is saved on your phone first and
 ### Mobile
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Farhan0140/_Soul_Shield/main/docs/release-v2.0.0/mobile-home.png" width="200" alt="Home">
+  <img src="https://raw.githubusercontent.com/Farhan0140/_Soul_Shield/main/docs/release-v2.0.0/001.png" width="200" alt="Home">
   &nbsp;
-  <img src="https://raw.githubusercontent.com/Farhan0140/_Soul_Shield/main/docs/release-v2.0.0/mobile-counter.png" width="200" alt="Counter task">
+  <img src="https://raw.githubusercontent.com/Farhan0140/_Soul_Shield/main/docs/release-v2.0.0/002.png" width="200" alt="Home">
   &nbsp;
-  <img src="https://raw.githubusercontent.com/Farhan0140/_Soul_Shield/main/docs/release-v2.0.0/mobile-insights.png" width="200" alt="Insights">
+  <img src="https://raw.githubusercontent.com/Farhan0140/_Soul_Shield/main/docs/release-v2.0.0/003.png" width="200" alt="Home">
   &nbsp;
-  <img src="https://raw.githubusercontent.com/Farhan0140/_Soul_Shield/main/docs/release-v2.0.0/mobile-widget.png" width="200" alt="Home-screen widget">
+  <img src="https://raw.githubusercontent.com/Farhan0140/_Soul_Shield/main/docs/release-v2.0.0/004.png" width="200" alt="Counter task">
+  &nbsp;
+  <img src="https://raw.githubusercontent.com/Farhan0140/_Soul_Shield/main/docs/release-v2.0.0/005.png" width="200" alt="Timer task">
+  &nbsp;
+  <img src="https://raw.githubusercontent.com/Farhan0140/_Soul_Shield/main/docs/release-v2.0.0/006.png" width="200" alt="Counter task">
+  &nbsp;
+  <img src="https://raw.githubusercontent.com/Farhan0140/_Soul_Shield/main/docs/release-v2.0.0/007.png" width="200" alt="History">
+  &nbsp;
+  <img src="https://raw.githubusercontent.com/Farhan0140/_Soul_Shield/main/docs/release-v2.0.0/008.png" width="200" alt="Category">
+  &nbsp;
+  <img src="https://raw.githubusercontent.com/Farhan0140/_Soul_Shield/main/docs/release-v2.0.0/009.png" width="200" alt="Profile">
+  &nbsp;
+  <img src="https://raw.githubusercontent.com/Farhan0140/_Soul_Shield/main/docs/release-v2.0.0/010.png" width="200" alt="Theme">
+  &nbsp;
+  <img src="https://raw.githubusercontent.com/Farhan0140/_Soul_Shield/main/docs/release-v2.0.0/011.png" width="200" alt="Theme">
+  &nbsp;
+  <img src="https://raw.githubusercontent.com/Farhan0140/_Soul_Shield/main/docs/release-v2.0.0/012.png" width="200" alt="Theme">
+  &nbsp;
+  <img src="https://raw.githubusercontent.com/Farhan0140/_Soul_Shield/main/docs/release-v2.0.0/013.png" width="200" alt="Theme">
+  &nbsp;
+  <img src="https://raw.githubusercontent.com/Farhan0140/_Soul_Shield/main/docs/release-v2.0.0/014.png" width="200" alt="Insights">
+  &nbsp;
+  <img src="https://raw.githubusercontent.com/Farhan0140/_Soul_Shield/main/docs/release-v2.0.0/015.png" width="200" alt="Image">
+  &nbsp;
+  <img src="https://raw.githubusercontent.com/Farhan0140/_Soul_Shield/main/docs/release-v2.0.0/016.png" width="200" alt="Image">
 </p>
-<p align="center"><sub>Home · Counter · Insights · Home-screen widget</sub></p>
+<p align="center"><sub>Home · Counter · History · Insights</sub></p>
 
 ### Web
 
