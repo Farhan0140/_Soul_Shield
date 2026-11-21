@@ -22,7 +22,7 @@ A full-stack habit & task tracker for building consistent daily worship and self
 |---|---|
 | 📑 API / Swagger Docs | [https://soul-shield-api.onrender.com/swagger/index.html](https://soul-shield-api.onrender.com/swagger/index.html) |
 | 🌐 Website | [https://soul-shield.vercel.app/](https://soul-shield.vercel.app/) |
-| 🤖 Android App (APK) | *Not published yet* |
+| 🤖 Android App (APK) | [SoulShield-v2.0.0.apk](https://github.com/Farhan0140/_Soul_Shield/releases/tag/v2.0.0) |
 
 ## 📖 Overview
 
