@@ -9,6 +9,7 @@ import (
 	"soulsheld/config"
 	"soulsheld/rest/handlers/admin"
 	"soulsheld/rest/handlers/category"
+	"soulsheld/rest/handlers/health"
 	"soulsheld/rest/handlers/sync"
 	"soulsheld/rest/handlers/task"
 	"soulsheld/rest/handlers/user"
@@ -29,6 +30,7 @@ type Server struct {
 	categoryHandler *category.Handler
 	syncHandler     *sync.Handler
 	adminHandler    *admin.Handler
+	healthHandler   *health.Handler
 }
 
 func NewServer(
@@ -39,6 +41,7 @@ func NewServer(
 	categoryHandler *category.Handler,
 	syncHandler *sync.Handler,
 	adminHandler *admin.Handler,
+	healthHandler *health.Handler,
 ) *Server {
 	return &Server{
 		cnf:             cnf,
@@ -48,6 +51,7 @@ func NewServer(
 		categoryHandler: categoryHandler,
 		syncHandler:     syncHandler,
 		adminHandler:    adminHandler,
+		healthHandler:   healthHandler,
 	}
 }
 
@@ -74,6 +78,8 @@ func (server *Server) Start() {
 
 	// Liveness probe: no auth, no database. Used by Render's health check and
 	// by the web client to wake a sleeping instance before the first real call.
+	// For a check that also pings the database, see GET /health
+	// (rest/handlers/health).
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		util.SendData(w, map[string]string{"status": "ok"}, http.StatusOK)
@@ -86,6 +92,7 @@ func (server *Server) Start() {
 	server.categoryHandler.RegisterRoutes(mux, manager, server.middlewares)
 	server.syncHandler.RegisterRoutes(mux, manager, server.middlewares)
 	server.adminHandler.RegisterRoutes(mux, manager, server.middlewares)
+	server.healthHandler.RegisterRoutes(mux, manager)
 
 	port := os.Getenv("PORT")
 	if port == "" {

@@ -97,6 +97,33 @@ definitions:
       name:
         type: string
     type: object
+  health.CheckResult:
+    properties:
+      error:
+        description: |-
+          Present only when Status is "down". Deliberately generic: the real
+          driver error goes to the server log, not to the public response.
+        type: string
+      latency_ms:
+        type: integer
+      status:
+        description: '"ok" or "down".'
+        type: string
+    type: object
+  health.Response:
+    properties:
+      checks:
+        additionalProperties:
+          $ref: '#/definitions/health.CheckResult'
+        type: object
+      status:
+        description: '"ok" when every check passed, otherwise "unavailable".'
+        type: string
+      time:
+        type: string
+      uptime_seconds:
+        type: integer
+    type: object
   repo.SyncCategory:
     properties:
       color_hex:
@@ -1074,6 +1101,27 @@ paths:
       summary: Reorder my categories
       tags:
       - Categories
+  /health:
+    get:
+      description: |-
+        Reports whether the API is running and can reach its database.
+        Returns 200 when every check passes, 503 when any check fails.
+        No authentication. For a liveness probe that skips the
+        database, use GET /healthz.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/health.Response'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/health.Response'
+      summary: Server health check
+      tags:
+      - Health
   /sync:
     get:
       description: তোর ব্যবহারকারীর tasks/categories/sub_tasks/completions - 'since'

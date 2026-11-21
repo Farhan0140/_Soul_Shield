@@ -357,6 +357,32 @@
                 }
             }
         },
+        "/health": {
+            "get": {
+                "description": "Reports whether the API is running and can reach its database.\nReturns 200 when every check passes, 503 when any check fails.\nNo authentication. For a liveness probe that skips the\ndatabase, use GET /healthz.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "Server health check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/health.Response"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/health.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/sync": {
             "get": {
                 "security": [
@@ -1909,6 +1935,43 @@
                 },
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "health.CheckResult": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "Present only when Status is \"down\". Deliberately generic: the real\ndriver error goes to the server log, not to the public response.",
+                    "type": "string"
+                },
+                "latency_ms": {
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "\"ok\" or \"down\".",
+                    "type": "string"
+                }
+            }
+        },
+        "health.Response": {
+            "type": "object",
+            "properties": {
+                "checks": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/health.CheckResult"
+                    }
+                },
+                "status": {
+                    "description": "\"ok\" when every check passed, otherwise \"unavailable\".",
+                    "type": "string"
+                },
+                "time": {
+                    "type": "string"
+                },
+                "uptime_seconds": {
+                    "type": "integer"
                 }
             }
         },
