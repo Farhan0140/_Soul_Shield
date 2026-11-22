@@ -124,6 +124,23 @@ definitions:
       uptime_seconds:
         type: integer
     type: object
+  repo.GlobalSnapshot:
+    properties:
+      cursor:
+        type: string
+      global_categories:
+        items:
+          $ref: '#/definitions/repo.SyncCategory'
+        type: array
+      sub_tasks:
+        items:
+          $ref: '#/definitions/repo.SyncSubTask'
+        type: array
+      tasks:
+        items:
+          $ref: '#/definitions/repo.SyncTask'
+        type: array
+    type: object
   repo.SyncCategory:
     properties:
       color_hex:
@@ -1181,6 +1198,37 @@ paths:
       security:
       - BearerAuth: []
       summary: Push sync changes
+      tags:
+      - Sync
+  /sync/global:
+    get:
+      description: |-
+        Admin-created fixed (is_global) tasks and their sub-tasks changed since `since`
+        (soft-deleted included, as tombstones), plus the categories those tasks belong to.
+        Public: no authentication, and it never returns anyone's personal data. The mobile
+        app uses it to show fixed tasks to people using the app without an account;
+        signed-in devices get the same rows from GET /sync.
+      parameters:
+      - description: RFC3339 timestamp - omit for a full pull
+        in: query
+        name: since
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repo.GlobalSnapshot'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/sync.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/sync.ErrorResponse'
+      summary: Pull fixed tasks (no login)
       tags:
       - Sync
   /tasks:

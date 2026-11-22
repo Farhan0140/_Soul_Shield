@@ -140,9 +140,26 @@ type SyncChangeResult struct {
 
 type SyncRepo interface {
 	PullChanges(userID int64, since time.Time) (*SyncSnapshot, error)
+	// PullGlobalChanges is the public, no-login pull: admin-created fixed
+	// (is_global) tasks and their sub-tasks only - never anyone's personal
+	// data. See GlobalSnapshot.
+	PullGlobalChanges(since time.Time) (*GlobalSnapshot, error)
 	// PushChanges applies changes atomically per batch (see sync_push.go).
 	// latestDate: the caller's today - completions after it are rejected.
 	PushChanges(userID int64, changes []SyncChange, latestDate time.Time) ([]SyncChangeResult, error)
+}
+
+// GlobalSnapshot is what GET /sync/global returns: the same row shapes as
+// SyncSnapshot, restricted to fixed tasks, so a signed-out device can show
+// them. GlobalCategories lists the categories those tasks point at (always
+// the full current set, not a delta) so the app can copy a fixed task into a
+// same-named personal category, as add-to-my-tasks does on the server. They
+// are reference data, not the caller's categories.
+type GlobalSnapshot struct {
+	Cursor           time.Time      `json:"cursor"`
+	Tasks            []SyncTask     `json:"tasks"`
+	SubTasks         []SyncSubTask  `json:"sub_tasks"`
+	GlobalCategories []SyncCategory `json:"global_categories"`
 }
 
 type syncRepo struct {
@@ -156,21 +173,8 @@ func NewSyncRepo(db *sqlx.DB) SyncRepo {
 // ---- Pull ----
 
 func (r *syncRepo) PullChanges(userID int64, since time.Time) (*SyncSnapshot, error) {
-	// The cursor is capped at the start of the oldest transaction still in
-	// flight. A sync push runs as ONE transaction and every row it writes is
-	// stamped with that transaction's start time (set_updated_at uses now()),
-	// but only becomes visible at commit. A plain `now()` cursor taken while
-	// such a push is open would hand out a cursor AFTER those rows'
-	// updated_at, and the next pull (since = cursor) would skip them forever.
-	// Capping costs at most a few re-sent rows (pulls are idempotent).
-	var cursor time.Time
-	if err := r.db.Get(&cursor, `
-		SELECT LEAST(now(), COALESCE((
-			SELECT min(xact_start) FROM pg_stat_activity
-			WHERE backend_type = 'client backend' AND xact_start IS NOT NULL
-				AND pid <> pg_backend_pid() AND datname = current_database()
-		), now()))
-	`); err != nil {
+	cursor, err := r.pullCursor()
+	if err != nil {
 		return nil, err
 	}
 
@@ -205,7 +209,61 @@ func (r *syncRepo) PullChanges(userID int64, since time.Time) (*SyncSnapshot, er
 	}, nil
 }
 
+func (r *syncRepo) PullGlobalChanges(since time.Time) (*GlobalSnapshot, error) {
+	cursor, err := r.pullCursor()
+	if err != nil {
+		return nil, err
+	}
+
+	tasks, err := r.queryTasks(`t.is_global = true AND t.updated_at > $1`, since)
+	if err != nil {
+		return nil, err
+	}
+	subTasks, err := r.querySubTasks(`t.is_global = true AND st.updated_at > $1`, since)
+	if err != nil {
+		return nil, err
+	}
+	categories, err := r.pullGlobalCategories()
+	if err != nil {
+		return nil, err
+	}
+
+	return &GlobalSnapshot{
+		Cursor:           cursor,
+		Tasks:            tasks,
+		SubTasks:         subTasks,
+		GlobalCategories: categories,
+	}, nil
+}
+
+func (r *syncRepo) pullCursor() (time.Time, error) {
+	// The cursor is capped at the start of the oldest transaction still in
+	// flight. A sync push runs as ONE transaction and every row it writes is
+	// stamped with that transaction's start time (set_updated_at uses now()),
+	// but only becomes visible at commit. A plain `now()` cursor taken while
+	// such a push is open would hand out a cursor AFTER those rows'
+	// updated_at, and the next pull (since = cursor) would skip them forever.
+	// Capping costs at most a few re-sent rows (pulls are idempotent).
+	var cursor time.Time
+	if err := r.db.Get(&cursor, `
+		SELECT LEAST(now(), COALESCE((
+			SELECT min(xact_start) FROM pg_stat_activity
+			WHERE backend_type = 'client backend' AND xact_start IS NOT NULL
+				AND pid <> pg_backend_pid() AND datname = current_database()
+		), now()))
+	`); err != nil {
+		return time.Time{}, err
+	}
+	return cursor, nil
+}
+
 func (r *syncRepo) pullTasks(userID int64, since time.Time) ([]SyncTask, error) {
+	return r.queryTasks(`(t.is_global = true OR t.owner_id = $1) AND t.updated_at > $2`, userID, since)
+}
+
+// queryTasks runs the shared task pull SELECT with `where` as its filter
+// (placeholders numbered for args).
+func (r *syncRepo) queryTasks(where string, args ...any) ([]SyncTask, error) {
 	rows, err := r.db.Query(`
 		SELECT
 			t.uuid, t.title, t.description, t.is_global, t.recurrence_type, t.recurrence_days,
@@ -214,9 +272,9 @@ func (r *syncRepo) pullTasks(userID int64, since time.Time) ([]SyncTask, error) 
 		FROM tasks t
 		LEFT JOIN categories c ON c.id = t.category_id
 		LEFT JOIN tasks src ON src.id = t.source_task_id
-		WHERE (t.is_global = true OR t.owner_id = $1) AND t.updated_at > $2
+		WHERE `+where+`
 		ORDER BY t.updated_at, t.id
-	`, userID, since)
+	`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -264,6 +322,29 @@ func (r *syncRepo) pullCategories(userID int64, since time.Time) ([]SyncCategory
 	if err != nil {
 		return nil, err
 	}
+	return scanSyncCategories(rows)
+}
+
+// pullGlobalCategories returns every live category a live fixed task points
+// at - the full set each time (it is small), so the client can simply
+// replace its copy.
+func (r *syncRepo) pullGlobalCategories() ([]SyncCategory, error) {
+	rows, err := r.db.Query(`
+		SELECT c.uuid, c.name, c.color_hex, c.position, c.created_at, c.updated_at, c.deleted_at
+		FROM categories c
+		WHERE c.deleted_at IS NULL AND EXISTS (
+			SELECT 1 FROM tasks t
+			WHERE t.category_id = c.id AND t.is_global = true AND t.deleted_at IS NULL
+		)
+		ORDER BY c.position, c.id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	return scanSyncCategories(rows)
+}
+
+func scanSyncCategories(rows *sql.Rows) ([]SyncCategory, error) {
 	defer rows.Close()
 
 	results := []SyncCategory{}
@@ -280,15 +361,21 @@ func (r *syncRepo) pullCategories(userID int64, since time.Time) ([]SyncCategory
 }
 
 func (r *syncRepo) pullSubTasks(userID int64, since time.Time) ([]SyncSubTask, error) {
+	return r.querySubTasks(`(t.is_global = true OR t.owner_id = $1) AND st.updated_at > $2`, userID, since)
+}
+
+// querySubTasks runs the shared sub-task pull SELECT with `where` as its
+// filter (`st` = sub_tasks, `t` = the parent task).
+func (r *syncRepo) querySubTasks(where string, args ...any) ([]SyncSubTask, error) {
 	rows, err := r.db.Query(`
 		SELECT
 			st.uuid, t.uuid, st.title, st.description, st.task_type, st.target_count, st.duration_seconds,
 			st.position, st.created_at, st.updated_at, st.deleted_at
 		FROM sub_tasks st
 		JOIN tasks t ON t.id = st.parent_task_id
-		WHERE (t.is_global = true OR t.owner_id = $1) AND st.updated_at > $2
+		WHERE `+where+`
 		ORDER BY st.updated_at, st.id
-	`, userID, since)
+	`, args...)
 	if err != nil {
 		return nil, err
 	}

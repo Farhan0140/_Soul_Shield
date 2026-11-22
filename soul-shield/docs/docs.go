@@ -480,6 +480,46 @@ const docTemplate = `{
                 }
             }
         },
+        "/sync/global": {
+            "get": {
+                "description": "Admin-created fixed (is_global) tasks and their sub-tasks changed since ` + "`" + `since` + "`" + `\n(soft-deleted included, as tombstones), plus the categories those tasks belong to.\nPublic: no authentication, and it never returns anyone's personal data. The mobile\napp uses it to show fixed tasks to people using the app without an account;\nsigned-in devices get the same rows from GET /sync.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sync"
+                ],
+                "summary": "Pull fixed tasks (no login)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "RFC3339 timestamp - omit for a full pull",
+                        "name": "since",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repo.GlobalSnapshot"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/sync.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/sync.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/tasks": {
             "get": {
                 "security": [
@@ -1975,6 +2015,32 @@ const docTemplate = `{
                 },
                 "uptime_seconds": {
                     "type": "integer"
+                }
+            }
+        },
+        "repo.GlobalSnapshot": {
+            "type": "object",
+            "properties": {
+                "cursor": {
+                    "type": "string"
+                },
+                "global_categories": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/repo.SyncCategory"
+                    }
+                },
+                "sub_tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/repo.SyncSubTask"
+                    }
+                },
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/repo.SyncTask"
+                    }
                 }
             }
         },

@@ -413,3 +413,59 @@ func TestCategoryRenameToExistingNameIsConflict(t *testing.T) {
 		t.Fatalf("rename onto an existing name: %v, want ErrCategoryExists", err)
 	}
 }
+
+// The public pull must hand out fixed tasks (with their sub-tasks and
+// category) and never anyone's personal rows.
+func TestPullGlobalChangesReturnsOnlyFixedTasks(t *testing.T) {
+	db := testDB(t)
+	admin := mkUser(t, db, "admin-global@example.com")
+	user := mkUser(t, db, "user-global@example.com")
+
+	cat, err := NewCategoryRepo(db).Create(Category{Name: "Morning", ColorHex: "#336699", OwnerID: admin.ID})
+	if err != nil {
+		t.Fatalf("create category: %v", err)
+	}
+	global, err := NewTaskRepo(db).Create(Task{
+		Title: "Fixed dhikr", IsGlobal: true, CreatedBy: admin.ID,
+		CategoryID: nullInt64(cat.ID, true), RecurrenceType: util.RecurrenceDaily, TaskType: "normal",
+	})
+	if err != nil {
+		t.Fatalf("create global task: %v", err)
+	}
+	if _, err := NewSubTaskRepo(db).ReplaceForParent(global.ID, []SubTask{{Title: "Step one", TaskType: "normal"}}); err != nil {
+		t.Fatalf("create sub-task: %v", err)
+	}
+	personal := mkTask(t, db, user.ID, "My own task", "normal")
+
+	snap, err := NewSyncRepo(db).PullGlobalChanges(time.Time{})
+	if err != nil {
+		t.Fatalf("PullGlobalChanges: %v", err)
+	}
+
+	if len(snap.Tasks) != 1 || snap.Tasks[0].UUID != global.UUID || !snap.Tasks[0].IsGlobal {
+		t.Fatalf("tasks = %+v, want only the fixed task", snap.Tasks)
+	}
+	for _, task := range snap.Tasks {
+		if task.UUID == personal.UUID {
+			t.Fatal("public pull leaked a personal task")
+		}
+	}
+	if len(snap.SubTasks) != 1 || snap.SubTasks[0].ParentTaskUUID != global.UUID {
+		t.Errorf("sub_tasks = %+v, want the fixed task's one sub-task", snap.SubTasks)
+	}
+	if len(snap.GlobalCategories) != 1 || snap.GlobalCategories[0].Name != "Morning" {
+		t.Errorf("global_categories = %+v, want [Morning]", snap.GlobalCategories)
+	}
+
+	// A delta pull from the returned cursor has nothing new.
+	again, err := NewSyncRepo(db).PullGlobalChanges(snap.Cursor)
+	if err != nil {
+		t.Fatalf("delta PullGlobalChanges: %v", err)
+	}
+	if len(again.Tasks) != 0 || len(again.SubTasks) != 0 {
+		t.Errorf("delta pull returned %d tasks / %d sub-tasks, want none", len(again.Tasks), len(again.SubTasks))
+	}
+	if len(again.GlobalCategories) != 1 {
+		t.Errorf("delta pull global_categories = %d, want the full set (1)", len(again.GlobalCategories))
+	}
+}
