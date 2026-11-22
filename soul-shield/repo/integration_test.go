@@ -518,16 +518,22 @@ func TestFeedbackOneVotePerPersonAndGuestNames(t *testing.T) {
 	if _, ok, err := r.LastSubmittedAt(&u.ID, nil); err != nil || !ok {
 		t.Fatalf("last submitted (user): ok=%v err=%v", ok, err)
 	}
-	if _, ok, _ := r.LastSubmittedAt(&g1, nil); ok {
-		// &g1 passed as a USER id: there's no such account's feedback.
-		t.Fatal("guest id matched as a user id")
-	}
 	if _, ok, err := r.LastSubmittedAt(nil, &g2); err != nil || !ok {
 		t.Fatalf("last submitted (guest): ok=%v err=%v", ok, err)
 	}
+	// Account ids and guest numbers are separate sequences that overlap
+	// (account 2 vs guest-user-2 below): a lookup by one must never match
+	// rows of the other.
 	other := mkUser(t, db, "never@example.com")
+	if other.ID != g2 {
+		t.Fatalf("test setup: want account id %d to equal guest number %d", other.ID, g2)
+	}
 	if _, ok, _ := r.LastSubmittedAt(&other.ID, nil); ok {
-		t.Fatal("a user who never rated has a last submission")
+		t.Fatal("an account that never rated matched guest-user-2's feedback")
+	}
+	unused := int64(999)
+	if _, ok, _ := r.LastSubmittedAt(nil, &unused); ok {
+		t.Fatal("an unknown guest has a last submission")
 	}
 	if n, _ := r.UnreadCount(); n != 4 {
 		t.Fatalf("unread %d", n)
