@@ -15,7 +15,8 @@ export function useCategoriesQuery() {
   return useQuery({
     queryKey: queryKeys.categories,
     queryFn: () => (getLocalDb() ? deriveCategories() : getCategories(token)),
-    enabled: !!token,
+    // Local reads need no account (guest mode); the network fallback does.
+    enabled: !!getLocalDb() || !!token,
     networkMode: getLocalDb() ? 'always' : 'online',
   });
 }

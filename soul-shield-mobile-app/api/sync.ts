@@ -1,5 +1,5 @@
 import { apiGet, apiPost, type RetryOptions } from '@/api/client';
-import type { SyncChange, SyncChangeResult, SyncSnapshot } from '@/api/sync-types';
+import type { GlobalSyncSnapshot, SyncChange, SyncChangeResult, SyncSnapshot } from '@/api/sync-types';
 
 /** GET /sync - see soul-shield/rest/handlers/sync/pull.go. Omit `since` for
  * a full pull (first-ever sync on a device); pass the previous response's
@@ -7,6 +7,14 @@ import type { SyncChange, SyncChangeResult, SyncSnapshot } from '@/api/sync-type
 export function getSyncChanges(since: string | null, token: string | null, timeoutMs?: number, retry?: RetryOptions) {
   const query = since ? `?since=${encodeURIComponent(since)}` : '';
   return apiGet<SyncSnapshot>(`/sync${query}`, token, timeoutMs, retry);
+}
+
+/** GET /sync/global - see soul-shield/rest/handlers/sync/pull_global.go.
+ * Public (no token): fixed tasks for devices used without an account. Same
+ * `since`/`cursor` contract as getSyncChanges, with its own cursor. */
+export function getGlobalSyncChanges(since: string | null, timeoutMs?: number, retry?: RetryOptions) {
+  const query = since ? `?since=${encodeURIComponent(since)}` : '';
+  return apiGet<GlobalSyncSnapshot>(`/sync/global${query}`, null, timeoutMs, retry);
 }
 
 /** POST /sync - see soul-shield/rest/handlers/sync/push.go. Every mutation

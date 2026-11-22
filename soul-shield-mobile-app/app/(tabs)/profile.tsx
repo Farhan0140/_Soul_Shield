@@ -6,8 +6,10 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import { deletePushToken } from '@/api/auth';
+import { getFeedbackNextAllowedAt, getLastRating } from '@/api/feedback';
 import { ThemedText } from '@/components/themed-text';
 import { ArabicFontPicker } from '@/components/profile/arabic-font-picker';
+import { FeedbackSheet, StarRow, useWaitLabel } from '@/components/profile/feedback-sheet';
 import { ThemePicker } from '@/components/profile/theme-picker';
 import { UIStylePicker } from '@/components/profile/ui-style-picker';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -36,7 +38,10 @@ import { getErrorMessage } from '@/lib/errors';
 import { clearOfflineCache, countPendingMutations } from '@/lib/persister';
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, status } = useAuth();
+  // No account (guest mode): everything works locally; signing in only adds
+  // backup/sync, so account-only controls are hidden.
+  const isGuest = status !== 'signedIn';
   const queryClient = useQueryClient();
   const { locale, setLocale, t } = useLocale();
   const cardColor = useThemeColor({}, 'card');
@@ -55,6 +60,14 @@ export default function ProfileScreen() {
   const [digestTime, setDigestTimeState] = useState({ hour: 20, minute: 0 });
   const [counterHaptics, setCounterHaptics] = useState(true);
   const [sendingTest, setSendingTest] = useState(false);
+  // Rate & feedback (bottom of the page). myRating = last rating sent from
+  // this phone; feedbackRating = stars pre-selected when the sheet opens.
+  const [myRating, setMyRating] = useState(0);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackRating, setFeedbackRating] = useState(0);
+  // One feedback per 24 hours: set while this person has to wait.
+  const [feedbackNextAt, setFeedbackNextAt] = useState<Date | null>(null);
+  const waitLabel = useWaitLabel();
 
   const refreshSyncState = useCallback(() => {
     getBackgroundSyncState().then(setSyncState);
@@ -67,6 +80,8 @@ export default function ProfileScreen() {
       setDigestTimeState({ hour: pref.hour, minute: pref.minute });
     });
     setCounterHaptics(getCounterHapticsPref()); // cached — loaded at module init
+    getLastRating().then((r) => setMyRating(r ?? 0));
+    getFeedbackNextAllowedAt().then(setFeedbackNextAt);
   }, [refreshSyncState]);
 
   const handleRunSyncNow = async () => {
@@ -205,12 +220,31 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const toolRows: { icon: Parameters<typeof IconSymbol>[0]['name']; label: string; onPress: () => void }[] = [
-    { icon: 'clock', label: t('profile.tools.timer'), onPress: () => router.push('/timer') },
-    { icon: 'line.3.horizontal', label: t('profile.tools.reorder'), onPress: () => router.push('/reorder') },
-    { icon: 'sparkles', label: t('profile.tools.insights'), onPress: () => router.push('/insights' as never) },
-    { icon: 'checklist', label: t('profile.tools.search'), onPress: () => router.push('/search' as never) },
-    { icon: 'folder.fill', label: t('profile.tools.archived'), onPress: () => router.push('/archived' as never) },
+  const toolRows: {
+    icon: Parameters<typeof IconSymbol>[0]['name'];
+    label: string;
+    onPress: () => void;
+  }[] = [
+    {
+      icon: 'line.3.horizontal',
+      label: t('profile.tools.reorder'),
+      onPress: () => router.push('/reorder'),
+    },
+    {
+      icon: 'sparkles',
+      label: t('profile.tools.insights'),
+      onPress: () => router.push('/insights' as never),
+    },
+    {
+      icon: 'checklist',
+      label: t('profile.tools.search'),
+      onPress: () => router.push('/search' as never),
+    },
+    {
+      icon: 'folder.fill',
+      label: t('profile.tools.archived'),
+      onPress: () => router.push('/archived' as never),
+    },
   ];
 
   const accountRows: {
@@ -232,15 +266,34 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
-      <View style={[styles.card, { backgroundColor: cardColor }, surface('note')]}>
-        <ThemeDecor kind="note" />
-        <IconSymbol name="person.crop.circle.fill" size={56} color={tintColor} />
-        <View style={styles.info}>
-          <ThemedText type="subtitle">{user?.full_name}</ThemedText>
-          <ThemedText>{user?.email}</ThemedText>
-          {user?.role === 'admin' ? <ThemedText type="defaultSemiBold">Admin</ThemedText> : null}
+      {isGuest ? (
+        <View style={styles.section}>
+          <View style={[styles.card, { backgroundColor: cardColor }, surface('note')]}>
+            <ThemeDecor kind="note" />
+            <IconSymbol name="person.crop.circle.fill" size={56} color={mutedColor} />
+            <View style={[styles.info, styles.guestInfo]}>
+              <ThemedText type="subtitle">{t('profile.guest.title')}</ThemedText>
+              <ThemedText style={{ color: mutedColor }}>{t('profile.guest.body')}</ThemedText>
+            </View>
+          </View>
+          <PrimaryButton label={t('profile.guest.signIn')} onPress={() => router.push('/(auth)/login')} />
+          <PrimaryButton
+            label={t('profile.guest.createAccount')}
+            variant="secondary"
+            onPress={() => router.push('/(auth)/register')}
+          />
         </View>
-      </View>
+      ) : (
+        <View style={[styles.card, { backgroundColor: cardColor }, surface('note')]}>
+          <ThemeDecor kind="note" />
+          <IconSymbol name="person.crop.circle.fill" size={56} color={tintColor} />
+          <View style={styles.info}>
+            <ThemedText type="subtitle">{user?.full_name}</ThemedText>
+            <ThemedText>{user?.email}</ThemedText>
+            {user?.role === 'admin' ? <ThemedText type="defaultSemiBold">Admin</ThemedText> : null}
+          </View>
+        </View>
+      )}
 
       <View style={styles.section}>
         <View style={[styles.sectionHeader, surface('tag')]}>
@@ -305,7 +358,10 @@ export default function ProfileScreen() {
               />
               <ThemedText
                 type="defaultSemiBold"
-                style={{ color: locale === candidate ? tintColor : mutedColor, fontSize: 13 }}>
+                style={{
+                  color: locale === candidate ? tintColor : mutedColor,
+                  fontSize: 13,
+                }}>
                 {candidate === 'en' ? t('profile.language.en') : t('profile.language.bn')}
               </ThemedText>
             </Pressable>
@@ -445,13 +501,14 @@ export default function ProfileScreen() {
             {t('profile.data')}
           </ThemedText>
         </View>
-        <ThemedText style={[styles.syncStatus, { color: mutedColor }]}>{formatSyncStatus(syncState)}</ThemedText>
-        <PrimaryButton
-          label="Clear Offline Data"
-          variant="secondary"
-          loading={clearing}
-          onPress={handleClearCache}
-        />
+        <ThemedText style={[styles.syncStatus, { color: mutedColor }]}>
+          {isGuest ? t('profile.data.guestStatus') : formatSyncStatus(syncState)}
+        </ThemedText>
+        {/* Guests: this would delete their only copy (nothing is on a server
+            to re-download), so it's account-only. */}
+        {!isGuest ? (
+          <PrimaryButton label="Clear Offline Data" variant="secondary" loading={clearing} onPress={handleClearCache} />
+        ) : null}
         {__DEV__ ? (
           <PrimaryButton
             label="Run Background Sync Now (dev)"
@@ -478,46 +535,103 @@ export default function ProfileScreen() {
         ) : null}
       </View>
 
+      {!isGuest ? (
+        <>
+          <View style={styles.section}>
+            <View style={[styles.sectionHeader, surface('tag')]}>
+              <ThemeDecor kind="tag" />
+              <IconSymbol name="person.fill" size={16} color={mutedColor} />
+              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+                {t('profile.account')}
+              </ThemedText>
+            </View>
+            {accountRows.map((row) => (
+              <Pressable
+                key={row.label}
+                onPress={row.onPress}
+                style={({ pressed }) => [
+                  styles.toolRow,
+                  { backgroundColor: cardColor, opacity: pressed ? 0.7 : 1 },
+                  surface('card'),
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={row.label}>
+                <ThemeDecor kind="card" />
+                <View style={[styles.toolIconCircle, { backgroundColor: `${tintColor}1A` }, surface('iconCircle')]}>
+                  <ThemeDecor kind="iconCircle" stroke={tintColor} />
+                  <IconSymbol name={row.icon} size={22} color={tintColor} />
+                </View>
+                <ThemedText type="defaultSemiBold" style={styles.toolLabel}>
+                  {row.label}
+                </ThemedText>
+                <IconSymbol name="chevron.right" size={18} color={mutedColor} />
+              </Pressable>
+            ))}
+          </View>
+
+          <PrimaryButton label={t('profile.logout')} variant="destructive" onPress={handleLogout} />
+        </>
+      ) : null}
+
+      {/* Rate & feedback - last on the page, for guests too. */}
       <View style={styles.section}>
         <View style={[styles.sectionHeader, surface('tag')]}>
           <ThemeDecor kind="tag" />
-          <IconSymbol name="person.fill" size={16} color={mutedColor} />
+          <IconSymbol name="star.fill" size={16} color={mutedColor} />
           <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
-            {t('profile.account')}
+            {t('profile.feedback')}
           </ThemedText>
         </View>
-        {accountRows.map((row) => (
-          <Pressable
-            key={row.label}
-            onPress={row.onPress}
-            style={({ pressed }) => [
-              styles.toolRow,
-              { backgroundColor: cardColor, opacity: pressed ? 0.7 : 1 },
-              surface('card'),
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={row.label}
-          >
-            <ThemeDecor kind="card" />
-            <View
-              style={[
-                styles.toolIconCircle,
-                { backgroundColor: `${tintColor}1A` },
-                surface('iconCircle'),
-              ]}
-            >
-              <ThemeDecor kind="iconCircle" stroke={tintColor} />
-              <IconSymbol name={row.icon} size={22} color={tintColor} />
-            </View>
-            <ThemedText type="defaultSemiBold" style={styles.toolLabel}>
-              {row.label}
+        <View style={[styles.feedbackCard, { backgroundColor: cardColor }, surface('card')]}>
+          <ThemeDecor kind="card" />
+          <ThemedText type="defaultSemiBold" style={styles.center}>
+            {feedbackNextAt
+              ? t('profile.feedback.sentToday')
+              : myRating > 0
+                ? t('profile.feedback.rated')
+                : t('profile.feedback.prompt')}
+          </ThemedText>
+          <StarRow
+            value={myRating}
+            size={34}
+            disabled={!!feedbackNextAt}
+            onChange={(n) => {
+              setFeedbackRating(n);
+              setFeedbackOpen(true);
+            }}
+          />
+          {feedbackNextAt ? (
+            <ThemedText style={[styles.center, { color: mutedColor }]}>
+              {t('feedback.cooldown').replace('{time}', waitLabel(feedbackNextAt))}
             </ThemedText>
-            <IconSymbol name="chevron.right" size={18} color={mutedColor} />
-          </Pressable>
-        ))}
+          ) : (
+            <Pressable
+              onPress={() => {
+                setFeedbackRating(myRating);
+                setFeedbackOpen(true);
+              }}
+              hitSlop={8}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.feedbackLink, { opacity: pressed ? 0.6 : 1 }]}>
+              <IconSymbol name="bubble.left.fill" size={16} color={tintColor} />
+              <ThemedText type="defaultSemiBold" style={{ color: tintColor }}>
+                {t('profile.feedback.write')}
+              </ThemedText>
+            </Pressable>
+          )}
+        </View>
       </View>
 
-      <PrimaryButton label={t('profile.logout')} variant="destructive" onPress={handleLogout} />
+      <FeedbackSheet
+        visible={feedbackOpen}
+        initialRating={feedbackRating}
+        onClose={() => setFeedbackOpen(false)}
+        onSubmitted={(rating) => {
+          setMyRating(rating);
+          getFeedbackNextAllowedAt().then(setFeedbackNextAt);
+        }}
+        onCooldown={setFeedbackNextAt}
+      />
     </ScrollView>
   );
 }
@@ -550,12 +664,22 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
   },
   info: { gap: 4 },
+  guestInfo: { flex: 1 },
   section: { gap: 12 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  sectionTitle: { fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionTitle: {
+    fontSize: 13,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   syncStatus: { fontSize: 13 },
   languageRow: { flexDirection: 'row', gap: 10 },
-  languageChip: { paddingVertical: 8, paddingHorizontal: 18, borderRadius: 999, borderWidth: 1.5 },
+  languageChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+    borderWidth: 1.5,
+  },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   switchLabel: { flex: 1, gap: 2 },
   digestTimeButton: {
@@ -574,8 +698,23 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderCurve: 'continuous',
   },
-  toolIconCircle: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  toolIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   toolLabel: { flex: 1 },
   soonPill: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999 },
   soonPillText: { fontSize: 12, fontWeight: '700' },
+  feedbackCard: {
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderRadius: 16,
+    borderCurve: 'continuous',
+  },
+  feedbackLink: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  center: { textAlign: 'center' },
 });

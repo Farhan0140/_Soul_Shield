@@ -83,6 +83,18 @@ export interface SyncSnapshot {
   sub_task_completions: SyncSubTaskCompletion[];
 }
 
+/** GET /sync/global (public, no login) - see soul-shield/repo/sync.go's
+ * GlobalSnapshot. Fixed (admin-created) tasks only; `global_categories` is
+ * reference data (the categories those tasks belong to, always the full
+ * set), NOT the user's own categories - never write it to the local
+ * categories table. */
+export interface GlobalSyncSnapshot {
+  cursor: string;
+  tasks: SyncTask[];
+  sub_tasks: SyncSubTask[];
+  global_categories: SyncCategory[];
+}
+
 export type SyncResource = | 'tasks' | 'categories' | 'sub_tasks' | 'task_completions' | 'sub_task_completions';
 export type SyncOp = 'upsert' | 'delete' | 'increment';
 

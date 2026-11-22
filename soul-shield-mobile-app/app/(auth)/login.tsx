@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -7,11 +7,15 @@ import { KeyboardAvoidingScrollView } from '@/components/ui/keyboard-avoiding-sc
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { TextField } from '@/components/ui/text-field';
 import { useAuth } from '@/context/auth-context';
+import { useLocale } from '@/context/locale-context';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import { getErrorMessage } from '@/lib/errors';
 import { rememberedEmailStore } from '@/lib/secure-store';
 
 export default function LoginScreen() {
   const { login } = useAuth();
+  const { t } = useLocale();
+  const mutedColor = useThemeColor({}, 'muted');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -42,6 +46,7 @@ export default function LoginScreen() {
       <View style={styles.header}>
         <ThemedText type="title">SoulShield</ThemedText>
         <ThemedText type="default">Log in to continue your journey.</ThemedText>
+        <ThemedText style={{ color: mutedColor, fontSize: 14 }}>{t('auth.accountOptional')}</ThemedText>
       </View>
 
       <View style={styles.form}>
@@ -77,6 +82,12 @@ export default function LoginScreen() {
         <Link href="/(auth)/register">
           <ThemedText type="link">Create an account</ThemedText>
         </Link>
+        <ThemedText
+          type="link"
+          accessibilityRole="button"
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}>
+          {t('auth.continueWithout')}
+        </ThemedText>
       </View>
     </KeyboardAvoidingScrollView>
   );

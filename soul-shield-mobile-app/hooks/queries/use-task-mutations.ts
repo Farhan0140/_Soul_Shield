@@ -10,6 +10,8 @@ import {
 import { getSubTaskByUuid, replaceSubTasksForParentLocal } from '@/lib/db/sub-tasks-repo';
 import { createTaskLocal, deriveTasksForDate, reorderTasksLocal, softDeleteTaskLocal, updateTaskLocal } from '@/lib/db/tasks-repo';
 import { getLocalDb } from '@/lib/db/client';
+import { addFixedTaskToMyTasksLocal } from '@/lib/db/add-fixed-task-local';
+import { useAuth } from '@/context/auth-context';
 import { newUuid } from '@/lib/db/uuid';
 import { pullLocalDatabase } from '@/lib/background-sync/pull';
 import { todayISODate } from '@/lib/date';
@@ -184,10 +186,13 @@ export function useCompleteTask() {
 
 /** Clones a fixed (is_global) task into the current user's own tasks - see
  * api/tasks.ts's addTaskToMyTasks for why this stays a direct online-only
- * network call rather than going through the local-first sync push. */
+ * network call rather than going through the local-first sync push.
+ * Without an account (guest mode) it copies the task on the device instead
+ * (lib/db/add-fixed-task-local.ts) - works offline, uploaded on sign-in. */
 export function useAddTaskToMyTasks(date: string) {
   const queryClient = useQueryClient();
-  return useMutation({
+  const { token } = useAuth();
+  const mutation = useMutation({
     mutationKey: mutationKeys.tasks.addToMyTasks,
     mutationFn: addTaskToMyTasksMutationFn,
     // The new task/category only exist locally once a sync pull brings them
@@ -204,6 +209,34 @@ export function useAddTaskToMyTasks(date: string) {
       queryClient.invalidateQueries({ queryKey: queryKeys.categories });
     },
   });
+
+  const mutate = useCallback(
+    (
+      sourceTaskUuid: string,
+      options?: {
+        onSuccess?: (data: AddToMyTasksResponse) => void;
+        onError?: (error: unknown) => void;
+        onSettled?: () => void;
+      }
+    ) => {
+      if (token) {
+        mutation.mutate(sourceTaskUuid, options);
+        return;
+      }
+      // Guest: local copy, no network, no offline queue.
+      addFixedTaskToMyTasksLocal(sourceTaskUuid)
+        .then((data) => options?.onSuccess?.(data))
+        .catch((error: unknown) => options?.onError?.(error))
+        .finally(() => {
+          invalidateTaskLists(queryClient);
+          queryClient.invalidateQueries({ queryKey: queryKeys.categories });
+          options?.onSettled?.();
+        });
+    },
+    [mutation, queryClient, token]
+  );
+
+  return { ...mutation, mutate };
 }
 
 /** Reorders the caller's personal tasks within one category (`categoryId`

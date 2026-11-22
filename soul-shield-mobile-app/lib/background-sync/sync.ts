@@ -10,6 +10,8 @@ import { pickDailyVerseRef } from '@/lib/daily-verse';
 import { addDays, dateRange, todayISODate } from '@/lib/date';
 import { listAllActiveTasksForReminders } from '@/lib/db/tasks-repo';
 import { pullLocalDatabase } from '@/lib/background-sync/pull';
+import { pullGlobalTasks } from '@/lib/background-sync/pull-global';
+import { clearGuestMergePending, isGuestMergePending, mergeGuestCategoriesIntoAccount } from '@/lib/guest-merge';
 import { pushPendingLocalChanges } from '@/lib/background-sync/push-pending';
 import { syncAllTaskReminders } from '@/lib/notifications';
 import { PERSIST_BUSTER, persister } from '@/lib/persister';
@@ -48,6 +50,71 @@ async function prefetchDailyVerses(
       return { date, verse };
     })
   );
+}
+
+/** Every query that reads the local SQLite store - re-read after a pull. */
+function invalidateLocalData(liveClient: QueryClient): void {
+  liveClient.invalidateQueries({ queryKey: ['tasks'] });
+  liveClient.invalidateQueries({ queryKey: ['taskHistory'] });
+  liveClient.invalidateQueries({ queryKey: ['myTasks'] });
+  liveClient.invalidateQueries({ queryKey: ['completedDates'] });
+  liveClient.invalidateQueries({ queryKey: queryKeys.categories });
+}
+
+/** Hands freshly fetched verses to the live cache, or - with no live client
+ * (headless run) - merges them into the persisted cache. dailyVerse is the
+ * one query this sync still persists directly (categories/tasks/history/
+ * myTasks are SQLite-backed, not AsyncStorage-persisted - see
+ * lib/persister.ts's shouldDehydrateQuery), so only that key is replaced,
+ * preserving whatever else (paused mutations, `me`) is already there. */
+async function applyVerses(verses: { date: string; verse: Verse }[] | null, liveClient?: QueryClient): Promise<void> {
+  if (!verses) return;
+  if (liveClient) {
+    for (const { date, verse } of verses) {
+      liveClient.setQueryData(queryKeys.dailyVerse(date), verse);
+    }
+    return;
+  }
+  const freshClient = new QueryClient();
+  for (const { date, verse } of verses) {
+    freshClient.setQueryData(queryKeys.dailyVerse(date), verse);
+  }
+  const fresh = dehydrate(freshClient);
+
+  const previous = await persister.restoreClient();
+  await persister.persistClient({
+    timestamp: Date.now(),
+    buster: PERSIST_BUSTER,
+    clientState: {
+      queries: [
+        ...(previous?.clientState.queries.filter((q) => q.queryKey[0] !== 'dailyVerse') ?? []),
+        ...fresh.queries,
+      ],
+      mutations: previous?.clientState.mutations ?? [],
+    },
+  });
+}
+
+/** No account (guest mode): personal data stays on this device - there is
+ * nothing of theirs to push or pull. Only public content is refreshed: fixed
+ * tasks (GET /sync/global, no login - see pull-global.ts) and the verse of
+ * the day. Best effort and silent (no "Syncing…" label - nothing personal is
+ * being synced); a failure just waits for the next trigger. */
+async function refreshGuestContent(liveClient?: QueryClient): Promise<void> {
+  const verseDates = dateRange(todayISODate(), addDays(todayISODate(), VERSE_PREFETCH_DAYS));
+  const [pulledFixedTasks, verses] = await Promise.all([
+    pullGlobalTasks()
+      .then(() => true)
+      .catch(() => false),
+    prefetchDailyVerses(verseDates, REQUEST_TIMEOUT_MS).catch(() => null),
+  ]);
+
+  if (pulledFixedTasks) {
+    if (liveClient) invalidateLocalData(liveClient);
+    // Fixed tasks can carry reminders - same self-heal as the signed-in path.
+    await syncAllTaskReminders(listAllActiveTasksForReminders()).catch(() => {});
+  }
+  await applyVerses(verses, liveClient);
 }
 
 /** Full refresh: delta-pulls every task/category/sub-task/completion change
@@ -95,8 +162,8 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
 
   const token = await tokenStore.getToken();
   if (!token) {
-    // Signed out — nothing to sync, and nothing to retry until a login
-    // happens (which fetches everything fresh on its own anyway).
+    // No account: refresh public content only (see refreshGuestContent).
+    await refreshGuestContent(liveClient);
     await recordSyncOutcome('skipped-signed-out');
     return;
   }
@@ -112,6 +179,18 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
     // (hooks/queries/use-daily-verse.ts, lib/query-keys.ts).
     const verseDates = dateRange(todayISODate(), addDays(todayISODate(), VERSE_PREFETCH_DAYS));
 
+    // First sync after signing in with data made without an account: pull
+    // the account first and fold same-named guest categories into the
+    // account's, so the upload below can't trip the server's
+    // one-category-per-name rule (see lib/guest-merge.ts). Pushes are held
+    // back until this has run; if the pull fails, the flag stays and the
+    // next sync tries again.
+    if (await isGuestMergePending()) {
+      await pullLocalDatabase();
+      mergeGuestCategoriesIntoAccount();
+      await clearGuestMergePending();
+    }
+
     // Push before pulling: a pulled (older) server row would otherwise
     // overwrite a local edit that hasn't been pushed yet. A failed push must
     // not stop the pull though - it's remembered and reported at the end.
@@ -124,55 +203,23 @@ async function runFullBackgroundSyncInner(liveClient?: QueryClient): Promise<voi
     }
 
     const localDbPullPromise = pullLocalDatabase();
+    // Also the public fixed-task pull: GET /sync above already brings the
+    // fixed tasks, but not the admin's category names, which the Fixed Tasks
+    // page groups by. Best effort - its upserts are the same rows.
+    const globalCategoriesPromise = pullGlobalTasks().catch(() => {});
     const mePromise = fetchMe(token, REQUEST_TIMEOUT_MS, SYNC_RETRY).catch(() => null);
     const versesPromise = prefetchDailyVerses(verseDates, REQUEST_TIMEOUT_MS).catch(() => null);
 
     await localDbPullPromise;
+    await globalCategoriesPromise;
     const meRaw = await mePromise;
     const me = meRaw ? assertUser(meRaw) : null;
     const verses = await versesPromise;
 
-    if (liveClient) {
-      // App is mounted and online right now — invalidate so every
-      // already-mounted screen re-reads (instantly, from SQLite) with the
-      // just-pulled state. Categories/tasks/history/myTasks are SQLite-backed
-      // now (see lib/persister.ts), so there's nothing to setQueryData here.
-      liveClient.invalidateQueries({ queryKey: ['tasks'] });
-      liveClient.invalidateQueries({ queryKey: ['taskHistory'] });
-      liveClient.invalidateQueries({ queryKey: ['myTasks'] });
-      liveClient.invalidateQueries({ queryKey: ['completedDates'] });
-      liveClient.invalidateQueries({ queryKey: queryKeys.categories });
-      if (verses) {
-        for (const { date, verse } of verses) {
-          liveClient.setQueryData(queryKeys.dailyVerse(date), verse);
-        }
-      }
-    } else if (verses) {
-      // No live client — dailyVerse is the one query this sync still persists
-      // directly (categories/tasks/history/myTasks are SQLite-backed, not
-      // AsyncStorage-persisted - see lib/persister.ts's shouldDehydrateQuery),
-      // so merge just that into the on-disk cache rather than replacing it
-      // wholesale, preserving whatever else (paused mutations, `me`) is
-      // already there.
-      const freshClient = new QueryClient();
-      for (const { date, verse } of verses) {
-        freshClient.setQueryData(queryKeys.dailyVerse(date), verse);
-      }
-      const fresh = dehydrate(freshClient);
-
-      const previous = await persister.restoreClient();
-      await persister.persistClient({
-        timestamp: Date.now(),
-        buster: PERSIST_BUSTER,
-        clientState: {
-          queries: [
-            ...(previous?.clientState.queries.filter((q) => q.queryKey[0] !== 'dailyVerse') ?? []),
-            ...fresh.queries,
-          ],
-          mutations: previous?.clientState.mutations ?? [],
-        },
-      });
-    }
+    // App mounted: every already-mounted screen re-reads (instantly, from
+    // SQLite) with the just-pulled state.
+    if (liveClient) invalidateLocalData(liveClient);
+    await applyVerses(verses, liveClient);
 
     // `me` is cached via SecureStore, not the react-query persister (see
     // lib/persister.ts) — updated separately for the same reason. Skipped
@@ -220,6 +267,16 @@ export function runFullBackgroundSync(liveClient?: QueryClient): Promise<void> {
     syncInFlight = null;
   });
   return syncInFlight;
+}
+
+/** A fresh full sync right after signing in or out. runFullBackgroundSync
+ * coalesces onto a run already in flight - but one started a moment ago
+ * under the OTHER auth state (e.g. a guest refresh still running when the
+ * user signs in) would skip this account's upload/pull. So wait for any
+ * in-flight run first, then start a new one. */
+export async function runSyncAfterAuthChange(liveClient: QueryClient): Promise<void> {
+  if (syncInFlight) await syncInFlight.catch(() => {});
+  return runFullBackgroundSync(liveClient);
 }
 
 /** Minimum gap between opportunistic foreground syncs — cold app launch and

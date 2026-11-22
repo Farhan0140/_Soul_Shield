@@ -2,7 +2,8 @@
  * be unit-tested directly under Node (tests/local-owner-decision.test.mjs).
  *
  * The on-device store (SQLite + sync cursor + queued pushes) has no per-row
- * owner: it belongs to whichever account is signed in. An expired session
+ * owner: it belongs to whichever account is signed in - or, with no account,
+ * to the person using the app as a guest. An expired session
  * (401) signs out but deliberately KEEPS local data so the same user's
  * offline edits survive re-login. That is only safe if the NEXT sign-in is
  * the same account: otherwise the new user would see the previous user's
@@ -10,7 +11,9 @@
  * account, and the new user's own older data would never be pulled (the
  * sync cursor would be the previous user's). */
 
-export type LocalDataAction = 'keep' | 'wipe';
+/** 'adopt' = the data was made without an account (guest mode): keep it
+ * and upload it into the account signing in (see lib/guest-merge.ts). */
+export type LocalDataAction = 'keep' | 'wipe' | 'adopt';
 
 /**
  * @param storedOwnerId  user id the local data was last recorded for, or null
@@ -28,8 +31,12 @@ export function decideLocalDataAction(
   if (storedOwnerId === signingInUserId) return 'keep';
   // Nothing on the device yet: nothing to protect or leak.
   if (storedOwnerId === null && !localHasData) return 'keep';
-  // A different account, or data whose owner is unknown: never risk mixing
-  // accounts. The server copy is intact; a full pull restores the new
-  // user's data.
+  // No owner but data present: it was tracked without an account (guest
+  // mode - every account's data gets an owner recorded, and an explicit
+  // logout wipes it together with the owner). It belongs to whoever is
+  // signing in now, so keep it and upload it into their account.
+  if (storedOwnerId === null) return 'adopt';
+  // A different account: never risk mixing accounts. The server copy is
+  // intact; a full pull restores the new user's data.
   return 'wipe';
 }

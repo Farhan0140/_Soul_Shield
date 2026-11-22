@@ -1,5 +1,5 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -13,11 +13,15 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { PaginationBar } from '@/components/ui/pagination-bar';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { useAuth } from '@/context/auth-context';
+import { useLocale } from '@/context/locale-context';
 import { useAddTaskToMyTasks, useCompleteTask, useDeleteTask } from '@/hooks/queries/use-task-mutations';
 import { useTasksQuery } from '@/hooks/queries/use-tasks';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useSurface } from '@/hooks/use-ui-style';
+import { getGlobalCategoryRefs, type GlobalCategoryRef } from '@/lib/background-sync/pull-global';
 import { formatDisplayDate, todayISODate } from '@/lib/date';
 import { getErrorMessage } from '@/lib/errors';
+import { groupFixedTasksByCategory } from '@/lib/group-fixed-tasks';
 
 /** Pseudo-category keys used by the home screen for groupings that don't
  * come from the categories table (see app/(tabs)/index.tsx) - this screen
@@ -73,6 +77,19 @@ export default function CategoryDetailScreen() {
   const background = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
   const mutedColor = useThemeColor({}, 'muted');
+  const cardColor = useThemeColor({}, 'card');
+  const tintColor = useThemeColor({}, 'tint');
+  const surface = useSurface();
+  const { t } = useLocale();
+
+  // Fixed Tasks: shown grouped by the admin's categories, each collapsible.
+  // Their names come from the public fixed-task pull (the admin's
+  // categories aren't in the user's own data).
+  const [fixedCategoryRefs, setFixedCategoryRefs] = useState<Record<string, GlobalCategoryRef>>({});
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    if (specialId === 'fixed') getGlobalCategoryRefs().then(setFixedCategoryRefs);
+  }, [specialId]);
 
   // Every grouping this screen can show — the three pseudo-categories and a
   // real category alike — is filtered client-side from the same day's full
@@ -107,6 +124,20 @@ export default function CategoryDetailScreen() {
   const tasks = specialId
     ? sortedTasks
     : sortedTasks.slice((page - 1) * CATEGORY_PAGE_SIZE, page * CATEGORY_PAGE_SIZE);
+
+  const fixedGroups = useMemo(
+    () => (specialId === 'fixed' ? groupFixedTasksByCategory(tasks, fixedCategoryRefs) : []),
+    [specialId, tasks, fixedCategoryRefs],
+  );
+  // With a single group there's nothing to browse - show it open.
+  const isGroupExpanded = (groupKey: string) => fixedGroups.length === 1 || expandedGroups.has(groupKey);
+  const toggleGroup = (groupKey: string) =>
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupKey)) next.delete(groupKey);
+      else next.add(groupKey);
+      return next;
+    });
 
   const handleToggleComplete = (task: Task) => {
     completeTask.mutate(
@@ -209,6 +240,39 @@ export default function CategoryDetailScreen() {
                 : 'This category has no tasks scheduled for today.'
             }
           />
+        ) : specialId === 'fixed' ? (
+          <View style={styles.list}>
+            {fixedGroups.map((group) => {
+              const groupKey = group.key ?? '__none__';
+              const expanded = isGroupExpanded(groupKey);
+              const groupName = group.name ?? t('home.section.uncategorized');
+              const accent = group.color ?? tintColor;
+              return (
+                <View key={groupKey} style={styles.group}>
+                  <Pressable
+                    onPress={() => toggleGroup(groupKey)}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded }}
+                    accessibilityLabel={`${groupName}, ${group.tasks.length}`}
+                    style={({ pressed }) => [
+                      styles.groupHeader,
+                      { backgroundColor: cardColor, opacity: pressed ? 0.7 : 1 },
+                      surface('card'),
+                    ]}>
+                    <View style={[styles.groupDot, { backgroundColor: accent }]} />
+                    <ThemedText type="defaultSemiBold" style={styles.groupName} numberOfLines={1}>
+                      {groupName}
+                    </ThemedText>
+                    <View style={[styles.groupCount, { backgroundColor: `${accent}22` }]}>
+                      <ThemedText style={[styles.groupCountText, { color: accent }]}>{group.tasks.length}</ThemedText>
+                    </View>
+                    <IconSymbol name={expanded ? 'chevron.up' : 'chevron.down'} size={22} color={mutedColor} />
+                  </Pressable>
+                  {expanded ? <View style={styles.groupTasks}>{group.tasks.map((task) => renderTaskCard(task))}</View> : null}
+                </View>
+              );
+            })}
+          </View>
         ) : (
           <View style={styles.list}>{tasks.map((task) => renderTaskCard(task))}</View>
         )}
@@ -259,5 +323,20 @@ const styles = StyleSheet.create({
   content: { flexGrow: 1, padding: 20, paddingTop: 0, gap: 16, paddingBottom: 120 },
   skeletons: { gap: 12 },
   list: { gap: 10 },
+  group: { gap: 10 },
+  groupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    borderCurve: 'continuous',
+  },
+  groupDot: { width: 10, height: 10, borderRadius: 5 },
+  groupName: { flex: 1 },
+  groupCount: { minWidth: 26, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, alignItems: 'center' },
+  groupCountText: { fontSize: 13, fontWeight: '700' },
+  groupTasks: { gap: 10, paddingLeft: 8 },
   totalLabel: { textAlign: 'center', fontSize: 13 },
 });

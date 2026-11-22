@@ -1,9 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { QueryClient } from '@tanstack/react-query';
 
+import { GLOBAL_PULL_STORAGE_KEYS } from '@/lib/background-sync/pull-global';
 import { clearRejectedChanges } from '@/lib/background-sync/rejected';
 import { clearActiveCounterTask } from '@/lib/bluetooth/counter-ble';
 import { clearLocalDatabase, localDatabaseHasData } from '@/lib/db/client';
+import { markGuestMergePending } from '@/lib/guest-merge';
 import { decideLocalDataAction, type LocalDataAction } from '@/lib/local-owner-decision';
 import { clearOfflineCache } from '@/lib/persister';
 
@@ -25,6 +27,15 @@ const USER_SCOPED_KEYS = new Set([
   'soulshield_push_pref',
   'soulshield_push_token',
   'soulshield_push_platform',
+  // Fixed-task pull cursor + category refs for guest mode: the rows they
+  // describe live in the SQLite store wiped alongside, so they must reset too.
+  ...GLOBAL_PULL_STORAGE_KEYS,
+  'soulshield_guest_merge_pending',
+  // Stars shown on Profile's Rate & feedback card: the previous person's vote.
+  // (The feedback device id is deliberately NOT here - see api/feedback.ts.)
+  'soulshield_feedback_last_rating',
+  // ...and their 24-hour feedback limit (the server keeps its own per account/guest).
+  'soulshield_feedback_next_allowed_at',
 ]);
 const USER_SCOPED_PREFIXES = [
   'soulshield_pending_increment_', // unflushed counter taps (hooks/use-task-increment-buffer.ts)
@@ -66,14 +77,17 @@ export async function wipeAccountLocalData(queryClient: QueryClient): Promise<vo
 }
 
 /** Call on every sign-in, BEFORE the new token is stored (so no sync can run
- * with the new token against the old data). Wipes local data unless it
- * belongs to `userId`, then records `userId` as the owner. */
+ * with the new token against the old data). Wipes local data that belongs
+ * to a different account; guest data (no owner) is kept and flagged for
+ * upload into this account (lib/guest-merge.ts). Then records `userId` as
+ * the owner. */
 export async function prepareLocalDataForUser(
   userId: number | string,
   queryClient: QueryClient
 ): Promise<LocalDataAction> {
   const action = decideLocalDataAction(await getLocalOwnerId(), String(userId), localDatabaseHasData());
   if (action === 'wipe') await wipeAccountLocalData(queryClient);
+  if (action === 'adopt') await markGuestMergePending();
   await setLocalOwnerId(userId);
   return action;
 }

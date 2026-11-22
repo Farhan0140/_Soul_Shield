@@ -21,10 +21,8 @@ interface TimerTaskControlsProps {
   onComplete: () => void;
 }
 
-/** Centered Play/Pause button — same press-spring styling as
- * components/timer/timer-controls.tsx's primary button, minus the reset and
- * vibration-toggle side buttons (Timer Tasks only expose Start/Pause/Resume,
- * per spec) — plus a secondary "Complete" button beneath it that lets the
+/** Centered Play/Pause button with a press-spring (Timer Tasks only expose
+ * Start/Pause/Resume, per spec) — plus a secondary "Complete" button beneath it that lets the
  * user finish the task manually at any point, run or not. The play/pause
  * press handler branches on `status` so that's one button whose action
  * changes rather than three separate controls. */

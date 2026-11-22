@@ -1,5 +1,6 @@
-// The account-isolation rule behind lib/local-owner.ts: local data is only
-// ever kept for the SAME account that owns it.
+// The account-isolation rule behind lib/local-owner.ts: account data is only
+// ever kept for the SAME account that owns it; guest data (no owner) is
+// adopted by whoever signs in.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
@@ -18,8 +19,8 @@ test('a different user is wiped even if the store looks empty', () => {
   assert.equal(decideLocalDataAction('42', '7', false), 'wipe');
 });
 
-test('unknown owner with data present is wiped (never risk mixing accounts)', () => {
-  assert.equal(decideLocalDataAction(null, '7', true), 'wipe');
+test('guest data (no owner, data present) is adopted into the signing-in account', () => {
+  assert.equal(decideLocalDataAction(null, '7', true), 'adopt');
 });
 
 test('fresh install (no owner, no data) keeps (nothing to wipe)', () => {

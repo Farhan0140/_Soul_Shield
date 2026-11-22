@@ -41,10 +41,8 @@ function formatButtonLabel(selection: TimerSelection): string {
  * time field above this one in task-form.tsx): a button showing the
  * currently selected duration opens a modal with a live HH:MM:SS preview at
  * the top and plain Hours (0-23) / Minutes (0-59) / Seconds (0-59) number
- * fields — typed directly, no dragging, per feedback that the Profile
- * Timer's wheel picker (components/timer/wheel-picker.tsx) was fiddly to
- * operate here. Presets remain for the common cases. The Profile Timer
- * screen (app/timer.tsx) is untouched and keeps its own wheel picker. */
+ * fields — typed directly, no dragging, per feedback that a wheel picker
+ * was fiddly to operate here. Presets remain for the common cases. */
 export function DurationInput({ selection, onChange, disabled }: DurationInputProps) {
   const [visible, setVisible] = useState(false);
   const [draft, setDraft] = useState<TimerSelection>(selection);

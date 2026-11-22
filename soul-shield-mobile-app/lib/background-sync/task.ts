@@ -12,9 +12,9 @@ export const BACKGROUND_SYNC_TASK = 'soulshield-daily-data-sync';
 
 // Must run at module scope, before any component mounts — this is what lets
 // Android's headless JS launch (the app isn't running when WorkManager wakes
-// it up) find and execute the task at all. Imported for its side effect at
-// the top of app/_layout.tsx, same pattern as lib/network.ts and
-// lib/notifications.ts.
+// it up) find and execute the task at all. Imported for its side effect by
+// the app entry (index.ts): a route file like app/_layout.tsx never loads on
+// a headless launch.
 TaskManager.defineTask(BACKGROUND_SYNC_TASK, async () => {
   // Runs on every wake-up regardless of the local sync window below — a
   // running Timer Task can reach its duration at any time of day, unlike the

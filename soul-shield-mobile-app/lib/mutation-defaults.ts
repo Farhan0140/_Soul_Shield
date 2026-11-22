@@ -39,6 +39,8 @@ import {
   taskUpsertChange,
 } from '@/lib/db/sync-push-builders';
 import { getTaskByUuid, listAllOwnedTasksFlat, upsertTaskFromSync } from '@/lib/db/tasks-repo';
+import { addFixedTaskToMyTasksLocal } from '@/lib/db/add-fixed-task-local';
+import { isGuestMergePending } from '@/lib/guest-merge';
 import { mutationKeys } from '@/lib/mutation-keys';
 import { cancelTaskReminders } from '@/lib/notifications';
 import { tokenStore } from '@/lib/secure-store';
@@ -139,9 +141,15 @@ const PUSH_CHUNK_SIZE = 200;
 
 async function pushChangesNow(changes: SyncChange[]): Promise<SyncChangeResult[]> {
   if (changes.length === 0) return [];
+  // No account (guest mode): the change is already saved locally and stays
+  // unsynced - nothing to send, and nobody to send it for. If the user signs
+  // in later, push-pending.ts uploads every unsynced row into their account.
+  // Same while a guest -> account merge is still pending: pushing before it
+  // could hit the server's one-category-per-name rule (lib/guest-merge.ts).
+  const token = await tokenStore.getToken();
+  if (!token || (await isGuestMergePending())) return [];
   beginSyncActivity();
   try {
-    const token = await tokenStore.getToken();
     // Retries through SYNC_RETRY (lib/background-sync/retry.ts) rather than
     // failing this mutation on the first timeout - see pull.ts's identical
     // reasoning: the backend runs on Render's free tier, where a sleeping
@@ -334,13 +342,16 @@ export const incrementSubTaskMutationFn = async ({
 };
 
 export const addTaskToMyTasksMutationFn = async (sourceTaskUuid: string) => {
+  const token = await tokenStore.getToken();
+  // Guest mode: copy the fixed task locally instead (no server account).
+  if (!token) return addFixedTaskToMyTasksLocal(sourceTaskUuid);
   // Not routed through pushChanges (see api/tasks.ts's addTaskToMyTasks doc
   // comment - this is the one deliberately online-only, direct-REST
   // mutation), so it tracks sync activity itself instead of getting it for
   // free from that shared choke point.
   beginSyncActivity();
   try {
-    const result = await addTaskToMyTasks(sourceTaskUuid, await tokenStore.getToken(), SYNC_RETRY);
+    const result = await addTaskToMyTasks(sourceTaskUuid, token, SYNC_RETRY);
     endSyncActivity(true);
     return result;
   } catch (error) {

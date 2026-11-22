@@ -10,10 +10,10 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { runForegroundSyncIfDue } from '@/lib/background-sync/sync';
+// The background task definitions themselves load from index.ts (they must
+// exist on headless launches too); this only schedules the daily sync.
 import { registerBackgroundSync } from '@/lib/background-sync/task';
-// Side effect: defines + registers the data-only push task at module scope.
-import '@/lib/background-sync/data-change-task';
-import { ensureTimerNotificationChannel } from '@/lib/timer/notifications';
+import { clearRemovedTimerLeftovers } from '@/lib/timer/notifications';
 import { ensureTimerTaskNotificationChannel } from '@/lib/timer-task/notifications';
 import { ArabicFontProvider } from '@/context/arabic-font-context';
 import { AuthProvider, useAuth } from '@/context/auth-context';
@@ -46,30 +46,30 @@ function RootNavigator() {
   }
 
   return (
+    // The app works without an account (guest mode): every screen is open
+    // to everyone. Only signing in/up and the account settings depend on
+    // the auth state - sign-in opens on top of the app from Profile, and
+    // closes by itself once the user is signed in (its guard turns false).
     <Stack screenLayout={themeScreenLayout}>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="task" options={{ presentation: 'modal', headerShown: false }} />
+      <Stack.Screen name="category" options={{ presentation: 'modal', headerShown: false }} />
+      <Stack.Screen name="reorder" options={{ presentation: 'modal', headerShown: false }} />
+      <Stack.Screen name="counter" options={{ presentation: 'modal', headerShown: false }} />
+      <Stack.Screen
+        name="sync-notifications"
+        options={{ presentation: 'modal', title: 'Sync Issues' }}
+      />
+      <Stack.Screen name="insights" options={{ presentation: 'modal', headerShown: false }} />
+      <Stack.Screen name="search" options={{ presentation: 'modal', headerShown: false }} />
+      <Stack.Screen name="archived" options={{ presentation: 'modal', headerShown: false }} />
+      <Stack.Screen name="shop" options={{ presentation: 'modal', headerShown: false }} />
+      <Stack.Screen name="timer-task" options={{ presentation: 'modal', headerShown: false }} />
       <Stack.Protected guard={status === 'signedOut'}>
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)" options={{ presentation: 'modal', headerShown: false }} />
       </Stack.Protected>
       <Stack.Protected guard={status === 'signedIn'}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="task" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen name="category" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen name="reorder" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen name="counter" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen
-          name="sync-notifications"
-          options={{ presentation: 'modal', title: 'Sync Issues' }}
-        />
-        <Stack.Screen name="insights" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen name="search" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen name="archived" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen name="shop" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen name="timer" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen name="timer-task" options={{ presentation: 'modal', headerShown: false }} />
-      <Stack.Screen
-          name="account"
-          options={{ presentation: 'modal', headerShown: false }}
-        />
+        <Stack.Screen name="account" options={{ presentation: 'modal', headerShown: false }} />
       </Stack.Protected>
     </Stack>
   );
@@ -109,7 +109,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     ensureNotificationSetup();
-    ensureTimerNotificationChannel();
+    clearRemovedTimerLeftovers();
     ensureTimerTaskNotificationChannel();
     registerBackgroundSync();
     bootBluetooth();

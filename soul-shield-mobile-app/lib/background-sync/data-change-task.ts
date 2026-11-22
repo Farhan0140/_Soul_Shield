@@ -14,7 +14,7 @@ export const DATA_CHANGE_NOTIFICATION_TASK = 'soulshield-data-change-push';
 // is a task registered with Notifications.registerTaskAsync. That task runs in
 // the foreground, in the background, and (Android headless) when the app was
 // killed, so it has to be defined at module scope: this file is imported for
-// its side effects at the top of app/_layout.tsx.
+// its side effects by the app entry (index.ts).
 TaskManager.defineTask<Notifications.NotificationTaskPayload>(DATA_CHANGE_NOTIFICATION_TASK, async ({ data, error }) => {
   if (error || dataChangeType(data) !== 'data-change') return;
   // Single-flight + online/sign-in checks live inside runFullBackgroundSync;

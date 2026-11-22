@@ -73,6 +73,9 @@ const MAPPING = {
   'hand.tap.fill': 'touch-app',
   'lightbulb.fill': 'lightbulb',
   'flag.fill': 'flag',
+  star: 'star-border',
+  'star.fill': 'star',
+  'bubble.left.fill': 'chat-bubble',
 } as IconMapping;
 
 /**

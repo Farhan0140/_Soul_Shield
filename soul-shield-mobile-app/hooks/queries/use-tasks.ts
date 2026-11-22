@@ -6,6 +6,12 @@ import { getLocalDb } from '@/lib/db/client';
 import { deriveManageableTasks, deriveTasksForDate, deriveTasksForRange } from '@/lib/db/tasks-repo';
 import { queryKeys } from '@/lib/query-keys';
 
+/** Local reads need no account (guest mode); only the pre-rebuild network
+ * fallback (no local database on this device) needs a token. */
+function canRead(token: string | null): boolean {
+  return !!getLocalDb() || !!token;
+}
+
 /** Reads local-first (see lib/db/tasks-repo.ts's deriveTasksForDate — a
  * synchronous SQLite read, works for any date, online or offline) and only
  * falls back to the network when the local database genuinely isn't
@@ -36,7 +42,7 @@ export function useTasksQuery(date: string, enabled = true) {
   return useQuery({
     queryKey: queryKeys.tasks(date),
     queryFn: () => (getLocalDb() ? deriveTasksForDate(date) : getTasks(date, token)),
-    enabled: !!token && enabled,
+    enabled: canRead(token) && enabled,
     networkMode,
   });
 }
@@ -46,7 +52,7 @@ export function useTaskHistoryQuery(from: string, to: string) {
   return useQuery({
     queryKey: queryKeys.taskHistory(from, to),
     queryFn: () => (getLocalDb() ? deriveTasksForRange(from, to) : getTaskHistory(from, to, token)),
-    enabled: !!token,
+    enabled: canRead(token),
     networkMode,
   });
 }
@@ -57,7 +63,7 @@ export function useMyTasksQuery() {
   return useQuery({
     queryKey: queryKeys.myTasks,
     queryFn: () => (getLocalDb() ? deriveManageableTasks() : getMyTasks(token)),
-    enabled: !!token,
+    enabled: canRead(token),
     networkMode,
   });
 }

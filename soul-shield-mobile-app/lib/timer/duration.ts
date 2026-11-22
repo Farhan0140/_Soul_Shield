@@ -1,14 +1,9 @@
 import type { TimerSelection } from '@/lib/timer/store';
 
-/** Shared h/m/s <-> seconds conversion, used by both the Profile Timer
- * (in ms, via selectionToMs below) and Timer Tasks (in seconds, matching the
- * backend's duration_seconds field) — one source of truth for the arithmetic. */
+/** h/m/s <-> seconds conversion for Timer Tasks (seconds, matching the
+ * backend's duration_seconds field). */
 export function selectionToSeconds(selection: TimerSelection): number {
   return selection.hours * 3600 + selection.minutes * 60 + selection.seconds;
-}
-
-export function selectionToMs(selection: TimerSelection): number {
-  return selectionToSeconds(selection) * 1000;
 }
 
 export function secondsToSelection(totalSeconds: number): TimerSelection {

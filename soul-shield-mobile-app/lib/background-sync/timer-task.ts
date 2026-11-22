@@ -8,7 +8,6 @@ import {
   getTaskTimerState,
   setTaskTimerState,
 } from '@/lib/timer-task/store';
-import { tokenStore } from '@/lib/secure-store';
 
 /** Opportunistic, best-effort completion of any Timer Task that reached its
  * duration while the app was closed/backgrounded — called on every
@@ -28,8 +27,9 @@ export async function checkAndCompleteFinishedTaskTimers(): Promise<void> {
   const keys = await getActiveTaskTimerKeys();
   if (keys.length === 0) return;
 
-  const token = await tokenStore.getToken();
-  if (!token) return; // signed out — nothing to do, mirrors runFullBackgroundSyncInner's own early-return
+  // No token check: timers complete locally with or without an account
+  // (guest mode). The push inside the mutationFns is skipped when there is
+  // no account (see lib/mutation-defaults.ts's pushChangesNow).
 
   for (const key of keys) {
     try {

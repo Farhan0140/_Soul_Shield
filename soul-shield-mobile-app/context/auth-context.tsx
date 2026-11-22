@@ -12,11 +12,16 @@ import {
 import { fetchMe, login as apiLogin } from '@/api/auth';
 import { onRefreshedToken } from '@/api/client'; import type { User } from '@/api/types';
 import { ApiError } from '@/lib/errors'; import { ensureLocalOwnerRecorded, prepareLocalDataForUser, wipeAccountLocalData, } from '@/lib/local-owner';
+import { runSyncAfterAuthChange } from '@/lib/background-sync/sync';
 import { queryKeys } from '@/lib/query-keys';
 import { setUnauthorizedHandler } from '@/lib/query-client';
 import { cachedUserStore, tokenStore } from '@/lib/secure-store';
 import { cancelAllTaskReminders } from '@/lib/notifications';
 
+/** 'signedOut' is NOT a locked state: the whole app works without an
+ * account (guest mode - data stays on the device, fixed tasks come from the
+ * public GET /sync/global). Signing in only adds backup/sync of the user's
+ * own data. */
 type AuthStatus = 'loading' | 'signedIn' | 'signedOut';
 
 interface AuthContextValue {
@@ -119,6 +124,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(null);
       setCachedUser(null);
       setStatus('signedOut');
+      // Back in guest mode: re-fetch the fixed tasks (an explicit logout
+      // just wiped them with the rest of the local store).
+      runSyncAfterAuthChange(queryClient).catch(() => {});
     },
     [queryClient],
   );
@@ -153,6 +161,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(newToken);
       setCachedUser(me);
       setStatus('signedIn');
+      // Upload anything made without an account and pull the account's
+      // data now, rather than waiting for the next foreground/reconnect
+      // trigger (see lib/guest-merge.ts for the upload order).
+      runSyncAfterAuthChange(queryClient).catch(() => {});
     },
     [queryClient]
   );

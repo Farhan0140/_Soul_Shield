@@ -1,7 +1,13 @@
+// Opt this file out of the React Compiler (app.json experiments.reactCompiler).
+// Widgets are rendered by react-native-android-widget outside React, where a
+// compiled function's hook call throws and the widget draws nothing. See the
+// note above the building blocks below.
+'use no memo';
+
 import { FlexWidget, TextWidget, requestWidgetUpdate } from 'react-native-android-widget';
 import type { ColorProp, WidgetRepresentation, WidgetTaskHandler } from 'react-native-android-widget';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { JSX, ReactNode } from 'react';
+import type { JSX } from 'react';
 
 import { getMainTaskCompletionForDate, getSubTaskCompletionForDate } from '@/lib/db/completions-repo';
 import { deriveTasksForDate, getTaskByUuid } from '@/lib/db/tasks-repo';
@@ -182,10 +188,21 @@ async function loadBleCounterData(): Promise<BleData | null> {
 }
 
 // --- shared building blocks ---------------------------------------------------
+//
+// These are PLAIN FUNCTIONS called directly - never used as <Components/>,
+// and there are no fragments anywhere in this file. The library turns our
+// JSX into native views itself (no React renderer): it calls
+// function-component types as plain functions, and it cannot handle a
+// fragment (`<>...</>` has a Symbol type -> "jsxTree.type is not a
+// function"). A capitalised component would also be rewritten by the React
+// Compiler into a hook call, which throws outside React ("Invalid hook
+// call"). Either error meant the widget drew nothing at all. Group children
+// with arrays (with keys) instead of fragments.
+
+type Child = JSX.Element | null | false;
 
 /** Rounded card filling the widget; tapping anywhere opens the app. */
-function Card(props: { width: number; height: number; p: Palette; m: Metrics; children: ReactNode }): JSX.Element {
-  const { width, height, p, m } = props;
+function card(width: number, height: number, p: Palette, m: Metrics, children: Child[]): JSX.Element {
   return (
     <FlexWidget
       clickAction="OPEN_APP"
@@ -198,45 +215,43 @@ function Card(props: { width: number; height: number; p: Palette; m: Metrics; ch
         borderColor: p.border,
         padding: m.pad,
         flexDirection: 'column',
-        overflow: 'hidden',
       }}>
-      {props.children}
+      {children}
     </FlexWidget>
   );
 }
 
-function ProgressBar(props: { width: number; ratio: number; p: Palette; m: Metrics; done: boolean }): JSX.Element {
-  const { width, ratio, p, m, done } = props;
+function progressBar(width: number, ratio: number, p: Palette, m: Metrics, done: boolean): JSX.Element {
   const fill = ratio > 0 ? Math.max(Math.round(width * Math.min(ratio, 1)), m.trackH) : 0;
+  const radius = Math.round(m.trackH / 2);
   return (
-    <FlexWidget style={{ width, height: m.trackH, backgroundColor: p.track, borderRadius: m.trackH / 2 }}>
+    <FlexWidget style={{ width, height: m.trackH, backgroundColor: p.track, borderRadius: radius }}>
       {fill > 0 ? (
         <FlexWidget
-          style={{ width: fill, height: m.trackH, backgroundColor: done ? p.success : p.tint, borderRadius: m.trackH / 2 }}
+          style={{ width: fill, height: m.trackH, backgroundColor: done ? p.success : p.tint, borderRadius: radius }}
         />
       ) : null}
     </FlexWidget>
   );
 }
 
-function Pill(props: { text: string; color: ColorProp; bg: ColorProp; m: Metrics }): JSX.Element {
-  const { m } = props;
+function pill(text: string, color: ColorProp, bg: ColorProp, m: Metrics): JSX.Element {
   return (
     <FlexWidget
       style={{
-        backgroundColor: props.bg,
-        borderRadius: 999,
+        backgroundColor: bg,
+        borderRadius: 12,
         paddingHorizontal: clamp(Math.round(m.fSmall * 0.7), 6, 10),
         paddingVertical: 2,
       }}>
-      <TextWidget text={props.text} style={{ color: props.color, fontSize: m.fSmall, fontWeight: '700' }} />
+      <TextWidget text={text} style={{ color, fontSize: m.fSmall, fontWeight: '700' }} />
     </FlexWidget>
   );
 }
 
-/** Spacer that soaks up remaining height so the footer sits at the bottom. */
-function Fill(): JSX.Element {
-  return <FlexWidget style={{ flex: 1, width: 'match_parent' }} />;
+/** Spacer that soaks up remaining height so what follows sits at the bottom. */
+function spacer(key: string): JSX.Element {
+  return <FlexWidget key={key} style={{ flex: 1, width: 'match_parent' }} />;
 }
 
 // --- Today overview -----------------------------------------------------------
@@ -248,116 +263,118 @@ function buildOverviewWidget(width: number, height: number, v: Variant, data: Ov
   const compact = height < 120;
 
   const header = (
-    <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+    <FlexWidget
+      key="header"
+      style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
       <TextWidget text="Today" style={{ color: p.text, fontSize: m.fTitle, fontWeight: '700' }} />
       <TextWidget text={dateLabel()} style={{ color: p.muted, fontSize: m.fSmall }} />
     </FlexWidget>
   );
 
   if (!data) {
-    return (
-      <Card width={width} height={height} p={p} m={m}>
-        {header}
-        <Fill />
-        <TextWidget
-          text="Open Soul Shield to load your tasks."
-          style={{ color: p.muted, fontSize: m.fBody }}
-          maxLines={2}
-          truncate="END"
-        />
-      </Card>
-    );
+    return card(width, height, p, m, [
+      header,
+      spacer('fill'),
+      <TextWidget
+        key="msg"
+        text="Open Soul Shield to load your tasks."
+        style={{ color: p.muted, fontSize: m.fBody }}
+        maxLines={2}
+        truncate="END"
+      />,
+    ]);
   }
 
-  const allDone = data.total > 0 && data.completed === data.total;
-  const ratio = data.total > 0 ? data.completed / data.total : 0;
+  if (data.total === 0) {
+    return card(width, height, p, m, [
+      header,
+      spacer('fill'),
+      <TextWidget key="title" text="Nothing scheduled" style={{ color: p.text, fontSize: m.fTitle, fontWeight: '700' }} />,
+      <TextWidget key="body" text="Enjoy a free day." style={{ color: p.muted, fontSize: m.fBody, marginTop: 2 }} />,
+    ]);
+  }
+
+  const allDone = data.completed === data.total;
+  const ratio = data.completed / data.total;
   const percent = Math.round(ratio * 100);
 
   // How many pending rows fit under the summary block.
   const rowH = Math.round(m.fBody * 1.7);
   const usedH = m.pad * 2 + m.fTitle * 1.4 + m.gap + m.fHero * 1.25 + m.gap + m.trackH + m.gap;
   const maxRows = compact ? 0 : Math.max(0, Math.floor((height - usedH) / rowH));
-  const shownCount = data.pending.length > maxRows && maxRows > 0 ? maxRows - 1 : Math.min(maxRows, data.pending.length);
+  const shownCount =
+    data.pending.length > maxRows && maxRows > 0 ? maxRows - 1 : Math.min(maxRows, data.pending.length);
   const shown = data.pending.slice(0, shownCount);
   const hidden = data.pending.length - shown.length;
+  const dot = Math.round(m.fBody * 0.7);
 
-  return (
-    <Card width={width} height={height} p={p} m={m}>
-      {header}
-
-      {data.total === 0 ? (
-        <>
-          <Fill />
-          <TextWidget text="Nothing scheduled" style={{ color: p.text, fontSize: m.fTitle, fontWeight: '700' }} />
-          <TextWidget text="Enjoy a free day." style={{ color: p.muted, fontSize: m.fBody, marginTop: 2 }} />
-        </>
-      ) : (
-        <>
+  return card(width, height, p, m, [
+    header,
+    <FlexWidget
+      key="summary"
+      style={{
+        width: 'match_parent',
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        justifyContent: 'space-between',
+        marginTop: m.gap,
+      }}>
+      <FlexWidget style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+        <TextWidget
+          text={String(data.completed)}
+          style={{ color: allDone ? p.success : p.text, fontSize: m.fHero, fontWeight: '700' }}
+        />
+        <TextWidget
+          text={` / ${data.total} done`}
+          style={{ color: p.muted, fontSize: m.fBody, marginBottom: Math.round(m.fHero * 0.14) }}
+        />
+      </FlexWidget>
+      <FlexWidget style={{ marginBottom: Math.round(m.fHero * 0.12) }}>
+        {pill(allDone ? 'Done' : `${percent}%`, allDone ? p.success : p.tint, allDone ? p.successSoft : p.tintSoft, m)}
+      </FlexWidget>
+    </FlexWidget>,
+    <FlexWidget key="bar" style={{ marginTop: m.gap }}>
+      {progressBar(inner, ratio, p, m, allDone)}
+    </FlexWidget>,
+    allDone && !compact ? (
+      <TextWidget
+        key="done"
+        text="Everything is done for today."
+        style={{ color: p.success, fontSize: m.fBody, marginTop: m.gap + 2 }}
+        maxLines={1}
+        truncate="END"
+      />
+    ) : null,
+    !allDone && shown.length > 0 ? (
+      <FlexWidget key="pending" style={{ width: 'match_parent', flexDirection: 'column', marginTop: m.gap }}>
+        {shown.map((title, index) => (
           <FlexWidget
-            style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: m.gap }}>
-            <FlexWidget style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-              <TextWidget text={String(data.completed)} style={{ color: allDone ? p.success : p.text, fontSize: m.fHero, fontWeight: '700' }} />
-              <TextWidget
-                text={` / ${data.total} done`}
-                style={{ color: p.muted, fontSize: m.fBody, marginBottom: Math.round(m.fHero * 0.14) }}
-              />
-            </FlexWidget>
-            <FlexWidget style={{ marginBottom: Math.round(m.fHero * 0.12) }}>
-              <Pill
-                text={allDone ? 'Done' : `${percent}%`}
-                color={allDone ? p.success : p.tint}
-                bg={allDone ? p.successSoft : p.tintSoft}
-                m={m}
-              />
-            </FlexWidget>
-          </FlexWidget>
-
-          <FlexWidget style={{ marginTop: m.gap }}>
-            <ProgressBar width={inner} ratio={ratio} p={p} m={m} done={allDone} />
-          </FlexWidget>
-
-          {allDone && !compact ? (
+            key={`pending-${index}`}
+            style={{ width: 'match_parent', height: rowH, flexDirection: 'row', alignItems: 'center' }}>
+            <FlexWidget
+              style={{
+                width: dot,
+                height: dot,
+                borderRadius: Math.round(dot / 2),
+                borderWidth: 2,
+                borderColor: p.faint,
+                marginRight: m.gap + 2,
+              }}
+            />
             <TextWidget
-              text="Everything is done for today."
-              style={{ color: p.success, fontSize: m.fBody, marginTop: m.gap + 2 }}
+              text={title}
+              style={{ color: p.text, fontSize: m.fBody, width: inner - dot - m.gap - 2 }}
               maxLines={1}
               truncate="END"
             />
-          ) : null}
-
-          {!allDone && shown.length > 0 ? (
-            <FlexWidget style={{ width: 'match_parent', flexDirection: 'column', marginTop: m.gap }}>
-              {shown.map((title, index) => (
-                <FlexWidget
-                  key={`pending-${index}`}
-                  style={{ width: 'match_parent', height: rowH, flexDirection: 'row', alignItems: 'center' }}>
-                  <FlexWidget
-                    style={{
-                      width: Math.round(m.fBody * 0.7),
-                      height: Math.round(m.fBody * 0.7),
-                      borderRadius: 999,
-                      borderWidth: 1.5,
-                      borderColor: p.faint,
-                      marginRight: m.gap + 2,
-                    }}
-                  />
-                  <TextWidget
-                    text={title}
-                    style={{ color: p.text, fontSize: m.fBody, width: inner - Math.round(m.fBody * 0.7) - m.gap - 2 }}
-                    maxLines={1}
-                    truncate="END"
-                  />
-                </FlexWidget>
-              ))}
-              {hidden > 0 ? (
-                <TextWidget text={`+${hidden} more`} style={{ color: p.muted, fontSize: m.fSmall, marginTop: 2 }} />
-              ) : null}
-            </FlexWidget>
-          ) : null}
-        </>
-      )}
-    </Card>
-  );
+          </FlexWidget>
+        ))}
+        {hidden > 0 ? (
+          <TextWidget text={`+${hidden} more`} style={{ color: p.muted, fontSize: m.fSmall, marginTop: 2 }} />
+        ) : null}
+      </FlexWidget>
+    ) : null,
+  ]);
 }
 
 // --- Bluetooth counter --------------------------------------------------------
@@ -367,71 +384,69 @@ function buildBleCounterWidget(width: number, height: number, v: Variant, data: 
   const m = metrics(width, height);
   const inner = Math.max(width - m.pad * 2 - 2, 40);
 
-  const header = (connectedLabel: string) => (
-    <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center' }}>
+  const header = (
+    <FlexWidget key="header" style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center' }}>
       <FlexWidget
-        style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: data ? p.tint : p.faint, marginRight: 6 }}
+        style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: data ? p.tint : p.faint, marginRight: 6 }}
       />
-      <TextWidget text={connectedLabel} style={{ color: p.muted, fontSize: m.fSmall, fontWeight: '500' }} />
+      <TextWidget text="Bluetooth counter" style={{ color: p.muted, fontSize: m.fSmall, fontWeight: '500' }} />
     </FlexWidget>
   );
 
   if (!data) {
-    return (
-      <Card width={width} height={height} p={p} m={m}>
-        {header('Bluetooth counter')}
-        <Fill />
-        <TextWidget text="No counter linked" style={{ color: p.text, fontSize: m.fTitle, fontWeight: '700' }} />
-        <TextWidget
-          text="In Soul Shield, tap the Bluetooth icon on a counter task."
-          style={{ color: p.muted, fontSize: m.fBody, marginTop: 2 }}
-          maxLines={3}
-          truncate="END"
-        />
-      </Card>
-    );
+    return card(width, height, p, m, [
+      header,
+      spacer('fill'),
+      <TextWidget key="title" text="No counter linked" style={{ color: p.text, fontSize: m.fTitle, fontWeight: '700' }} />,
+      <TextWidget
+        key="body"
+        text="In Soul Shield, tap the Bluetooth icon on a counter task."
+        style={{ color: p.muted, fontSize: m.fBody, marginTop: 2 }}
+        maxLines={3}
+        truncate="END"
+      />,
+    ]);
   }
 
   const done = data.target > 0 && data.current >= data.target;
   const remaining = Math.max(data.target - data.current, 0);
   const ratio = data.target > 0 ? data.current / data.target : 0;
-  const current = String(Math.min(data.current, 99999));
 
-  return (
-    <Card width={width} height={height} p={p} m={m}>
-      {header('Bluetooth counter')}
+  return card(width, height, p, m, [
+    header,
+    <TextWidget
+      key="title"
+      text={data.title}
+      style={{ color: p.text, fontSize: m.fTitle, fontWeight: '700', marginTop: m.gap }}
+      maxLines={height < 140 ? 1 : 2}
+      truncate="END"
+    />,
+    spacer('fill'),
+    <FlexWidget key="count" style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'flex-end' }}>
       <TextWidget
-        text={data.title}
-        style={{ color: p.text, fontSize: m.fTitle, fontWeight: '700', marginTop: m.gap }}
-        maxLines={height < 140 ? 1 : 2}
-        truncate="END"
+        text={String(Math.min(data.current, 99999))}
+        style={{ color: done ? p.success : p.text, fontSize: m.fHero, fontWeight: '700' }}
       />
-
-      <Fill />
-
-      <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'flex-end' }}>
-        <TextWidget text={current} style={{ color: done ? p.success : p.text, fontSize: m.fHero, fontWeight: '700' }} />
-        {data.target > 0 ? (
-          <TextWidget
-            text={` / ${data.target}`}
-            style={{ color: p.muted, fontSize: m.fBody, marginBottom: Math.round(m.fHero * 0.14) }}
-          />
-        ) : null}
-      </FlexWidget>
-
       {data.target > 0 ? (
-        <>
-          <FlexWidget style={{ marginTop: m.gap }}>
-            <ProgressBar width={inner} ratio={ratio} p={p} m={m} done={done} />
-          </FlexWidget>
-          <TextWidget
-            text={done ? 'Target reached' : `${remaining} to go`}
-            style={{ color: done ? p.success : p.muted, fontSize: m.fSmall, marginTop: m.gap }}
-          />
-        </>
+        <TextWidget
+          text={` / ${data.target}`}
+          style={{ color: p.muted, fontSize: m.fBody, marginBottom: Math.round(m.fHero * 0.14) }}
+        />
       ) : null}
-    </Card>
-  );
+    </FlexWidget>,
+    data.target > 0 ? (
+      <FlexWidget key="bar" style={{ marginTop: m.gap }}>
+        {progressBar(inner, ratio, p, m, done)}
+      </FlexWidget>
+    ) : null,
+    data.target > 0 ? (
+      <TextWidget
+        key="left"
+        text={done ? 'Target reached' : `${remaining} to go`}
+        style={{ color: done ? p.success : p.muted, fontSize: m.fSmall, marginTop: m.gap }}
+      />
+    ) : null,
+  ]);
 }
 
 // --- render helpers -----------------------------------------------------------
