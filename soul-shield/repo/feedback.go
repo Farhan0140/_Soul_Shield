@@ -47,6 +47,9 @@ type FeedbackRepo interface {
 	// first use.
 	GuestDeviceID(deviceID string) (int64, error)
 	Create(f NewFeedback) (int64, error)
+	// LastSubmittedAt returns when this submitter (account or guest device)
+	// last sent feedback; ok=false if never.
+	LastSubmittedAt(userID, guestDeviceID *int64) (at time.Time, ok bool, err error)
 	// List returns submissions newest first; beforeID > 0 pages backwards.
 	List(limit int, beforeID int64) ([]FeedbackItem, error)
 	Summary() (*RatingSummary, error)
@@ -98,6 +101,19 @@ func (r *feedbackRepo) Create(f NewFeedback) (int64, error) {
 		RETURNING id
 	`, f.UserID, f.GuestDeviceID, f.Rating, f.Message, f.Platform)
 	return id, err
+}
+
+func (r *feedbackRepo) LastSubmittedAt(userID, guestDeviceID *int64) (time.Time, bool, error) {
+	var at sql.NullTime
+	err := r.db.Get(&at, `
+		SELECT max(created_at) FROM feedback
+		WHERE ($1::bigint IS NOT NULL AND user_id = $1)
+		   OR ($2::bigint IS NOT NULL AND guest_device_id = $2)
+	`, userID, guestDeviceID)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	return at.Time, at.Valid, nil
 }
 
 func (r *feedbackRepo) List(limit int, beforeID int64) ([]FeedbackItem, error) {

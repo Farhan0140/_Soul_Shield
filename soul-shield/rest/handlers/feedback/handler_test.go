@@ -8,17 +8,30 @@ import (
 	"soulsheld/rest/middlewares"
 	"strings"
 	"testing"
+	"time"
 )
 
 type fakeRepo struct {
-	guests  map[string]int64
+	guests map[string]int64
+	// when each submission was made, parallel to created
+	times   []time.Time
+	clock   time.Time
 	created []repo.NewFeedback
 	items   []repo.FeedbackItem
 	unread  int
 	marked  bool
 }
 
-func newFakeRepo() *fakeRepo { return &fakeRepo{guests: map[string]int64{}} }
+func newFakeRepo() *fakeRepo {
+	return &fakeRepo{guests: map[string]int64{}, clock: time.Date(2026, 11, 22, 10, 0, 0, 0, time.UTC)}
+}
+
+// newHandler shares the fake repo's clock, so tests can move time forward.
+func newHandler(fr *fakeRepo) *Handler {
+	h := NewHandler(fr)
+	h.now = func() time.Time { return fr.clock }
+	return h
+}
 
 func (f *fakeRepo) GuestDeviceID(deviceID string) (int64, error) {
 	if id, ok := f.guests[deviceID]; ok {
@@ -27,8 +40,21 @@ func (f *fakeRepo) GuestDeviceID(deviceID string) (int64, error) {
 	f.guests[deviceID] = int64(len(f.guests) + 1)
 	return f.guests[deviceID], nil
 }
+func (f *fakeRepo) LastSubmittedAt(userID, guestID *int64) (time.Time, bool, error) {
+	var last time.Time
+	found := false
+	for i, c := range f.created {
+		same := (userID != nil && c.UserID != nil && *c.UserID == *userID) ||
+			(guestID != nil && c.GuestDeviceID != nil && *c.GuestDeviceID == *guestID)
+		if same && (!found || f.times[i].After(last)) {
+			last, found = f.times[i], true
+		}
+	}
+	return last, found, nil
+}
 func (f *fakeRepo) Create(nf repo.NewFeedback) (int64, error) {
 	f.created = append(f.created, nf)
+	f.times = append(f.times, f.clock)
 	return int64(len(f.created)), nil
 }
 func (f *fakeRepo) List(limit int, beforeID int64) ([]repo.FeedbackItem, error) {
@@ -44,7 +70,7 @@ func (f *fakeRepo) Summary() (*repo.RatingSummary, error) {
 	return &repo.RatingSummary{Counts: map[string]int{"1": 0, "2": 0, "3": 0, "4": 0, "5": 1}, Total: 1, Average: 5}, nil
 }
 func (f *fakeRepo) UnreadCount() (int, error) { return f.unread, nil }
-func (f *fakeRepo) MarkAllRead() error         { f.marked = true; f.unread = 0; return nil }
+func (f *fakeRepo) MarkAllRead() error        { f.marked = true; f.unread = 0; return nil }
 
 const deviceA = "3F0C1A52-8E1B-4F7E-9D43-2A1B5C6D7E8F"
 
@@ -61,13 +87,14 @@ func submit(t *testing.T, h *Handler, body string, userID int64) *httptest.Respo
 
 func TestSubmitGuestGetsStableGuestNumber(t *testing.T) {
 	fr := newFakeRepo()
-	h := NewHandler(fr)
+	h := newHandler(fr)
 
 	for range 2 {
 		rec := submit(t, h, `{"rating":4,"device_id":"`+deviceA+`","platform":"android"}`, 0)
 		if rec.Code != http.StatusCreated {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
+		fr.clock = fr.clock.Add(Cooldown) // next day
 	}
 	rec := submit(t, h, `{"rating":2,"device_id":"11111111-2222-3333-4444-555555555555"}`, 0)
 	if rec.Code != http.StatusCreated {
@@ -88,7 +115,7 @@ func TestSubmitGuestGetsStableGuestNumber(t *testing.T) {
 
 func TestSubmitSignedInIgnoresDeviceID(t *testing.T) {
 	fr := newFakeRepo()
-	rec := submit(t, NewHandler(fr), `{"rating":5,"message":"  Love it  ","device_id":"`+deviceA+`"}`, 42)
+	rec := submit(t, newHandler(fr), `{"rating":5,"message":"  Love it  ","device_id":"`+deviceA+`"}`, 42)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -115,7 +142,7 @@ func TestSubmitRejectsBadInput(t *testing.T) {
 	}
 	for name, body := range cases {
 		fr := newFakeRepo()
-		if rec := submit(t, NewHandler(fr), body, 0); rec.Code != http.StatusBadRequest {
+		if rec := submit(t, newHandler(fr), body, 0); rec.Code != http.StatusBadRequest {
 			t.Errorf("%s: status %d, want 400", name, rec.Code)
 		}
 		if len(fr.created) != 0 {
@@ -125,7 +152,7 @@ func TestSubmitRejectsBadInput(t *testing.T) {
 	// Exactly 2000 characters (multi-byte) is allowed.
 	fr := newFakeRepo()
 	body := `{"rating":3,"message":"` + strings.Repeat("ক", 2000) + `"}`
-	if rec := submit(t, NewHandler(fr), body, 7); rec.Code != http.StatusCreated {
+	if rec := submit(t, newHandler(fr), body, 7); rec.Code != http.StatusCreated {
 		t.Fatalf("2000 runes: status %d", rec.Code)
 	}
 }
@@ -133,8 +160,8 @@ func TestSubmitRejectsBadInput(t *testing.T) {
 func TestSubmitIsRateLimited(t *testing.T) {
 	h := NewHandler(newFakeRepo())
 	last := 0
-	for range 11 {
-		last = submit(t, h, `{"rating":5}`, 1).Code
+	for i := range 11 {
+		last = submit(t, h, `{"rating":5}`, int64(i+1)).Code // different people
 	}
 	if last != http.StatusTooManyRequests {
 		t.Fatalf("11th submission: %d, want 429", last)
@@ -147,7 +174,7 @@ func TestListPaginatesAndMarkRead(t *testing.T) {
 		fr.items = append(fr.items, repo.FeedbackItem{ID: id, Rating: 5, Submitter: repo.GuestName(id)})
 	}
 	fr.unread = 3
-	h := NewHandler(fr)
+	h := newHandler(fr)
 
 	rec := httptest.NewRecorder()
 	h.List(rec, httptest.NewRequest(http.MethodGet, "/admin/feedback?limit=2", nil))
@@ -180,5 +207,48 @@ func TestListPaginatesAndMarkRead(t *testing.T) {
 	h.MarkAllRead(rec, httptest.NewRequest(http.MethodPost, "/admin/feedback/read", nil))
 	if rec.Code != http.StatusNoContent || !fr.marked {
 		t.Fatalf("mark read: %d %v", rec.Code, fr.marked)
+	}
+}
+
+func TestSubmitOncePer24Hours(t *testing.T) {
+	fr := newFakeRepo()
+	h := newHandler(fr)
+	start := fr.clock
+
+	if rec := submit(t, h, `{"rating":5}`, 42); rec.Code != http.StatusCreated {
+		t.Fatalf("first: %d", rec.Code)
+	}
+
+	fr.clock = start.Add(23 * time.Hour)
+	rec := submit(t, h, `{"rating":1,"message":"again"}`, 42)
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("second within 24h: %d, want 429", rec.Code)
+	}
+	var body CooldownResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Code != "feedback_cooldown" || !body.NextAllowedAt.Equal(start.Add(Cooldown)) {
+		t.Fatalf("cooldown body: %+v", body)
+	}
+	if rec.Header().Get("Retry-After") != "3600" {
+		t.Fatalf("Retry-After %q, want 3600", rec.Header().Get("Retry-After"))
+	}
+	if len(fr.created) != 1 {
+		t.Fatal("the blocked submission was saved")
+	}
+
+	// Someone else (another account, or a guest) isn't affected.
+	if rec := submit(t, h, `{"rating":4,"device_id":"`+deviceA+`"}`, 0); rec.Code != http.StatusCreated {
+		t.Fatalf("guest: %d", rec.Code)
+	}
+	// A guest is limited per device too.
+	if rec := submit(t, h, `{"rating":4,"device_id":"`+deviceA+`"}`, 0); rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("same guest again: %d, want 429", rec.Code)
+	}
+
+	fr.clock = start.Add(Cooldown)
+	if rec := submit(t, h, `{"rating":3}`, 42); rec.Code != http.StatusCreated {
+		t.Fatalf("after 24h: %d", rec.Code)
 	}
 }

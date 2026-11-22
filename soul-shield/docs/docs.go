@@ -469,7 +469,7 @@ const docTemplate = `{
         },
         "/feedback": {
             "post": {
-                "description": "1-5 stars plus an optional message (questions, ideas, anything). Works signed in\n(send the JWT) or as a guest (no Authorization header; send device_id). Each person\ncounts once in the star totals, with their latest rating. Admins see it in the web panel.",
+                "description": "1-5 stars plus an optional message (questions, ideas, anything). Works signed in\n(send the JWT) or as a guest (no Authorization header; send device_id). Each person\ncounts once in the star totals, with their latest rating. Admins see it in the web panel.\nOne submission per person per 24 hours: a second one gets 429 with code \"feedback_cooldown\"\nand next_allowed_at.",
                 "consumes": [
                     "application/json"
                 ],
@@ -513,7 +513,7 @@ const docTemplate = `{
                     "429": {
                         "description": "Too Many Requests",
                         "schema": {
-                            "$ref": "#/definitions/feedback.ErrorResponse"
+                            "$ref": "#/definitions/feedback.CooldownResponse"
                         }
                     }
                 }
@@ -2136,6 +2136,21 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "feedback.CooldownResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "feedback_cooldown"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "next_allowed_at": {
                     "type": "string"
                 }
             }

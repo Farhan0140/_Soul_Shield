@@ -18,6 +18,8 @@ import (
 )
 
 const (
+	// One submission per person (account or guest device) per 24 hours.
+	Cooldown        = 24 * time.Hour
 	maxMessageRunes = 2000
 	defaultPageSize = 30
 	maxPageSize     = 100
@@ -27,12 +29,13 @@ var deviceIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-f
 
 type Handler struct {
 	repo repo.FeedbackRepo
+	now  func() time.Time
 	// Submissions are open to guests, so cap them per IP.
 	submitByIP *util.RateLimiter
 }
 
 func NewHandler(r repo.FeedbackRepo) *Handler {
-	return &Handler{repo: r, submitByIP: util.NewRateLimiter(10, time.Hour)}
+	return &Handler{repo: r, now: time.Now, submitByIP: util.NewRateLimiter(10, time.Hour)}
 }
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux, manager *middlewares.Manager, mw *middlewares.Middleware) {
@@ -77,6 +80,13 @@ type ErrorResponse struct {
 	Error string `json:"error"`
 }
 
+// CooldownResponse is the 429 for a second submission within 24 hours.
+type CooldownResponse struct {
+	Error         string    `json:"error"`
+	Code          string    `json:"code" example:"feedback_cooldown"`
+	NextAllowedAt time.Time `json:"next_allowed_at"`
+}
+
 func badRequest(w http.ResponseWriter, msg string) {
 	util.SendError(w, map[string]string{"error": msg}, http.StatusBadRequest)
 }
@@ -92,6 +102,8 @@ func serverError(w http.ResponseWriter, r *http.Request, what string, err error)
 // @Description 1-5 stars plus an optional message (questions, ideas, anything). Works signed in
 // @Description (send the JWT) or as a guest (no Authorization header; send device_id). Each person
 // @Description counts once in the star totals, with their latest rating. Admins see it in the web panel.
+// @Description One submission per person per 24 hours: a second one gets 429 with code "feedback_cooldown"
+// @Description and next_allowed_at.
 // @Tags Feedback
 // @Accept json
 // @Produce json
@@ -99,7 +111,7 @@ func serverError(w http.ResponseWriter, r *http.Request, what string, err error)
 // @Success 201 {object} SubmitResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
-// @Failure 429 {object} ErrorResponse
+// @Failure 429 {object} CooldownResponse
 // @Router /feedback [post]
 func (h *Handler) Submit(w http.ResponseWriter, r *http.Request) {
 	if ok, retryAfter := h.submitByIP.Allow(util.ClientIP(r)); !ok {
@@ -132,6 +144,21 @@ func (h *Handler) Submit(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		f.GuestDeviceID = &guestID
+	}
+
+	last, ok, err := h.repo.LastSubmittedAt(f.UserID, f.GuestDeviceID)
+	if err != nil {
+		serverError(w, r, "last submission lookup failed", err)
+		return
+	}
+	if next := last.Add(Cooldown); ok && h.now().Before(next) {
+		w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(next.Sub(h.now()).Seconds()))))
+		util.SendError(w, CooldownResponse{
+			Error:         "You can send feedback once every 24 hours.",
+			Code:          "feedback_cooldown",
+			NextAllowedAt: next.UTC(),
+		}, http.StatusTooManyRequests)
+		return
 	}
 
 	id, err := h.repo.Create(f)

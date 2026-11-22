@@ -515,6 +515,20 @@ func TestFeedbackOneVotePerPersonAndGuestNames(t *testing.T) {
 	if items[0].Submitter != "guest-user-2" || !items[0].IsGuest || items[3].Submitter != "Test" || items[3].Email == nil {
 		t.Fatalf("submitters: %q %q", items[0].Submitter, items[3].Submitter)
 	}
+	if _, ok, err := r.LastSubmittedAt(&u.ID, nil); err != nil || !ok {
+		t.Fatalf("last submitted (user): ok=%v err=%v", ok, err)
+	}
+	if _, ok, _ := r.LastSubmittedAt(&g1, nil); ok {
+		// &g1 passed as a USER id: there's no such account's feedback.
+		t.Fatal("guest id matched as a user id")
+	}
+	if _, ok, err := r.LastSubmittedAt(nil, &g2); err != nil || !ok {
+		t.Fatalf("last submitted (guest): ok=%v err=%v", ok, err)
+	}
+	other := mkUser(t, db, "never@example.com")
+	if _, ok, _ := r.LastSubmittedAt(&other.ID, nil); ok {
+		t.Fatal("a user who never rated has a last submission")
+	}
 	if n, _ := r.UnreadCount(); n != 4 {
 		t.Fatalf("unread %d", n)
 	}

@@ -97,6 +97,16 @@ definitions:
       name:
         type: string
     type: object
+  feedback.CooldownResponse:
+    properties:
+      code:
+        example: feedback_cooldown
+        type: string
+      error:
+        type: string
+      next_allowed_at:
+        type: string
+    type: object
   feedback.ErrorResponse:
     properties:
       error:
@@ -1279,6 +1289,8 @@ paths:
         1-5 stars plus an optional message (questions, ideas, anything). Works signed in
         (send the JWT) or as a guest (no Authorization header; send device_id). Each person
         counts once in the star totals, with their latest rating. Admins see it in the web panel.
+        One submission per person per 24 hours: a second one gets 429 with code "feedback_cooldown"
+        and next_allowed_at.
       parameters:
       - description: Rating and optional message
         in: body
@@ -1304,7 +1316,7 @@ paths:
         "429":
           description: Too Many Requests
           schema:
-            $ref: '#/definitions/feedback.ErrorResponse'
+            $ref: '#/definitions/feedback.CooldownResponse'
       summary: Send an app rating + optional feedback
       tags:
       - Feedback
