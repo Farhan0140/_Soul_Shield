@@ -3,12 +3,15 @@ import { LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
 import { MAIN_LINKS, ADMIN_LINKS } from './navigation';
+import { useFeedbackNotifications } from '../context/FeedbackNotificationsContext';
 import Logo from './ui/Logo';
 import Avatar from './ui/Avatar';
 import Tooltip from './ui/Tooltip';
 
 function NavItem({ link }) {
   const Icon = link.icon;
+  const { unread } = useFeedbackNotifications();
+  const badge = link.badge === 'feedback' && unread > 0 ? unread : 0;
   return (
     <NavLink
       to={link.to}
@@ -30,6 +33,14 @@ function NavItem({ link }) {
             aria-hidden="true"
           />
           {link.label}
+          {badge > 0 && (
+            <span
+              className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-ink px-1.5 text-[11px] font-semibold tabular-nums text-surface"
+              aria-label={`${badge} new`}
+            >
+              {badge > 99 ? '99+' : badge}
+            </span>
+          )}
         </>
       )}
     </NavLink>

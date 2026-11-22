@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Inbox, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Inbox, CheckCircle2, ChevronDown } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { fmtDate, prettyDate } from '../hooks/useTasks';
 import TaskCard from '../components/TaskCard';
@@ -11,6 +11,8 @@ import PageHeader from '../components/ui/PageHeader';
 import Badge from '../components/ui/Badge';
 import { EmptyState, ErrorState } from '../components/ui/States';
 import { SkeletonGroup, TaskCardSkeleton } from '../components/ui/Skeleton';
+import { groupFixedTasksByCategory } from '../utils/groupFixedTasks';
+import { cn } from '../utils/cn';
 
 const SPECIAL_CATEGORY_IDS = ['fixed', 'uncategorized', 'completed'];
 
@@ -80,6 +82,22 @@ export default function CategoryDetail() {
 
   const sortedTasks = specialId === 'completed' ? categoryTasks : sortActiveFirst(categoryTasks);
   const doneCount = categoryTasks.filter((t) => t.status === 'completed').length;
+
+  // Fixed tasks: grouped by the admin's categories, each one collapsible.
+  const fixedGroups = useMemo(
+    () => (specialId === 'fixed' ? groupFixedTasksByCategory(sortedTasks) : []),
+    [specialId, sortedTasks]
+  );
+  const [expandedGroups, setExpandedGroups] = useState(() => new Set());
+  // With a single group there's nothing to browse - show it open.
+  const isGroupExpanded = (key) => fixedGroups.length === 1 || expandedGroups.has(key);
+  const toggleGroup = (key) =>
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   const updateLocalTask = (taskId, patch) => {
     setTasks((prev) => prev.map((t) => (t.task_id === taskId ? { ...t, ...patch } : t)));
@@ -162,6 +180,54 @@ export default function CategoryDetail() {
             </Button>
           }
         />
+      ) : specialId === 'fixed' ? (
+        <div className="space-y-3">
+          {fixedGroups.map((group) => {
+            const expanded = isGroupExpanded(group.key);
+            const panelId = `fixed-group-${group.key}`;
+            return (
+              <section key={group.key} className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.key)}
+                  aria-expanded={expanded}
+                  aria-controls={panelId}
+                  className="card card-interactive flex w-full items-center gap-3 px-4 py-3.5 text-left"
+                >
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: group.color || 'var(--primary-ink)' }}
+                    aria-hidden="true"
+                  />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg">{group.name ?? 'Uncategorized'}</span>
+                  <Badge tone="neutral">{group.tasks.length}</Badge>
+                  <ChevronDown
+                    className={cn('h-4 w-4 shrink-0 text-muted transition-transform', expanded && 'rotate-180')}
+                    aria-hidden="true"
+                  />
+                </button>
+                {expanded && (
+                  <div id={panelId} className="grid items-start gap-3 md:grid-cols-2 sm:pl-4">
+                    <AnimatePresence initial={false}>
+                      {group.tasks.map((task) => (
+                        <TaskCard
+                          key={task.task_id}
+                          task={task}
+                          date={date}
+                          variant="template"
+                          isReadOnly={isReadOnly}
+                          onEdit={openEdit}
+                          onDelete={removeLocalTask}
+                          onUpdate={(patch) => updateLocalTask(task.task_id, patch)}
+                        />
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                )}
+              </section>
+            );
+          })}
+        </div>
       ) : (
         <div className="grid items-start gap-3 md:grid-cols-2">
           <AnimatePresence initial={false}>

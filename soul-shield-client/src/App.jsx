@@ -16,6 +16,7 @@ const History = lazy(() => import('./pages/History'));
 const Categories = lazy(() => import('./pages/Categories'));
 const Profile = lazy(() => import('./pages/Profile'));
 const AdminTasks = lazy(() => import('./pages/AdminTasks'));
+const AdminFeedback = lazy(() => import('./pages/AdminFeedback'));
 const TaskTimer = lazy(() => import('./pages/TaskTimer'));
 const CategoryDetail = lazy(() => import('./pages/CategoryDetail'));
 const NotFound = lazy(() => import('./pages/NotFound'));
@@ -59,6 +60,7 @@ export default function App() {
           <Route path="tasks/:taskId/timer" element={<TaskTimer />} />
           <Route path="profile" element={<Profile />} />
           <Route path="admin/tasks" element={<ProtectedRoute adminOnly><AdminTasks /></ProtectedRoute>} />
+          <Route path="admin/feedback" element={<ProtectedRoute adminOnly><AdminFeedback /></ProtectedRoute>} />
         </Route>
 
         {/* Unknown URLs show the 404 page (it links back home). */}

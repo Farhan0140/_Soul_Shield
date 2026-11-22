@@ -724,6 +724,49 @@ async function getAdminStats(days = 30) {
   return { days, ...DEMO_COMMUNITY, tasks };
 }
 
+// ---- Feedback (admin) --------------------------------------------------------------------------
+
+const DEMO_FEEDBACK = [
+  { id: 6, rating: 5, message: 'The counter widget is perfect for my morning dhikr. Could you add a dark home-screen widget?', platform: 'android', submitter: 'guest-user-14', is_guest: true },
+  { id: 5, rating: 4, message: null, platform: 'android', submitter: 'Ayesha Rahman', email: 'ayesha@example.com', is_guest: false },
+  { id: 4, rating: 5, message: 'Please add reminders for the fixed tasks too.', platform: 'ios', submitter: 'guest-user-9', is_guest: true },
+  { id: 3, rating: 3, message: 'How do I move my data from my old phone without an account?', platform: 'android', submitter: 'guest-user-7', is_guest: true },
+  { id: 2, rating: 5, message: null, platform: 'android', submitter: 'Imran Hossain', email: 'imran@example.com', is_guest: false },
+  { id: 1, rating: 2, message: 'Sync was slow the first time I signed in.', platform: 'android', submitter: 'Nadia Karim', email: 'nadia@example.com', is_guest: false },
+];
+let demoFeedbackRead = new Set([1, 2]);
+
+async function getFeedback(before = 0, limit = 30) {
+  await wait(200, 420);
+  const all = DEMO_FEEDBACK.map((f, i) => ({
+    ...f,
+    created_at: new Date(Date.now() - (i * 26 + 3) * 3600 * 1000).toISOString(),
+    read: demoFeedbackRead.has(f.id),
+  }));
+  const page = all.filter((f) => !before || f.id < before);
+  const items = page.slice(0, limit);
+  const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  all.forEach((f) => { counts[f.rating] += 1; });
+  const total = all.length;
+  const average = total ? all.reduce((n, f) => n + f.rating, 0) / total : 0;
+  return {
+    items,
+    summary: { counts, total, average },
+    unread: all.filter((f) => !f.read).length,
+    next_before: page.length > limit ? items[items.length - 1].id : 0,
+  };
+}
+
+async function getFeedbackUnreadCount() {
+  await wait(80, 160);
+  return { unread: DEMO_FEEDBACK.filter((f) => !demoFeedbackRead.has(f.id)).length };
+}
+
+async function markFeedbackRead() {
+  await wait(80, 160);
+  demoFeedbackRead = new Set(DEMO_FEEDBACK.map((f) => f.id));
+}
+
 // ---- Account -----------------------------------------------------------------------------------
 
 async function getMe() {
@@ -756,6 +799,9 @@ export const demoApi = {
   uncompleteSubTask: mutation(uncompleteSubTask),
   getPersonalStats,
   getAdminStats,
+  getFeedback,
+  getFeedbackUnreadCount,
+  markFeedbackRead,
   registerUser: demoOnly,
   verifySecurityAnswer: demoOnly,
   resetPassword: demoOnly,

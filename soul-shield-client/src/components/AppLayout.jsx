@@ -4,6 +4,7 @@ import DemoBanner from './DemoBanner';
 import { m } from 'framer-motion';
 import { LogOut, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { FeedbackNotificationsProvider } from '../context/FeedbackNotificationsContext';
 import Sidebar from './Sidebar';
 import MobileBottomNav from './MobileBottomNav';
 import Logo from './ui/Logo';
@@ -61,6 +62,7 @@ export default function AppLayout() {
   }, [pathname]);
 
   return (
+    <FeedbackNotificationsProvider>
     <div className="min-h-dvh overflow-x-clip">
       <Sidebar />
 
@@ -88,5 +90,6 @@ export default function AppLayout() {
 
       <MobileBottomNav />
     </div>
+    </FeedbackNotificationsProvider>
   );
 }

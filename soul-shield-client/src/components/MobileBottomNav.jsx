@@ -3,11 +3,13 @@ import { m } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
 import { MAIN_LINKS, ADMIN_LINKS } from './navigation';
+import { useFeedbackNotifications } from '../context/FeedbackNotificationsContext';
 
 /** Bottom tab bar for phones and tablets (hidden from `lg`, where the
  * sidebar takes over). Admins get the Admin Panel as a fifth tab. */
 export default function MobileBottomNav() {
   const { isAdmin } = useAuth();
+  const { unread } = useFeedbackNotifications();
   const links = isAdmin ? [...MAIN_LINKS, ...ADMIN_LINKS] : MAIN_LINKS;
 
   return (
@@ -41,6 +43,14 @@ export default function MobileBottomNav() {
                       />
                     )}
                     <Icon className={cn('relative h-5 w-5', isActive && 'text-primary-ink')} aria-hidden="true" />
+                    {link.badge === 'feedback' && unread > 0 && (
+                      <span
+                        className="absolute -top-1 right-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-semibold tabular-nums text-white"
+                        aria-label={`${unread} new`}
+                      >
+                        {unread > 99 ? '99+' : unread}
+                      </span>
+                    )}
                   </span>
                   <span className="max-w-full truncate px-1">{link.shortLabel || link.label}</span>
                 </>

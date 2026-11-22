@@ -27,6 +27,12 @@ const uncompleteSubTask = (taskId, subTaskId, dateStr) => api.post(`/tasks/${tas
 const getPersonalStats = (days = 365) => api.get(`/tasks/stats?days=${days}`);
 // Admin only: real usage across all users.
 const getAdminStats = (days = 30) => api.get(`/admin/stats?days=${days}`);
+// Admin only: app ratings + feedback sent from the mobile app.
+// getFeedback -> { items, summary: { counts, total, average }, unread, next_before }.
+const getFeedback = (before = 0, limit = 30) =>
+  api.get(`/admin/feedback?limit=${limit}${before ? `&before=${before}` : ''}`);
+const getFeedbackUnreadCount = () => api.get('/admin/feedback/unread-count');
+const markFeedbackRead = () => api.post('/admin/feedback/read', {});
 
 // Auth APIs
 // Password reset is a two-step flow: verifySecurityAnswer proves identity and returns a
@@ -65,6 +71,9 @@ const apiValue = {
   uncompleteSubTask,
   getPersonalStats,
   getAdminStats,
+  getFeedback,
+  getFeedbackUnreadCount,
+  markFeedbackRead,
   registerUser,
   verifySecurityAnswer,
   resetPassword,
