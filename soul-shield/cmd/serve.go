@@ -9,6 +9,7 @@ import (
 	"soulsheld/rest"
 	"soulsheld/rest/handlers/admin"
 	"soulsheld/rest/handlers/category"
+	"soulsheld/rest/handlers/feedback"
 	"soulsheld/rest/handlers/health"
 	"soulsheld/rest/handlers/sync"
 	"soulsheld/rest/handlers/task"
@@ -57,6 +58,7 @@ func Serve() {
 	syncHandler := sync.NewHandler(syncRepo)
 	adminHandler := admin.NewHandler(repo.NewAdminStatsRepo(dbCon))
 	healthHandler := health.NewHandler(dbCon)
+	feedbackHandler := feedback.NewHandler(repo.NewFeedbackRepo(dbCon))
 
 	server := rest.NewServer(
 		cnf,
@@ -67,6 +69,7 @@ func Serve() {
 		syncHandler,
 		adminHandler,
 		healthHandler,
+		feedbackHandler,
 	)
 	server.Start()
 }

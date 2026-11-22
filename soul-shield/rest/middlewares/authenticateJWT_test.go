@@ -158,3 +158,24 @@ func TestLimitBody(t *testing.T) {
 		t.Fatalf("status %d, want 413", rec.Code)
 	}
 }
+
+func TestOptionalAuthenticateJWT(t *testing.T) {
+	mw := NewMiddleware(&config.Config{SecretKey: testSecret}, fakeSessions{info: &SessionInfo{Role: "user", TokenVersion: 0}})
+	var seenID int64
+	var signedIn bool
+	h := mw.OptionalAuthenticateJWT(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seenID, signedIn = UserID(r)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	if rec := call(h, ""); rec.Code != http.StatusNoContent || signedIn {
+		t.Fatalf("no header: status %d signedIn=%v, want 204 as a guest", rec.Code, signedIn)
+	}
+	if rec := call(h, mustToken(t, util.CustomClaims{ID: 9})); rec.Code != http.StatusNoContent || !signedIn || seenID != 9 {
+		t.Fatalf("valid token: status %d id=%d signedIn=%v", rec.Code, seenID, signedIn)
+	}
+	signedIn = false
+	if rec := call(h, "garbage"); rec.Code != http.StatusUnauthorized || signedIn {
+		t.Fatalf("bad token: status %d, want 401 (never a silent guest)", rec.Code)
+	}
+}

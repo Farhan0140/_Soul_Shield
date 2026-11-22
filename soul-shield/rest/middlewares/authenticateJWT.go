@@ -83,3 +83,19 @@ func (m *Middleware) AuthenticateJWT(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r.WithContext(WithUser(r.Context(), claims.ID, info.Role)))
 	})
 }
+
+// OptionalAuthenticateJWT is for endpoints that work with or without an
+// account (e.g. guests sending feedback from the mobile app). A request with
+// no Authorization header passes through anonymously (UserID reports !ok); a
+// request that DOES send one is checked exactly like AuthenticateJWT, so a
+// stale or forged token still gets 401 instead of silently becoming a guest.
+func (m *Middleware) OptionalAuthenticateJWT(next http.Handler) http.Handler {
+	authed := m.AuthenticateJWT(next)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		authed.ServeHTTP(w, r)
+	})
+}

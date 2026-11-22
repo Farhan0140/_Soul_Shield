@@ -9,6 +9,7 @@ import (
 	"soulsheld/config"
 	"soulsheld/rest/handlers/admin"
 	"soulsheld/rest/handlers/category"
+	"soulsheld/rest/handlers/feedback"
 	"soulsheld/rest/handlers/health"
 	"soulsheld/rest/handlers/sync"
 	"soulsheld/rest/handlers/task"
@@ -31,6 +32,7 @@ type Server struct {
 	syncHandler     *sync.Handler
 	adminHandler    *admin.Handler
 	healthHandler   *health.Handler
+	feedbackHandler *feedback.Handler
 }
 
 func NewServer(
@@ -42,6 +44,7 @@ func NewServer(
 	syncHandler *sync.Handler,
 	adminHandler *admin.Handler,
 	healthHandler *health.Handler,
+	feedbackHandler *feedback.Handler,
 ) *Server {
 	return &Server{
 		cnf:             cnf,
@@ -52,6 +55,7 @@ func NewServer(
 		syncHandler:     syncHandler,
 		adminHandler:    adminHandler,
 		healthHandler:   healthHandler,
+		feedbackHandler: feedbackHandler,
 	}
 }
 
@@ -93,6 +97,7 @@ func (server *Server) Start() {
 	server.syncHandler.RegisterRoutes(mux, manager, server.middlewares)
 	server.adminHandler.RegisterRoutes(mux, manager, server.middlewares)
 	server.healthHandler.RegisterRoutes(mux, manager)
+	server.feedbackHandler.RegisterRoutes(mux, manager, server.middlewares)
 
 	port := os.Getenv("PORT")
 	if port == "" {

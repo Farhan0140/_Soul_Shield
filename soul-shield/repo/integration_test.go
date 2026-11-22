@@ -469,3 +469,64 @@ func TestPullGlobalChangesReturnsOnlyFixedTasks(t *testing.T) {
 		t.Errorf("delta pull global_categories = %d, want the full set (1)", len(again.GlobalCategories))
 	}
 }
+
+func TestFeedbackOneVotePerPersonAndGuestNames(t *testing.T) {
+	db := testDB(t)
+	if _, err := db.Exec(`TRUNCATE guest_devices RESTART IDENTITY CASCADE`); err != nil {
+		t.Fatalf("truncate: %v", err)
+	}
+	r := NewFeedbackRepo(db)
+	u := mkUser(t, db, "rater@example.com")
+
+	g1, err := r.GuestDeviceID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
+	if err != nil {
+		t.Fatalf("guest: %v", err)
+	}
+	again, _ := r.GuestDeviceID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
+	g2, _ := r.GuestDeviceID("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")
+	if g1 != 1 || again != 1 || g2 != 2 {
+		t.Fatalf("guest numbers %d %d %d, want 1 1 2", g1, again, g2)
+	}
+
+	msg := "Please add more widgets"
+	for _, f := range []NewFeedback{
+		{UserID: &u.ID, Rating: 2},
+		{UserID: &u.ID, Rating: 5, Message: &msg}, // replaces this user's 2
+		{GuestDeviceID: &g1, Rating: 4},
+		{GuestDeviceID: &g2, Rating: 4},
+	} {
+		if _, err := r.Create(f); err != nil {
+			t.Fatalf("create: %v", err)
+		}
+	}
+
+	s, err := r.Summary()
+	if err != nil {
+		t.Fatalf("summary: %v", err)
+	}
+	if s.Total != 3 || s.Counts["5"] != 1 || s.Counts["4"] != 2 || s.Counts["2"] != 0 {
+		t.Fatalf("summary %+v", s)
+	}
+
+	items, err := r.List(10, 0)
+	if err != nil || len(items) != 4 {
+		t.Fatalf("list: %v (%d items)", err, len(items))
+	}
+	if items[0].Submitter != "guest-user-2" || !items[0].IsGuest || items[3].Submitter != "Test" || items[3].Email == nil {
+		t.Fatalf("submitters: %q %q", items[0].Submitter, items[3].Submitter)
+	}
+	if n, _ := r.UnreadCount(); n != 4 {
+		t.Fatalf("unread %d", n)
+	}
+	if err := r.MarkAllRead(); err != nil {
+		t.Fatal(err)
+	}
+	if n, _ := r.UnreadCount(); n != 0 {
+		t.Fatalf("unread after mark %d", n)
+	}
+
+	// A guest-only row must not violate the one-submitter CHECK; neither-set must.
+	if _, err := r.Create(NewFeedback{Rating: 3}); err == nil {
+		t.Fatal("feedback without a submitter was accepted")
+	}
+}

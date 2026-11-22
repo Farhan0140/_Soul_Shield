@@ -97,6 +97,54 @@ definitions:
       name:
         type: string
     type: object
+  feedback.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  feedback.ListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/repo.FeedbackItem'
+        type: array
+      next_before:
+        description: 'NextBefore: pass as ?before= for the next (older) page; 0 =
+          no more.'
+        type: integer
+      summary:
+        $ref: '#/definitions/repo.RatingSummary'
+      unread:
+        type: integer
+    type: object
+  feedback.SubmitRequest:
+    properties:
+      device_id:
+        description: |-
+          DeviceID: random UUID the app keeps on the phone. Required for guests
+          (it becomes "guest-user-<n>"), ignored when signed in.
+        example: 3f0c1a52-8e1b-4f7e-9d43-2a1b5c6d7e8f
+        type: string
+      message:
+        example: Please add a dark widget
+        type: string
+      platform:
+        example: android
+        type: string
+      rating:
+        example: 5
+        type: integer
+    type: object
+  feedback.SubmitResponse:
+    properties:
+      id:
+        type: integer
+    type: object
+  feedback.UnreadResponse:
+    properties:
+      unread:
+        type: integer
+    type: object
   health.CheckResult:
     properties:
       error:
@@ -124,6 +172,30 @@ definitions:
       uptime_seconds:
         type: integer
     type: object
+  repo.FeedbackItem:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      is_guest:
+        type: boolean
+      message:
+        type: string
+      platform:
+        type: string
+      rating:
+        type: integer
+      read:
+        type: boolean
+      submitter:
+        description: |-
+          Submitter: the account's name, or "guest-user-<n>" for a phone used
+          without an account.
+        type: string
+    type: object
   repo.GlobalSnapshot:
     properties:
       cursor:
@@ -140,6 +212,19 @@ definitions:
         items:
           $ref: '#/definitions/repo.SyncTask'
         type: array
+    type: object
+  repo.RatingSummary:
+    properties:
+      average:
+        type: number
+      counts:
+        additionalProperties:
+          type: integer
+        description: 'Counts["1"]..Counts["5"]: how many people currently rate the
+          app that.'
+        type: object
+      total:
+        type: integer
     type: object
   repo.SyncCategory:
     properties:
@@ -894,6 +979,74 @@ info:
   title: Soul Shield
   version: "1.0"
 paths:
+  /admin/feedback:
+    get:
+      description: Newest first, plus the 1-5 star totals (one vote per person, their
+        latest rating) and the unread count.
+      parameters:
+      - description: Page size (1-100), default 30
+        in: query
+        name: limit
+        type: integer
+      - description: Return items older than this id (from next_before)
+        in: query
+        name: before
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/feedback.ListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/feedback.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/feedback.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List ratings and feedback (admin)
+      tags:
+      - Feedback
+  /admin/feedback/read:
+    post:
+      description: Clears the "new feedback" notification. Called when an admin opens
+        the Feedback page.
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/feedback.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Mark all feedback as seen (admin)
+      tags:
+      - Feedback
+  /admin/feedback/unread-count:
+    get:
+      description: Drives the admin panel's "new feedback" notification.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/feedback.UnreadResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/feedback.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Count unseen feedback (admin)
+      tags:
+      - Feedback
   /admin/stats:
     get:
       description: |-
@@ -1118,6 +1271,43 @@ paths:
       summary: Reorder my categories
       tags:
       - Categories
+  /feedback:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        1-5 stars plus an optional message (questions, ideas, anything). Works signed in
+        (send the JWT) or as a guest (no Authorization header; send device_id). Each person
+        counts once in the star totals, with their latest rating. Admins see it in the web panel.
+      parameters:
+      - description: Rating and optional message
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/feedback.SubmitRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/feedback.SubmitResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/feedback.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/feedback.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/feedback.ErrorResponse'
+      summary: Send an app rating + optional feedback
+      tags:
+      - Feedback
   /health:
     get:
       description: |-

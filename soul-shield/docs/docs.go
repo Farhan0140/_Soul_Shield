@@ -19,6 +19,113 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/admin/feedback": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Newest first, plus the 1-5 star totals (one vote per person, their latest rating) and the unread count.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Feedback"
+                ],
+                "summary": "List ratings and feedback (admin)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page size (1-100), default 30",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Return items older than this id (from next_before)",
+                        "name": "before",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/feedback.ListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/feedback.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/feedback.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/feedback/read": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Clears the \"new feedback\" notification. Called when an admin opens the Feedback page.",
+                "tags": [
+                    "Feedback"
+                ],
+                "summary": "Mark all feedback as seen (admin)",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/feedback.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/feedback/unread-count": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Drives the admin panel's \"new feedback\" notification.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Feedback"
+                ],
+                "summary": "Count unseen feedback (admin)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/feedback.UnreadResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/feedback.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/stats": {
             "get": {
                 "security": [
@@ -355,6 +462,58 @@ const docTemplate = `{
                         "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/category.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/feedback": {
+            "post": {
+                "description": "1-5 stars plus an optional message (questions, ideas, anything). Works signed in\n(send the JWT) or as a guest (no Authorization header; send device_id). Each person\ncounts once in the star totals, with their latest rating. Admins see it in the web panel.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Feedback"
+                ],
+                "summary": "Send an app rating + optional feedback",
+                "parameters": [
+                    {
+                        "description": "Rating and optional message",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/feedback.SubmitRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/feedback.SubmitResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/feedback.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/feedback.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/feedback.ErrorResponse"
                         }
                     }
                 }
@@ -1981,6 +2140,73 @@ const docTemplate = `{
                 }
             }
         },
+        "feedback.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "feedback.ListResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/repo.FeedbackItem"
+                    }
+                },
+                "next_before": {
+                    "description": "NextBefore: pass as ?before= for the next (older) page; 0 = no more.",
+                    "type": "integer"
+                },
+                "summary": {
+                    "$ref": "#/definitions/repo.RatingSummary"
+                },
+                "unread": {
+                    "type": "integer"
+                }
+            }
+        },
+        "feedback.SubmitRequest": {
+            "type": "object",
+            "properties": {
+                "device_id": {
+                    "description": "DeviceID: random UUID the app keeps on the phone. Required for guests\n(it becomes \"guest-user-\u003cn\u003e\"), ignored when signed in.",
+                    "type": "string",
+                    "example": "3f0c1a52-8e1b-4f7e-9d43-2a1b5c6d7e8f"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Please add a dark widget"
+                },
+                "platform": {
+                    "type": "string",
+                    "example": "android"
+                },
+                "rating": {
+                    "type": "integer",
+                    "example": 5
+                }
+            }
+        },
+        "feedback.SubmitResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "feedback.UnreadResponse": {
+            "type": "object",
+            "properties": {
+                "unread": {
+                    "type": "integer"
+                }
+            }
+        },
         "health.CheckResult": {
             "type": "object",
             "properties": {
@@ -2018,6 +2244,39 @@ const docTemplate = `{
                 }
             }
         },
+        "repo.FeedbackItem": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_guest": {
+                    "type": "boolean"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "platform": {
+                    "type": "string"
+                },
+                "rating": {
+                    "type": "integer"
+                },
+                "read": {
+                    "type": "boolean"
+                },
+                "submitter": {
+                    "description": "Submitter: the account's name, or \"guest-user-\u003cn\u003e\" for a phone used\nwithout an account.",
+                    "type": "string"
+                }
+            }
+        },
         "repo.GlobalSnapshot": {
             "type": "object",
             "properties": {
@@ -2041,6 +2300,24 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/repo.SyncTask"
                     }
+                }
+            }
+        },
+        "repo.RatingSummary": {
+            "type": "object",
+            "properties": {
+                "average": {
+                    "type": "number"
+                },
+                "counts": {
+                    "description": "Counts[\"1\"]..Counts[\"5\"]: how many people currently rate the app that.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },
