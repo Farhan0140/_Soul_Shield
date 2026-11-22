@@ -1,40 +1,33 @@
-import { FlexWidget, TextWidget, registerWidgetTaskHandler, requestWidgetUpdate } from 'react-native-android-widget';
-import type { ColorProp, WidgetRepresentation } from 'react-native-android-widget';
+import { FlexWidget, TextWidget, requestWidgetUpdate } from 'react-native-android-widget';
+import type { ColorProp, WidgetRepresentation, WidgetTaskHandler } from 'react-native-android-widget';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { JSX, ReactNode } from 'react';
 
 import { getMainTaskCompletionForDate, getSubTaskCompletionForDate } from '@/lib/db/completions-repo';
 import { deriveTasksForDate, getTaskByUuid } from '@/lib/db/tasks-repo';
 import { getSubTaskByUuid } from '@/lib/db/sub-tasks-repo';
 import { todayISODate } from '@/lib/date';
-import type { JSX, ReactNode } from 'react';
 
 /**
  * Android home-screen widgets:
  *
- *  - `TaskOverviewWidget` — today's progress summary: brand row, big done
- *    ratio, progress track, and up to two pending task titles.
- *  - `BleCounterWidget` — ONLY the active Bluetooth-controlled counter:
- *    title + current / remaining / target. Nothing else (#esp32-widget).
+ *  - `TaskOverviewWidget` — today's progress: date, done ratio, progress bar
+ *    and as many pending task titles as the widget's height allows.
+ *  - `BleCounterWidget` — the active Bluetooth (ESP32) counter: title, big
+ *    current count over target, progress bar, remaining.
  *
- * Both renderers are HEADLESS (the OS re-launches the bundle for widget
- * updates), so React context is unavailable — every dimension, font size and
- * gap is derived from the widget's own width/height with clamps, and all
- * rows/track/fill use exact numeric widths. That keeps every element inside
- * the widget bounds across screen sizes, resolutions, DPIs and resizes
- * (#widget-responsiveness — the old fixed-size build spilled text past the
- * box). Light/dark palettes are explicit; the library applies per system
- * setting.
+ * REGISTRATION: `widgetTaskHandler` is registered in the app entry
+ * (`index.ts`), NOT from a route file. Android renders widgets by launching
+ * the JS bundle headlessly — no React tree mounts, so `app/_layout.tsx`
+ * never evaluates. When the handler was registered from there, every widget
+ * stayed blank because nothing answered the OS's render request.
  *
- * Live data: readers are synchronous over the local-first SQLite store, so
- * widgets always show the latest data the device has (offline included).
- * Renders are re-requested from the app after every counter change — manual
- * taps (buffer / sub-task hook) and ESP32 presses (counter-ble) all call
- * refreshAllWidgets(), keeping app + widgets in lock-step (subject to OS
- * scheduling, as with all Android widget updates).
- *
- * `registerWidgetTaskHandler` runs at module scope (headless launches import
- * the bundle to find it); app/_layout.tsx imports this module for its side
- * effect. Widget declarations live in app.json's config-plugin entry.
+ * Rendering is headless too, so there is no React context: every size is
+ * derived from the widget's own dp width/height, and every data read is
+ * wrapped so a failing loader still renders a fallback instead of nothing.
+ * Live data comes from the local-first SQLite store (works offline); the app
+ * calls refreshAllWidgets() after each counter change / task mutation.
+ * Widget declarations live in app.json's config-plugin entry.
  */
 
 const OVERVIEW_WIDGET_NAME = 'TaskOverviewWidget';
@@ -44,38 +37,51 @@ const BLE_WIDGET_NAME = 'BleCounterWidget';
  * (duplicated literal to keep this module cycle-free of counter-ble). */
 const ACTIVE_TASK_STORE_KEY = 'soulshield_ble_active_task';
 
+// --- palette: mirrors the app's Soft Paper theme ------------------------------
+
 interface Palette {
   bg: ColorProp;
-  card: ColorProp;
   text: ColorProp;
   muted: ColorProp;
-  success: ColorProp;
+  faint: ColorProp;
   border: ColorProp;
-  accent: ColorProp;
+  track: ColorProp;
+  tint: ColorProp;
+  success: ColorProp;
+  successSoft: ColorProp;
+  tintSoft: ColorProp;
 }
 
 const PALETTES: Record<'light' | 'dark', Palette> = {
   light: {
-    bg: '#EDF0F7',
-    card: '#FFFFFF',
-    text: '#101828',
-    muted: '#667085',
-    success: '#12976B',
-    border: '#E4E8EF',
-    accent: '#5B67EA',
+    bg: '#FCFDFF',
+    text: '#253248',
+    muted: '#6A7A90',
+    faint: '#A3AFBF',
+    border: '#E5E9F0',
+    track: '#EBEEF4',
+    tint: '#5A6BD8',
+    success: '#37946B',
+    successSoft: '#DDEFE6',
+    tintSoft: '#E6E9FA',
   },
   dark: {
-    bg: '#12151C',
-    card: '#191E28',
-    text: '#F4F5F7',
-    muted: '#98A2B3',
-    success: '#4ADE80',
-    border: '#262B36',
-    accent: '#8B95FF',
+    bg: '#161B26',
+    text: '#EEF1F6',
+    muted: '#98A3B5',
+    faint: '#5E697C',
+    border: '#252C3A',
+    track: '#252C3A',
+    tint: '#8D9BF0',
+    success: '#5CC498',
+    successSoft: '#1D3A30',
+    tintSoft: '#262D4A',
   },
 };
 
-// --- responsive metrics: everything derives from the widget's own size -----
+type Variant = keyof typeof PALETTES;
+
+// --- sizing -------------------------------------------------------------------
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -85,45 +91,54 @@ interface Metrics {
   pad: number;
   gap: number;
   radius: number;
-  accentW: number;
   trackH: number;
-  fBrand: number;
+  fSmall: number;
+  fBody: number;
   fTitle: number;
-  fValue: number;
-  fLabel: number;
+  fHero: number;
 }
 
 function metrics(width: number, height: number): Metrics {
   const min = Math.min(width, height);
   return {
-    pad: clamp(Math.round(min * 0.09), 9, 18),
+    pad: clamp(Math.round(min * 0.1), 10, 18),
     gap: clamp(Math.round(min * 0.05), 4, 10),
-    radius: clamp(Math.round(min * 0.1), 8, 18),
-    accentW: clamp(Math.round(width * 0.014), 3, 5),
-    trackH: clamp(Math.round(height * 0.045), 4, 10),
-    fBrand: clamp(Math.round(height * 0.052), 8, 11),
-    fTitle: clamp(Math.round(height * 0.082), 10, 15),
-    fValue: clamp(Math.round(height * 0.2), 16, 38),
-    fLabel: clamp(Math.round(height * 0.048), 8, 11),
+    radius: clamp(Math.round(min * 0.12), 12, 24),
+    trackH: clamp(Math.round(height * 0.04), 5, 8),
+    fSmall: clamp(Math.round(min * 0.07), 10, 13),
+    fBody: clamp(Math.round(min * 0.08), 11, 14),
+    fTitle: clamp(Math.round(min * 0.09), 12, 16),
+    fHero: clamp(Math.round(min * 0.24), 22, 44),
   };
 }
 
-// --- data loaders (synchronous over local SQLite) ---------------------------
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function dateLabel(now = new Date()): string {
+  return `${WEEKDAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}`;
+}
+
+// --- data loaders -------------------------------------------------------------
 
 interface OverviewData {
   total: number;
   completed: number;
-  pendingTitles: string[];
+  pending: string[];
 }
 
-function loadOverviewData(): OverviewData {
-  const all = deriveTasksForDate(todayISODate()).filter((t) => !t.is_global);
-  const completed = all.filter((t) => t.status === 'completed').length;
-  const pendingTitles = all
-    .filter((t) => t.status !== 'completed' && t.status !== 'missed')
-    .slice(0, 2)
-    .map((t) => t.title);
-  return { total: all.length, completed, pendingTitles };
+/** null = local store unavailable (e.g. never signed in on this device). */
+function loadOverviewData(): OverviewData | null {
+  try {
+    const all = deriveTasksForDate(todayISODate()).filter((t) => !t.is_global);
+    const completed = all.filter((t) => t.status === 'completed').length;
+    const pending = all
+      .filter((t) => t.status === 'pending' || t.status === 'partially_completed')
+      .map((t) => t.title);
+    return { total: all.length, completed, pending };
+  } catch {
+    return null;
+  }
 }
 
 interface BleData {
@@ -132,9 +147,8 @@ interface BleData {
   target: number;
 }
 
-/** The ACTIVE Bluetooth counter (title/current/target), or null for the
- * empty state. Sub-tasks resolve through sub_task_completions; main tasks
- * through task_completions; both today-scoped, offline-fresh. */
+/** The ACTIVE Bluetooth counter, or null for the empty state. Sub-tasks read
+ * sub_task_completions, main tasks task_completions; both today-scoped. */
 async function loadBleCounterData(): Promise<BleData | null> {
   try {
     const raw = await AsyncStorage.getItem(ACTIVE_TASK_STORE_KEY);
@@ -156,10 +170,6 @@ async function loadBleCounterData(): Promise<BleData | null> {
 
     const task = getTaskByUuid(parsed.taskId);
     if (!task) return null;
-    // Main counter tasks: the live progress row (same local row the +1 buffer
-    // writes). There is no sync repository helper for this exact lookup in
-    // this module chain, so read completion rows through the sub path's twin
-    // below only when needed — main uses the same query via completions repo.
     const completion = getMainTaskCompletionForDate(parsed.taskId, date);
     return {
       title: parsed.title || task.title,
@@ -171,122 +181,298 @@ async function loadBleCounterData(): Promise<BleData | null> {
   }
 }
 
-// --- renderers ----------------------------------------------------------------
+// --- shared building blocks ---------------------------------------------------
 
-function buildFrame(width: number, height: number, p: Palette, children: ReactNode): JSX.Element {
-  const accentW = clamp(Math.round(width * 0.014), 3, 5);
+/** Rounded card filling the widget; tapping anywhere opens the app. */
+function Card(props: { width: number; height: number; p: Palette; m: Metrics; children: ReactNode }): JSX.Element {
+  const { width, height, p, m } = props;
   return (
-    <FlexWidget style={{ width, height, backgroundColor: p.bg, borderRadius: clamp(Math.round(Math.min(width, height) * 0.1), 8, 18), flexDirection: 'row', overflow: 'hidden' }}>
-      <FlexWidget style={{ width: accentW, height: 'match_parent', backgroundColor: p.accent }} />
-      <FlexWidget style={{ width: width - accentW, height: 'match_parent', backgroundColor: p.card, flexDirection: 'column', justifyContent: 'center', padding: clamp(Math.round(Math.min(width, height) * 0.09), 9, 18) }}>
-        {children}
-      </FlexWidget>
+    <FlexWidget
+      clickAction="OPEN_APP"
+      style={{
+        width,
+        height,
+        backgroundColor: p.bg,
+        borderRadius: m.radius,
+        borderWidth: 1,
+        borderColor: p.border,
+        padding: m.pad,
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}>
+      {props.children}
     </FlexWidget>
   );
 }
 
-function buildOverviewWidget(width: number, height: number, p: Palette): JSX.Element {
-  const m = metrics(width, height);
-  const data = loadOverviewData();
-  const ratio = data.total > 0 ? Math.min(data.completed / data.total, 1) : 0;
-  const inner = Math.max(width - m.pad * 2 - m.accentW, 40);
-  const fill = data.completed > 0 ? Math.max(Math.round(inner * ratio), m.trackH) : 0;
-
-  return buildFrame(width, height, p, (
-    <>
-      <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <TextWidget style={{ color: p.muted, fontSize: m.fBrand, fontWeight: '700' }} text="SOUL SHIELD" />
-        <TextWidget style={{ color: data.total > 0 && data.completed === data.total ? p.success : p.muted, fontSize: m.fLabel, fontWeight: '700' }} text={`${data.completed}/${data.total} done`} />
-      </FlexWidget>
-
-      <FlexWidget style={{ width: 'match_parent', height: m.trackH, backgroundColor: p.border, borderRadius: m.trackH / 2, marginTop: m.gap, overflow: 'hidden' }}>
-        <FlexWidget style={{ width: fill, height: 'match_parent', backgroundColor: p.success, borderRadius: m.trackH / 2 }} />
-      </FlexWidget>
-
-      {data.pendingTitles.map((title, index) => (
-        <TextWidget
-          key={`pending-${index}`}
-          style={{ color: p.muted, fontSize: m.fLabel + 1, marginTop: index === 0 ? m.gap : 4 }}
-          text={`•  ${title}`}
-          maxLines={1}
+function ProgressBar(props: { width: number; ratio: number; p: Palette; m: Metrics; done: boolean }): JSX.Element {
+  const { width, ratio, p, m, done } = props;
+  const fill = ratio > 0 ? Math.max(Math.round(width * Math.min(ratio, 1)), m.trackH) : 0;
+  return (
+    <FlexWidget style={{ width, height: m.trackH, backgroundColor: p.track, borderRadius: m.trackH / 2 }}>
+      {fill > 0 ? (
+        <FlexWidget
+          style={{ width: fill, height: m.trackH, backgroundColor: done ? p.success : p.tint, borderRadius: m.trackH / 2 }}
         />
-      ))}
+      ) : null}
+    </FlexWidget>
+  );
+}
+
+function Pill(props: { text: string; color: ColorProp; bg: ColorProp; m: Metrics }): JSX.Element {
+  const { m } = props;
+  return (
+    <FlexWidget
+      style={{
+        backgroundColor: props.bg,
+        borderRadius: 999,
+        paddingHorizontal: clamp(Math.round(m.fSmall * 0.7), 6, 10),
+        paddingVertical: 2,
+      }}>
+      <TextWidget text={props.text} style={{ color: props.color, fontSize: m.fSmall, fontWeight: '700' }} />
+    </FlexWidget>
+  );
+}
+
+/** Spacer that soaks up remaining height so the footer sits at the bottom. */
+function Fill(): JSX.Element {
+  return <FlexWidget style={{ flex: 1, width: 'match_parent' }} />;
+}
+
+// --- Today overview -----------------------------------------------------------
+
+function buildOverviewWidget(width: number, height: number, v: Variant, data: OverviewData | null): JSX.Element {
+  const p = PALETTES[v];
+  const m = metrics(width, height);
+  const inner = Math.max(width - m.pad * 2 - 2, 40);
+  const compact = height < 120;
+
+  const header = (
+    <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+      <TextWidget text="Today" style={{ color: p.text, fontSize: m.fTitle, fontWeight: '700' }} />
+      <TextWidget text={dateLabel()} style={{ color: p.muted, fontSize: m.fSmall }} />
+    </FlexWidget>
+  );
+
+  if (!data) {
+    return (
+      <Card width={width} height={height} p={p} m={m}>
+        {header}
+        <Fill />
+        <TextWidget
+          text="Open Soul Shield to load your tasks."
+          style={{ color: p.muted, fontSize: m.fBody }}
+          maxLines={2}
+          truncate="END"
+        />
+      </Card>
+    );
+  }
+
+  const allDone = data.total > 0 && data.completed === data.total;
+  const ratio = data.total > 0 ? data.completed / data.total : 0;
+  const percent = Math.round(ratio * 100);
+
+  // How many pending rows fit under the summary block.
+  const rowH = Math.round(m.fBody * 1.7);
+  const usedH = m.pad * 2 + m.fTitle * 1.4 + m.gap + m.fHero * 1.25 + m.gap + m.trackH + m.gap;
+  const maxRows = compact ? 0 : Math.max(0, Math.floor((height - usedH) / rowH));
+  const shownCount = data.pending.length > maxRows && maxRows > 0 ? maxRows - 1 : Math.min(maxRows, data.pending.length);
+  const shown = data.pending.slice(0, shownCount);
+  const hidden = data.pending.length - shown.length;
+
+  return (
+    <Card width={width} height={height} p={p} m={m}>
+      {header}
 
       {data.total === 0 ? (
-        <TextWidget style={{ color: p.muted, fontSize: m.fLabel + 1, marginTop: m.gap }} text="No tasks scheduled today." />
-      ) : null}
-      {data.total > 0 && data.completed === data.total ? (
-        <TextWidget style={{ color: p.success, fontSize: m.fLabel + 1, marginTop: m.gap, fontWeight: '700' }} text="All done ✨" />
-      ) : null}
-    </>
-  ));
+        <>
+          <Fill />
+          <TextWidget text="Nothing scheduled" style={{ color: p.text, fontSize: m.fTitle, fontWeight: '700' }} />
+          <TextWidget text="Enjoy a free day." style={{ color: p.muted, fontSize: m.fBody, marginTop: 2 }} />
+        </>
+      ) : (
+        <>
+          <FlexWidget
+            style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: m.gap }}>
+            <FlexWidget style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+              <TextWidget text={String(data.completed)} style={{ color: allDone ? p.success : p.text, fontSize: m.fHero, fontWeight: '700' }} />
+              <TextWidget
+                text={` / ${data.total} done`}
+                style={{ color: p.muted, fontSize: m.fBody, marginBottom: Math.round(m.fHero * 0.14) }}
+              />
+            </FlexWidget>
+            <FlexWidget style={{ marginBottom: Math.round(m.fHero * 0.12) }}>
+              <Pill
+                text={allDone ? 'Done' : `${percent}%`}
+                color={allDone ? p.success : p.tint}
+                bg={allDone ? p.successSoft : p.tintSoft}
+                m={m}
+              />
+            </FlexWidget>
+          </FlexWidget>
+
+          <FlexWidget style={{ marginTop: m.gap }}>
+            <ProgressBar width={inner} ratio={ratio} p={p} m={m} done={allDone} />
+          </FlexWidget>
+
+          {allDone && !compact ? (
+            <TextWidget
+              text="Everything is done for today."
+              style={{ color: p.success, fontSize: m.fBody, marginTop: m.gap + 2 }}
+              maxLines={1}
+              truncate="END"
+            />
+          ) : null}
+
+          {!allDone && shown.length > 0 ? (
+            <FlexWidget style={{ width: 'match_parent', flexDirection: 'column', marginTop: m.gap }}>
+              {shown.map((title, index) => (
+                <FlexWidget
+                  key={`pending-${index}`}
+                  style={{ width: 'match_parent', height: rowH, flexDirection: 'row', alignItems: 'center' }}>
+                  <FlexWidget
+                    style={{
+                      width: Math.round(m.fBody * 0.7),
+                      height: Math.round(m.fBody * 0.7),
+                      borderRadius: 999,
+                      borderWidth: 1.5,
+                      borderColor: p.faint,
+                      marginRight: m.gap + 2,
+                    }}
+                  />
+                  <TextWidget
+                    text={title}
+                    style={{ color: p.text, fontSize: m.fBody, width: inner - Math.round(m.fBody * 0.7) - m.gap - 2 }}
+                    maxLines={1}
+                    truncate="END"
+                  />
+                </FlexWidget>
+              ))}
+              {hidden > 0 ? (
+                <TextWidget text={`+${hidden} more`} style={{ color: p.muted, fontSize: m.fSmall, marginTop: 2 }} />
+              ) : null}
+            </FlexWidget>
+          ) : null}
+        </>
+      )}
+    </Card>
+  );
 }
 
-function buildBleCounterWidget(width: number, height: number, p: Palette, data: BleData | null): JSX.Element {
-  const m = metrics(width, height);
-  const inner = Math.max(width - m.pad * 2 - m.accentW, 40);
+// --- Bluetooth counter --------------------------------------------------------
 
-  // Empty state — only guidance, per spec.
+function buildBleCounterWidget(width: number, height: number, v: Variant, data: BleData | null): JSX.Element {
+  const p = PALETTES[v];
+  const m = metrics(width, height);
+  const inner = Math.max(width - m.pad * 2 - 2, 40);
+
+  const header = (connectedLabel: string) => (
+    <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center' }}>
+      <FlexWidget
+        style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: data ? p.tint : p.faint, marginRight: 6 }}
+      />
+      <TextWidget text={connectedLabel} style={{ color: p.muted, fontSize: m.fSmall, fontWeight: '500' }} />
+    </FlexWidget>
+  );
+
   if (!data) {
-    return buildFrame(width, height, p, (
-      <>
-        <TextWidget style={{ color: p.text, fontSize: m.fTitle, fontWeight: '700' }} text="Bluetooth Counter" />
+    return (
+      <Card width={width} height={height} p={p} m={m}>
+        {header('Bluetooth counter')}
+        <Fill />
+        <TextWidget text="No counter linked" style={{ color: p.text, fontSize: m.fTitle, fontWeight: '700' }} />
         <TextWidget
-          style={{ color: p.muted, fontSize: m.fLabel, lineHeight: Math.round(m.fLabel * 1.5), marginTop: m.gap }}
-          text="No counter selected yet. Open Soul Shield → tap the Bluetooth icon on a counter task."
+          text="In Soul Shield, tap the Bluetooth icon on a counter task."
+          style={{ color: p.muted, fontSize: m.fBody, marginTop: 2 }}
           maxLines={3}
+          truncate="END"
         />
-      </>
-    ));
+      </Card>
+    );
   }
 
+  const done = data.target > 0 && data.current >= data.target;
   const remaining = Math.max(data.target - data.current, 0);
-  const ratio = data.target > 0 ? Math.min(data.current / data.target, 1) : 0;
-  const fill = data.current > 0 ? Math.max(Math.round(inner * ratio), m.trackH) : 0;
+  const ratio = data.target > 0 ? data.current / data.target : 0;
+  const current = String(Math.min(data.current, 99999));
 
-  return buildFrame(width, height, p, (
-    <>
-      <TextWidget style={{ color: p.muted, fontSize: m.fBrand, fontWeight: '700' }} text="BLUETOOTH COUNTER" />
-
+  return (
+    <Card width={width} height={height} p={p} m={m}>
+      {header('Bluetooth counter')}
       <TextWidget
-        style={{ color: p.text, fontSize: m.fTitle, fontWeight: '700', marginTop: m.gap - Math.round(m.gap / 2) }}
         text={data.title}
-        maxLines={2}
+        style={{ color: p.text, fontSize: m.fTitle, fontWeight: '700', marginTop: m.gap }}
+        maxLines={height < 140 ? 1 : 2}
+        truncate="END"
       />
 
-      <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center', marginTop: Math.round(m.gap / 2) }}>
-        <TextWidget style={{ color: p.success, fontSize: m.fValue, fontWeight: '700' }} text={String(Math.min(data.current, 99999))} />
-        <FlexWidget style={{ flexDirection: 'column', marginLeft: m.gap }}>
-          <TextWidget style={{ color: p.muted, fontSize: m.fLabel }} text={`remaining  ${remaining}`} />
-          <TextWidget style={{ color: p.muted, fontSize: m.fLabel }} text={`target  ${data.target}`} />
-        </FlexWidget>
+      <Fill />
+
+      <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'flex-end' }}>
+        <TextWidget text={current} style={{ color: done ? p.success : p.text, fontSize: m.fHero, fontWeight: '700' }} />
+        {data.target > 0 ? (
+          <TextWidget
+            text={` / ${data.target}`}
+            style={{ color: p.muted, fontSize: m.fBody, marginBottom: Math.round(m.fHero * 0.14) }}
+          />
+        ) : null}
       </FlexWidget>
 
-      <FlexWidget style={{ width: 'match_parent', height: m.trackH, backgroundColor: p.border, borderRadius: m.trackH / 2, marginTop: m.gap, overflow: 'hidden' }}>
-        <FlexWidget style={{ width: fill, height: 'match_parent', backgroundColor: p.success, borderRadius: m.trackH / 2 }} />
-      </FlexWidget>
-    </>
-  ));
+      {data.target > 0 ? (
+        <>
+          <FlexWidget style={{ marginTop: m.gap }}>
+            <ProgressBar width={inner} ratio={ratio} p={p} m={m} done={done} />
+          </FlexWidget>
+          <TextWidget
+            text={done ? 'Target reached' : `${remaining} to go`}
+            style={{ color: done ? p.success : p.muted, fontSize: m.fSmall, marginTop: m.gap }}
+          />
+        </>
+      ) : null}
+    </Card>
+  );
 }
 
-// --- headless handler (dispatch by widget name) -------------------------------
+// --- render helpers -----------------------------------------------------------
 
-registerWidgetTaskHandler(async ({ widgetAction, widgetInfo, renderWidget }) => {
-  if (widgetAction === 'WIDGET_DELETED') return;
+function overviewRepresentation(width: number, height: number): WidgetRepresentation {
+  const data = loadOverviewData();
+  return {
+    light: buildOverviewWidget(width, height, 'light', data),
+    dark: buildOverviewWidget(width, height, 'dark', data),
+  };
+}
 
-  if (widgetInfo.widgetName === BLE_WIDGET_NAME) {
-    const data = await loadBleCounterData();
-    renderWidget({
-      light: buildBleCounterWidget(widgetInfo.width, widgetInfo.height, PALETTES.light, data),
-      dark: buildBleCounterWidget(widgetInfo.width, widgetInfo.height, PALETTES.dark, data),
-    });
-    return;
+async function bleRepresentation(width: number, height: number): Promise<WidgetRepresentation> {
+  const data = await loadBleCounterData();
+  return {
+    light: buildBleCounterWidget(width, height, 'light', data),
+    dark: buildBleCounterWidget(width, height, 'dark', data),
+  };
+}
+
+// --- headless handler (registered in index.ts) --------------------------------
+
+export const widgetTaskHandler: WidgetTaskHandler = async ({ widgetAction, widgetInfo, renderWidget }) => {
+  switch (widgetAction) {
+    case 'WIDGET_ADDED':
+    case 'WIDGET_UPDATE':
+    case 'WIDGET_RESIZED':
+    case 'WIDGET_CLICK': {
+      const { width, height } = widgetInfo;
+      if (widgetInfo.widgetName === BLE_WIDGET_NAME) {
+        renderWidget(await bleRepresentation(width, height));
+      } else {
+        renderWidget(overviewRepresentation(width, height));
+      }
+      return;
+    }
+    case 'WIDGET_DELETED':
+    default:
+      return;
   }
-
-  const overview = buildOverviewWidget(widgetInfo.width, widgetInfo.height, PALETTES.light);
-  const overviewDark = buildOverviewWidget(widgetInfo.width, widgetInfo.height, PALETTES.dark);
-  renderWidget({ light: overview, dark: overviewDark });
-});
+};
 
 // --- app-side refresh entry points --------------------------------------------
 
@@ -300,28 +486,19 @@ async function requestRender(
       renderWidget: (widgetInfo) => build(widgetInfo.width, widgetInfo.height),
     });
   } catch {
-    // widget not added to the home screen / native module missing yet
+    // widget not on the home screen / native module missing in this binary
   }
 }
 
 /** Fresh render for the today-overview widget. */
 export async function refreshTaskWidget(): Promise<void> {
-  await requestRender(OVERVIEW_WIDGET_NAME, (w, h) => ({
-    light: buildOverviewWidget(w, h, PALETTES.light),
-    dark: buildOverviewWidget(w, h, PALETTES.dark),
-  }));
+  await requestRender(OVERVIEW_WIDGET_NAME, overviewRepresentation);
 }
 
 /** Fresh render for the BLE counter widget — called on every counter change
  * (manual or ESP32) and whenever the active Bluetooth task switches. */
 export async function refreshBleCounterWidget(): Promise<void> {
-  await requestRender(BLE_WIDGET_NAME, async (w, h) => {
-    const data = await loadBleCounterData();
-    return {
-      light: buildBleCounterWidget(w, h, PALETTES.light, data),
-      dark: buildBleCounterWidget(w, h, PALETTES.dark, data),
-    };
-  });
+  await requestRender(BLE_WIDGET_NAME, bleRepresentation);
 }
 
 /** One call from any counter mutation/press: refreshes both widgets. */

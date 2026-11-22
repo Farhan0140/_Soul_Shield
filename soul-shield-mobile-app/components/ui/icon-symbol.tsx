@@ -69,6 +69,10 @@ const MAPPING = {
   'b.circle.fill': 'bluetooth-connected',
   eye: 'visibility',
   'eye.slash': 'visibility-off',
+  'bag.fill': 'shopping-bag',
+  'hand.tap.fill': 'touch-app',
+  'lightbulb.fill': 'lightbulb',
+  'flag.fill': 'flag',
 } as IconMapping;
 
 /**

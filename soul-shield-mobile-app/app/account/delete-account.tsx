@@ -7,12 +7,10 @@ import { KeyboardAvoidingScrollView } from '@/components/ui/keyboard-avoiding-sc
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { TextField } from '@/components/ui/text-field';
 import { useAuth } from '@/context/auth-context';
-import { useThemeColor } from '@/hooks/use-theme-color';
 import { getErrorMessage } from '@/lib/errors';
 
 export default function DeleteAccountScreen() {
   const { token, user, logout } = useAuth();
-  const mutedColor = useThemeColor({}, 'muted');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,9 +49,6 @@ export default function DeleteAccountScreen() {
           Deleting <ThemedText type="defaultSemiBold">{user?.email}</ThemedText> permanently removes your account and
           everything in it: tasks, sub-tasks, categories, completion history and Quran bookmarks, on all of your
           devices.
-        </ThemedText>
-        <ThemedText style={{ color: mutedColor }}>
-          Tip: use Profile → Data → Export My Data first if you want a copy.
         </ThemedText>
       </View>
 

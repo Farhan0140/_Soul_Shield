@@ -1,12 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
 import * as ExpoNotifications from 'expo-notifications';
-import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
-import { deletePushToken, registerPushToken } from '@/api/auth';
+import { deletePushToken } from '@/api/auth';
 import { ThemedText } from '@/components/themed-text';
 import { ArabicFontPicker } from '@/components/profile/arabic-font-picker';
 import { ThemePicker } from '@/components/profile/theme-picker';
@@ -23,12 +22,9 @@ import { cancelDailyDigest, scheduleDailyDigest, sendTestNotification } from '@/
 import {
   clearRegisteredPushToken,
   getDigestPref,
-  getPushPref,
   getRegisteredPushToken,
   setDigestEnabled as persistDigestEnabled,
   setDigestTime as persistDigestTime,
-  setPushPref,
-  setRegisteredPushToken,
 } from '@/lib/notification-prefs';
 import { getBackgroundSyncState, type BackgroundSyncState } from '@/lib/background-sync/state';
 import { runFullBackgroundSync } from '@/lib/background-sync/sync';
@@ -37,15 +33,7 @@ import { checkConflictDetection } from '@/lib/db/conflict-check';
 import { checkDerivedTasksAgainstServer } from '@/lib/db/contract-check';
 import { addDays, dateRange, todayISODate } from '@/lib/date';
 import { getErrorMessage } from '@/lib/errors';
-import { shareExport } from '@/lib/export';
 import { clearOfflineCache, countPendingMutations } from '@/lib/persister';
-
-/** Resolves the EAS projectId app.json carries (extra.eas.projectId) —
- * required by getExpoPushTokenAsync on SDK 53+. */
-function getExpoProjectId(): string | undefined {
-  const extra = Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined;
-  return extra?.eas?.projectId;
-}
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
@@ -54,10 +42,10 @@ export default function ProfileScreen() {
   const cardColor = useThemeColor({}, 'card');
   const tintColor = useThemeColor({}, 'tint');
   const mutedColor = useThemeColor({}, 'muted');
+  const warningColor = useThemeColor({}, 'warning');
   const surface = useSurface();
 
   const [clearing, setClearing] = useState(false);
-  const [exporting, setExporting] = useState(false);
   const [syncState, setSyncState] = useState<BackgroundSyncState | null>(null);
   const [syncingNow, setSyncingNow] = useState(false);
   const [checkingLocalDb, setCheckingLocalDb] = useState(false);
@@ -65,8 +53,6 @@ export default function ProfileScreen() {
   const [showDigestPicker, setShowDigestPicker] = useState(false);
   const [digestEnabled, setDigestEnabledState] = useState(false);
   const [digestTime, setDigestTimeState] = useState({ hour: 20, minute: 0 });
-  const [pushEnabled, setPushEnabled] = useState(false);
-  const [pushBusy, setPushBusy] = useState(false);
   const [counterHaptics, setCounterHaptics] = useState(true);
   const [sendingTest, setSendingTest] = useState(false);
 
@@ -80,7 +66,6 @@ export default function ProfileScreen() {
       setDigestEnabledState(pref.enabled);
       setDigestTimeState({ hour: pref.hour, minute: pref.minute });
     });
-    getPushPref().then(setPushEnabled);
     setCounterHaptics(getCounterHapticsPref()); // cached — loaded at module init
   }, [refreshSyncState]);
 
@@ -141,44 +126,6 @@ export default function ProfileScreen() {
     }
   };
 
-  // ---- Cross-device sync alerts (#19): register/remove the Expo push token ----
-  const handlePushToggle = async (enabled: boolean) => {
-    setPushEnabled(enabled);
-    setPushBusy(true);
-    try {
-      if (enabled) {
-        const permission = await ExpoNotifications.requestPermissionsAsync();
-        if (!permission.granted) {
-          Alert.alert(
-            t('profile.data.syncAlerts'),
-            'Notifications are disabled for Soul Shield in system settings.'
-          );
-          setPushEnabled(false);
-          return;
-        }
-        const projectId = getExpoProjectId();
-        const tokenResult = await ExpoNotifications.getExpoPushTokenAsync(
-          projectId ? { projectId } : undefined
-        );
-        const token =
-          typeof tokenResult.data === 'string' ? tokenResult.data : String(tokenResult.data ?? '');
-        await registerPushToken(token, Platform.OS, await tokenStore.getToken());
-        await setRegisteredPushToken(token, Platform.OS);
-      } else {
-        const previous = await getRegisteredPushToken();
-        if (!previous) return;
-        await deletePushToken(previous, await tokenStore.getToken());
-        await clearRegisteredPushToken();
-      }
-      await setPushPref(enabled);
-    } catch (err) {
-      setPushEnabled(!enabled);
-      Alert.alert(t('profile.data.syncAlerts'), getErrorMessage(err));
-    } finally {
-      setPushBusy(false);
-    }
-  };
-
   const handleCheckLocalDb = async () => {
     setCheckingLocalDb(true);
     try {
@@ -226,17 +173,6 @@ export default function ProfileScreen() {
         },
       },
     ]);
-  };
-
-  const handleExport = async () => {
-    setExporting(true);
-    try {
-      await shareExport();
-    } catch (err) {
-      Alert.alert(t('profile.data.export'), getErrorMessage(err));
-    } finally {
-      setExporting(false);
-    }
   };
 
   /** #4: explicit logout wipes this device's local store — if any offline
@@ -429,14 +365,6 @@ export default function ProfileScreen() {
           </>
         ) : null}
 
-        <View style={styles.switchRow}>
-          <View style={styles.switchLabel}>
-            <ThemedText type="defaultSemiBold">{t('profile.data.syncAlerts')}</ThemedText>
-            <ThemedText style={{ color: mutedColor }}>{t('profile.data.syncAlertsHint')}</ThemedText>
-          </View>
-          <Switch value={pushEnabled} disabled={pushBusy} onValueChange={(v) => void handlePushToggle(v)} />
-        </View>
-
         <PrimaryButton
           label={t('profile.testNotification')}
           variant="secondary"
@@ -480,13 +408,44 @@ export default function ProfileScreen() {
       <View style={styles.section}>
         <View style={[styles.sectionHeader, surface('tag')]}>
           <ThemeDecor kind="tag" />
+          <IconSymbol name="bag.fill" size={16} color={mutedColor} />
+          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+            {t('profile.shop')}
+          </ThemedText>
+        </View>
+        <Pressable
+          onPress={() => router.push('/shop' as never)}
+          style={({ pressed }) => [
+            styles.toolRow,
+            { backgroundColor: cardColor, opacity: pressed ? 0.7 : 1 },
+            surface('card'),
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={`${t('profile.shop.row')}, ${t('shop.comingSoon')}`}>
+          <ThemeDecor kind="card" />
+          <View style={[styles.toolIconCircle, { backgroundColor: `${tintColor}1A` }, surface('iconCircle')]}>
+            <ThemeDecor kind="iconCircle" stroke={tintColor} />
+            <IconSymbol name="bag.fill" size={22} color={tintColor} />
+          </View>
+          <ThemedText type="defaultSemiBold" style={styles.toolLabel} numberOfLines={1}>
+            {t('profile.shop.row')}
+          </ThemedText>
+          <View style={[styles.soonPill, { backgroundColor: `${warningColor}1F` }]}>
+            <ThemedText style={[styles.soonPillText, { color: warningColor }]}>{t('shop.comingSoon')}</ThemedText>
+          </View>
+          <IconSymbol name="chevron.right" size={18} color={mutedColor} />
+        </Pressable>
+      </View>
+
+      <View style={styles.section}>
+        <View style={[styles.sectionHeader, surface('tag')]}>
+          <ThemeDecor kind="tag" />
           <IconSymbol name="externaldrive.fill" size={16} color={mutedColor} />
           <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
             {t('profile.data')}
           </ThemedText>
         </View>
         <ThemedText style={[styles.syncStatus, { color: mutedColor }]}>{formatSyncStatus(syncState)}</ThemedText>
-        <PrimaryButton label={t('profile.data.export')} variant="secondary" loading={exporting} onPress={handleExport} />
         <PrimaryButton
           label="Clear Offline Data"
           variant="secondary"
@@ -617,4 +576,6 @@ const styles = StyleSheet.create({
   },
   toolIconCircle: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   toolLabel: { flex: 1 },
+  soonPill: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999 },
+  soonPillText: { fontSize: 12, fontWeight: '700' },
 });

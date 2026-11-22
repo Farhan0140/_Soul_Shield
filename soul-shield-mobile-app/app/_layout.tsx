@@ -25,9 +25,6 @@ import { HAND_FONT_ASSETS, HAND_FONTS } from '@/constants/ui-style';
 import { themeScreenLayout } from '@/components/ui/theme-backdrop';
 import { ARABIC_FONT_OPTIONS } from '@/lib/arabic';
 import { OnboardingModal } from '@/components/onboarding/onboarding-modal';
-// Side effect: registers the headless Android widget renderer (see the module
-// doc — the OS imports the bundle for widget updates).
-import '@/lib/widget/task-widget';
 // Side effect: initializes the ESP32 Bluetooth manager (state subscription)
 // and auto-reconnects to the paired counter device after launch.
 import { bootBluetooth } from '@/lib/bluetooth/counter-ble';
@@ -66,6 +63,7 @@ function RootNavigator() {
         <Stack.Screen name="insights" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="search" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="archived" options={{ presentation: 'modal', headerShown: false }} />
+        <Stack.Screen name="shop" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="timer" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="timer-task" options={{ presentation: 'modal', headerShown: false }} />
       <Stack.Screen
