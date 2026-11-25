@@ -14,6 +14,7 @@ import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { useCategoriesQuery } from '@/hooks/queries/use-categories';
 import { useReorderMyTasks } from '@/hooks/queries/use-task-mutations';
 import { useMyTasksQuery } from '@/hooks/queries/use-tasks';
+import { useScreenReady } from '@/hooks/use-screen-ready';
 import { useNetworkStatus } from '@/hooks/use-network-status';
 import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
@@ -33,7 +34,10 @@ function swap<T>(arr: T[], i: number, j: number): T[] {
 
 export default function ReorderTasksScreen() {
   const categoriesQuery = useCategoriesQuery();
-  const myTasksQuery = useMyTasksQuery();
+  // Every task + sub-task is read once the screen has slid in (skeleton
+  // until then) - see hooks/use-screen-ready.ts.
+  const screenReady = useScreenReady();
+  const myTasksQuery = useMyTasksQuery(screenReady);
   const { isOnline } = useNetworkStatus();
   const cardColor = useThemeColor({}, 'card');
   const surface = useSurface();
@@ -95,7 +99,7 @@ export default function ReorderTasksScreen() {
     });
   };
 
-  if (myTasksQuery.isLoading || categoriesQuery.isLoading) {
+  if (!screenReady || myTasksQuery.isLoading || categoriesQuery.isLoading) {
     return (
       <View style={styles.content}>
         <SkeletonCard />

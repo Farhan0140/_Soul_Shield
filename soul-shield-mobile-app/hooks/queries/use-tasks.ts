@@ -29,6 +29,14 @@ function canRead(token: string | null): boolean {
 // this is decided once, not per-render.
 const networkMode = getLocalDb() ? 'always' : 'online';
 
+/** Local reads never go stale on a timer. Every change to the local store
+ * already invalidates them (local writes, sync pulls, reconnects, a new day
+ * on resume - see lib/task-cache.ts), so a time-based staleTime only caused
+ * extra synchronous SQLite re-reads while a screen was opening (e.g. opening
+ * a category page more than 30 s after Home last read the same day). The
+ * network fallback keeps the app-wide default. */
+export const localStaleTime = getLocalDb() ? Infinity : undefined;
+
 /** Reads local-first (see lib/db/tasks-repo.ts's deriveTasksForDate — a
  * synchronous SQLite read, works for any date, online or offline) and only
  * falls back to the network when the local database genuinely isn't
@@ -44,26 +52,29 @@ export function useTasksQuery(date: string, enabled = true) {
     queryFn: () => (getLocalDb() ? deriveTasksForDate(date) : getTasks(date, token)),
     enabled: canRead(token) && enabled,
     networkMode,
+    staleTime: localStaleTime,
   });
 }
 
-export function useTaskHistoryQuery(from: string, to: string) {
+export function useTaskHistoryQuery(from: string, to: string, enabled = true) {
   const { token } = useAuth();
   return useQuery({
     queryKey: queryKeys.taskHistory(from, to),
     queryFn: () => (getLocalDb() ? deriveTasksForRange(from, to) : getTaskHistory(from, to, token)),
-    enabled: canRead(token),
+    enabled: canRead(token) && enabled,
     networkMode,
+    staleTime: localStaleTime,
   });
 }
 
 /** Every personal task, unfiltered by date — see app/reorder/*. */
-export function useMyTasksQuery() {
+export function useMyTasksQuery(enabled = true) {
   const { token } = useAuth();
   return useQuery({
     queryKey: queryKeys.myTasks,
     queryFn: () => (getLocalDb() ? deriveManageableTasks() : getMyTasks(token)),
-    enabled: canRead(token),
+    enabled: canRead(token) && enabled,
     networkMode,
+    staleTime: localStaleTime,
   });
 }

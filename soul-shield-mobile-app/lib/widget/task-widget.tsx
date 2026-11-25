@@ -505,15 +505,45 @@ async function requestRender(
   }
 }
 
+// Rendering a widget re-reads today's tasks from SQLite and builds two
+// layouts (light + dark) on the JS thread. Doing that synchronously for every
+// +1 tap (twice: the tap itself, then Home reacting to the new count)
+// competed with the tap's own screen update. So refreshes are coalesced:
+// the first request in a burst schedules one render shortly after, and every
+// request made before it runs shares it. The widget still ends up showing
+// the final value.
+const WIDGET_REFRESH_DELAY_MS = 300;
+type WidgetName = typeof OVERVIEW_WIDGET_NAME | typeof BLE_WIDGET_NAME;
+const RENDERERS: Record<WidgetName, (width: number, height: number) => WidgetRepresentation | Promise<WidgetRepresentation>> = {
+  [OVERVIEW_WIDGET_NAME]: overviewRepresentation,
+  [BLE_WIDGET_NAME]: bleRepresentation,
+};
+const scheduledRenders = new Map<WidgetName, Promise<void>>();
+
+function scheduleRender(widgetName: WidgetName): Promise<void> {
+  const pending = scheduledRenders.get(widgetName);
+  if (pending) return pending;
+  const run = new Promise<void>((resolve) => {
+    setTimeout(() => {
+      // Cleared before rendering, so a change made while this render runs
+      // schedules a fresh one instead of being folded into this one.
+      scheduledRenders.delete(widgetName);
+      requestRender(widgetName, RENDERERS[widgetName]).finally(resolve);
+    }, WIDGET_REFRESH_DELAY_MS);
+  });
+  scheduledRenders.set(widgetName, run);
+  return run;
+}
+
 /** Fresh render for the today-overview widget. */
-export async function refreshTaskWidget(): Promise<void> {
-  await requestRender(OVERVIEW_WIDGET_NAME, overviewRepresentation);
+export function refreshTaskWidget(): Promise<void> {
+  return scheduleRender(OVERVIEW_WIDGET_NAME);
 }
 
 /** Fresh render for the BLE counter widget — called on every counter change
  * (manual or ESP32) and whenever the active Bluetooth task switches. */
-export async function refreshBleCounterWidget(): Promise<void> {
-  await requestRender(BLE_WIDGET_NAME, bleRepresentation);
+export function refreshBleCounterWidget(): Promise<void> {
+  return scheduleRender(BLE_WIDGET_NAME);
 }
 
 /** One call from any counter mutation/press: refreshes both widgets. */

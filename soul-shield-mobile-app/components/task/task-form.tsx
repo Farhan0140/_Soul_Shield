@@ -17,6 +17,7 @@ import { DayOfWeekPicker } from '@/components/task/day-of-week-picker';
 import { DurationInput } from '@/components/task/duration-input';
 import { RecurrencePicker } from '@/components/task/recurrence-picker';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { KeyboardAvoidingScrollView } from '@/components/ui/keyboard-avoiding-scroll-view';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { TapShadowButton } from '@/components/ui/tap-shadow-button';
@@ -550,6 +551,19 @@ export function TaskForm({
       {/* TODO this button is for submitting the form to create or update the task (label is "Create Task" or "Save") */}
       <PrimaryButton label={submitLabel} onPress={handleSubmit} loading={submitting} disabled={!isValid} />
     </KeyboardAvoidingScrollView>
+  );
+}
+
+/** Placeholder with the form's rough shape, shown while a create/edit screen
+ * slides in (see hooks/use-screen-ready.ts). */
+export function TaskFormSkeleton() {
+  return (
+    <View style={styles.content}>
+      <SkeletonCard />
+      <SkeletonCard />
+      <SkeletonCard />
+      <SkeletonCard />
+    </View>
   );
 }
 

@@ -87,8 +87,11 @@ export default function HomeScreen() {
   }, [queryClient, tasksQuery]);
   const { isOnline } = useNetworkStatus();
   const { data: categories = [] } = useCategoriesQuery();
-  const completeTask = useCompleteTask();
-  const deleteTask = useDeleteTask(date);
+  // Only the (stable) mutate functions: the mutation objects are new on
+  // every render, which made every handler below - and so every section and
+  // card they're passed to - change on every render too.
+  const { mutate: completeTaskMutate } = useCompleteTask();
+  const { mutate: deleteTaskMutate } = useDeleteTask(date);
   useTaskRemindersSync();
 
   const tintColor = useThemeColor({}, 'tint');
@@ -156,7 +159,7 @@ export default function HomeScreen() {
 
   const handleToggleComplete = (task: Task) => {
     hapticLight();
-    completeTask.mutate(
+    completeTaskMutate(
       { taskId: task.task_id, date },
       {
         onSuccess: (data) => {
@@ -187,7 +190,7 @@ export default function HomeScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: () =>
-          deleteTask.mutate(task.task_id, {
+          deleteTaskMutate(task.task_id, {
             onError: (err) => Alert.alert('Could not delete task', getErrorMessage(err)),
           }),
       },

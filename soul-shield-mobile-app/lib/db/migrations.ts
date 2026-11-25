@@ -144,6 +144,19 @@ const MIGRATIONS: { version: number; sql: string }[] = [
       UPDATE sub_task_completions SET server_updated_at = updated_at WHERE synced_at IS NOT NULL;
     `,
   },
+  {
+    // v4: date indexes for the completion tables. Every task-list read
+    // (deriveTasksForRange: the day list, 7-day chart, history, insights,
+    // widget) and the streak chip select completions by date range alone;
+    // the existing (task_uuid, task_date) indexes can't serve that, so each
+    // read scanned every completion ever recorded - a cost that grew with
+    // every day of use. Indexes only: no data changes.
+    version: 4,
+    sql: `
+      CREATE INDEX IF NOT EXISTS idx_task_completions_date ON task_completions(task_date);
+      CREATE INDEX IF NOT EXISTS idx_sub_task_completions_date ON sub_task_completions(task_date);
+    `,
+  },
 ];
 
 export function runMigrations(db: SQLiteDatabase): void {

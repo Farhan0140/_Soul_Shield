@@ -17,20 +17,18 @@ onlineManager.setEventListener((setOnline) => {
   });
 });
 
-// QueryClient itself already resumes paused mutations on reconnect (it
-// subscribes to onlineManager in its own `mount()`), but it only refetches
-// queries for whichever screen is *currently mounted* afterwards
-// (`refetchType` defaults to 'active'). Any other cached list — e.g. a date
-// the user isn't looking at right now — is only marked stale and won't
-// actually re-fetch until they happen to navigate there, so it keeps
-// showing pre-sync data (a task that was deleted offline still "there")
-// until then. Force every cached query to refetch once queued mutations
-// have gone out, so the whole persisted offline cache reconciles with the
-// server immediately, not just the visible screen.
+// Once queued mutations have gone out after a reconnect, every cached query
+// is invalidated. Only the ones on screen re-read right away; the rest are
+// marked invalidated and re-read the moment their screen opens again (an
+// invalidated query always refetches on mount, whatever its staleTime), so
+// nothing ever shows pre-sync data. This used to force EVERY cached query to
+// re-read at once (refetchType 'all') - each one a synchronous SQLite read on
+// the JS thread, for every date and history window visited this session -
+// which froze the app for a moment on every connectivity blip.
 onlineManager.subscribe((isOnline) => {
   if (!isOnline) return;
   queryClient.resumePausedMutations().then(() => {
-    queryClient.invalidateQueries({ refetchType: 'all' });
+    queryClient.invalidateQueries();
   });
   // Every reconnect - not just once a day - triggers an immediate sync pull,
   // so "the app is online again" and "the offline window/status indicator is

@@ -3,10 +3,11 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { Task, TaskInput, TaskUpdateInput } from '@/api/types';
-import { TaskForm } from '@/components/task/task-form';
+import { TaskForm, TaskFormSkeleton } from '@/components/task/task-form';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/context/auth-context';
 import { useLocale } from '@/context/locale-context';
+import { useScreenReady } from '@/hooks/use-screen-ready';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { useCreateTask, useUpdateTask } from '@/hooks/queries/use-task-mutations';
 import { getTaskByUuid } from '@/lib/db/tasks-repo';
@@ -15,6 +16,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { cancelTaskReminders, scheduleTaskReminders } from '@/lib/notifications';
 
 export default function EditTaskScreen() {
+  const screenReady = useScreenReady();
   const { id, task: taskParam } = useLocalSearchParams<{ id: string; task: string }>();
   const { user } = useAuth();
   const { t } = useLocale();
@@ -182,14 +184,20 @@ export default function EditTaskScreen() {
   return (
     <>
       <Stack.Screen options={{ headerRight }} />
-      <TaskForm
-        initialTask={initialTask}
-        isAdmin={isAdmin}
-        submitting={updateTask.isPending}
-        error={error}
-        submitLabel={t('common.save')}
-        onSubmit={handleSubmit}
-      />
+      {/* The form is large: it renders once the screen has slid in, with a
+          skeleton until then (hooks/use-screen-ready.ts). */}
+      {screenReady ? (
+        <TaskForm
+          initialTask={initialTask}
+          isAdmin={isAdmin}
+          submitting={updateTask.isPending}
+          error={error}
+          submitLabel={t('common.save')}
+          onSubmit={handleSubmit}
+        />
+      ) : (
+        <TaskFormSkeleton />
+      )}
     </>
   );
 }

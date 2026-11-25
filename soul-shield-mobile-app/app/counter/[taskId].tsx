@@ -83,13 +83,14 @@ export default function CounterTaskScreen() {
     targetCount: !isSubTask ? ( task?.target_count ?? 0) : 0,
     onRewardEarned: (text) => setReward({ text, taskTitle: task?.title ?? '' }),
   });
-  const incrementSubTask = useIncrementSubTask();
+  const { mutate: incrementSubTaskMutate } = useIncrementSubTask();
+  const { addAmount } = buffer;
 
   const handleAdd = useCallback(
     (amount: number) => {
       if (isSubTask) {
         if (!task || !subTask) return;
-        incrementSubTask.mutate(
+        incrementSubTaskMutate(
           { taskId: task.task_id, subTaskId: subTask.sub_task_id, amount, date },
           {
             onSuccess: (data) => {
@@ -100,10 +101,10 @@ export default function CounterTaskScreen() {
           }
         );
       } else {
-        buffer.addAmount(amount);
+        addAmount(amount);
       }
     },
-    [isSubTask, task, subTask, date, incrementSubTask, buffer]
+    [isSubTask, task, subTask, date, incrementSubTaskMutate, addAmount]
   );
 
   const handleCustomConfirm = useCallback(

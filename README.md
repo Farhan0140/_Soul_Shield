@@ -151,6 +151,7 @@ Soul Shield helps you build and keep daily routines — dhikr, prayers, reading,
 
 Recent changes, newest first:
 
+- **Faster taps and navigation (mobile)** — checkbox and +1 taps show instantly; the follow-up refresh of charts, streak and history runs right after, once per burst of taps. Widgets re-render once per burst instead of twice per tap. Heavy screens (category, insights, task create/edit, reorder) appear on the tap with a skeleton and fill in after the open animation. Local reads no longer expire every 30 s, and reconnecting no longer re-reads screens that aren't open. A new on-device migration (v4) adds date indexes to the completion tables
 - **Keyboard handling (mobile)** — inputs are never hidden by the keyboard. Android apps on Expo SDK 54 are edge-to-edge, so Android no longer resizes the screen for the keyboard; the app now uses [`react-native-keyboard-controller`](https://github.com/kirillzyusko/react-native-keyboard-controller) (set up by `<KeyboardProvider>` in `app/_layout.tsx`) to scroll the focused field above the keyboard on every screen and pop-up sheet
 - **Standalone Focus Timer removed** (Profile → Tools → Timer). Timer **tasks** are unchanged. On first launch after updating, the app clears anything the old timer left behind (a pinned "Timer running" notification, a pending "Time is up" alert, its saved state and its notification channel)
 - **Ratings & feedback** — stars + message from Profile (guests included), admin Feedback page with summary, unread badge and toast, one submission per person per 24 hours

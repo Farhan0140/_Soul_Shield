@@ -44,15 +44,8 @@ import { isGuestMergePending } from '@/lib/guest-merge';
 import { mutationKeys } from '@/lib/mutation-keys';
 import { cancelTaskReminders } from '@/lib/notifications';
 import { tokenStore } from '@/lib/secure-store';
+import { invalidateTaskLists, scheduleTaskListRefresh } from '@/lib/task-cache';
 
-function invalidateTaskLists(queryClient: QueryClient) {
-  queryClient.invalidateQueries({ queryKey: ['tasks'] });
-  queryClient.invalidateQueries({ queryKey: ['taskHistory'] });
-  queryClient.invalidateQueries({ queryKey: ['myTasks'] });
-  // Streak chip's lightweight completed-dates windows (own key — NOT under
-  // taskHistory, so this never re-derives a 365-day window per tap).
-  queryClient.invalidateQueries({ queryKey: ['completedDates'] });
-}
 
 function invalidateCategoryDependents(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ['categories'] });
@@ -409,7 +402,9 @@ export const reorderCategoriesMutationFn = async (orderedUuids: string[]) => {
  * authoritative source deriveTasksForDate reads from, and
  * reconcilePushResults above already folds the server's confirmation back
  * in. `onSettled` just needs to invalidate so already-mounted screens
- * re-read (instantly, from SQLite) with the confirmed state. */
+ * re-read (instantly, from SQLite) with the confirmed state - for tap
+ * actions (complete, +1) coalesced and after the paint, see
+ * lib/task-cache.ts's scheduleTaskListRefresh. */
 export function registerMutationDefaults(queryClient: QueryClient) {
   queryClient.setMutationDefaults(mutationKeys.tasks.create, {
     mutationFn: createTaskMutationFn,
@@ -431,19 +426,19 @@ export function registerMutationDefaults(queryClient: QueryClient) {
   });
   queryClient.setMutationDefaults(mutationKeys.tasks.complete, {
     mutationFn: completeTaskMutationFn,
-    onSettled: () => invalidateTaskLists(queryClient),
+    onSettled: () => scheduleTaskListRefresh(queryClient),
   });
   queryClient.setMutationDefaults(mutationKeys.tasks.increment, {
     mutationFn: incrementTaskMutationFn,
-    onSettled: () => invalidateTaskLists(queryClient),
+    onSettled: () => scheduleTaskListRefresh(queryClient),
   });
   queryClient.setMutationDefaults(mutationKeys.tasks.completeSubTask, {
     mutationFn: completeSubTaskMutationFn,
-    onSettled: () => invalidateTaskLists(queryClient),
+    onSettled: () => scheduleTaskListRefresh(queryClient),
   });
   queryClient.setMutationDefaults(mutationKeys.tasks.incrementSubTask, {
     mutationFn: incrementSubTaskMutationFn,
-    onSettled: () => invalidateTaskLists(queryClient),
+    onSettled: () => scheduleTaskListRefresh(queryClient),
   });
   queryClient.setMutationDefaults(mutationKeys.tasks.addToMyTasks, {
     mutationFn: addTaskToMyTasksMutationFn,

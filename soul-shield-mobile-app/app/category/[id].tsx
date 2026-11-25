@@ -16,6 +16,7 @@ import { useAuth } from '@/context/auth-context';
 import { useLocale } from '@/context/locale-context';
 import { useAddTaskToMyTasks, useCompleteTask, useDeleteTask } from '@/hooks/queries/use-task-mutations';
 import { useTasksQuery } from '@/hooks/queries/use-tasks';
+import { useScreenReady } from '@/hooks/use-screen-ready';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { useSurface } from '@/hooks/use-ui-style';
 import { getGlobalCategoryRefs, type GlobalCategoryRef } from '@/lib/background-sync/pull-global';
@@ -69,9 +70,10 @@ export default function CategoryDetailScreen() {
   const [addingTaskId, setAddingTaskId] = useState<string | null>(null);
 
   const tasksQuery = useTasksQuery(date);
-  const completeTask = useCompleteTask();
-  const deleteTask = useDeleteTask(date);
-  const addToMyTasks = useAddTaskToMyTasks(date);
+  // Stable mutate functions only - see app/(tabs)/index.tsx.
+  const { mutate: completeTaskMutate } = useCompleteTask();
+  const { mutate: deleteTaskMutate } = useDeleteTask(date);
+  const { mutate: addToMyTasksMutate } = useAddTaskToMyTasks(date);
 
   const insets = useSafeAreaInsets();
   const background = useThemeColor({}, 'background');
@@ -102,7 +104,10 @@ export default function CategoryDetailScreen() {
     return all.filter((t) => t.category_id === categoryId);
   }, [specialId, categoryId, tasksQuery.data]);
 
-  const isLoading = tasksQuery.isLoading;
+  // Header shows on the tap; the task cards render once the screen has
+  // slid in (see hooks/use-screen-ready.ts), with skeletons until then.
+  const screenReady = useScreenReady();
+  const isLoading = tasksQuery.isLoading || !screenReady;
   const isError = tasksQuery.isError;
   const isSuccess = tasksQuery.isSuccess;
   const queryError = tasksQuery.error;
@@ -140,7 +145,7 @@ export default function CategoryDetailScreen() {
     });
 
   const handleToggleComplete = (task: Task) => {
-    completeTask.mutate(
+    completeTaskMutate(
       { taskId: task.task_id, date },
       {
         onSuccess: (data) => {
@@ -167,7 +172,7 @@ export default function CategoryDetailScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: () =>
-          deleteTask.mutate(task.task_id, {
+          deleteTaskMutate(task.task_id, {
             onError: (err) => Alert.alert('Could not delete task', getErrorMessage(err)),
           }),
       },
@@ -194,7 +199,7 @@ export default function CategoryDetailScreen() {
 
   const handleAddToMyTasks = (task: Task) => {
     setAddingTaskId(task.task_id);
-    addToMyTasks.mutate(task.task_id, {
+    addToMyTasksMutate(task.task_id, {
       onError: (err) => Alert.alert('Could not add task', getErrorMessage(err)),
       onSettled: () => setAddingTaskId(null),
     });

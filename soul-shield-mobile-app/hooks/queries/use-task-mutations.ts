@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 
 import type { AddToMyTasksResponse, Category, ManageableSubTask, ManageableTask, Task, TaskInput, TaskUpdateInput } from '@/api/types';
@@ -30,20 +30,14 @@ import { mutationKeys } from '@/lib/mutation-keys';
 import { cancelTaskReminders } from '@/lib/notifications';
 import { queryKeys } from '@/lib/query-keys';
 import {
+  invalidateTaskLists,
+  invalidateTaskListsSoon,
   patchSubTaskIncrementInCaches,
   patchSubTaskToggleInCaches,
   patchTaskStatusInCaches,
+  scheduleTaskListRefresh,
 } from '@/lib/task-cache';
 import { refreshAllWidgets } from '@/lib/widget/task-widget';
-
-function invalidateTaskLists(queryClient: QueryClient) {
-  queryClient.invalidateQueries({ queryKey: ['tasks'] });
-  queryClient.invalidateQueries({ queryKey: ['taskHistory'] });
-  queryClient.invalidateQueries({ queryKey: ['myTasks'] });
-  // Streak chip's lightweight completed-dates windows (own key — NOT under
-  // taskHistory, so this never re-derives a 365-day window per tap).
-  queryClient.invalidateQueries({ queryKey: ['completedDates'] });
-}
 
 function findDerivedTask(date: string, taskId: string): Task | undefined {
   return deriveTasksForDate(date).find((t) => t.task_id === taskId);
@@ -62,6 +56,7 @@ export function useCreateTask(date: string = todayISODate()) {
     mutationFn: createTaskMutationFn,
     onSettled: () => invalidateTaskLists(queryClient),
   });
+  const mutationMutate = mutation.mutate;
 
   const mutate = useCallback(
     (input: TaskInput, options?: { onError?: (error: unknown) => void }) => {
@@ -81,11 +76,11 @@ export function useCreateTask(date: string = todayISODate()) {
       if (input.sub_tasks && input.sub_tasks.length > 0) {
         replaceSubTasksForParentLocal(uuid, input.sub_tasks);
       }
-      invalidateTaskLists(queryClient);
-      mutation.mutate({ uuid }, { onError: options?.onError });
+      invalidateTaskListsSoon(queryClient);
+      mutationMutate({ uuid }, { onError: options?.onError });
       return uuid;
     },
-    [mutation, queryClient]
+    [mutationMutate, queryClient]
   );
 
   return { ...mutation, mutate };
@@ -98,6 +93,7 @@ export function useUpdateTask(date: string) {
     mutationFn: updateTaskMutationFn,
     onSettled: () => invalidateTaskLists(queryClient),
   });
+  const mutationMutate = mutation.mutate;
 
   const mutate = useCallback(
     ({ id, input }: { id: string; input: TaskUpdateInput }, options?: { onError?: (error: unknown) => void }) => {
@@ -116,10 +112,10 @@ export function useUpdateTask(date: string) {
       if (input.sub_tasks) {
         replaceSubTasksForParentLocal(id, input.sub_tasks);
       }
-      invalidateTaskLists(queryClient);
-      mutation.mutate({ uuid: id }, { onError: options?.onError });
+      invalidateTaskListsSoon(queryClient);
+      mutationMutate({ uuid: id }, { onError: options?.onError });
     },
-    [mutation, queryClient]
+    [mutationMutate, queryClient]
   );
 
   return { ...mutation, mutate };
@@ -133,14 +129,15 @@ export function useDeleteTask(date: string) {
     onSuccess: (_data, { uuid }: { uuid: string }) => cancelTaskReminders(uuid),
     onSettled: () => invalidateTaskLists(queryClient),
   });
+  const mutationMutate = mutation.mutate;
 
   const mutate = useCallback(
     (id: string, options?: { onError?: (error: unknown) => void }) => {
       softDeleteTaskLocal(id);
-      invalidateTaskLists(queryClient);
-      mutation.mutate({ uuid: id }, { onError: options?.onError });
+      invalidateTaskListsSoon(queryClient);
+      mutationMutate({ uuid: id }, { onError: options?.onError });
     },
-    [mutation, queryClient]
+    [mutationMutate, queryClient]
   );
 
   return { ...mutation, mutate };
@@ -156,8 +153,9 @@ export function useCompleteTask() {
   const mutation = useMutation({
     mutationKey: mutationKeys.tasks.complete,
     mutationFn: completeTaskMutationFn,
-    onSettled: () => invalidateTaskLists(queryClient),
+    onSettled: () => scheduleTaskListRefresh(queryClient),
   });
+  const mutationMutate = mutation.mutate;
 
   const mutate = useCallback(
     (
@@ -171,14 +169,14 @@ export function useCompleteTask() {
       // Optimistic first paint — status flips in the cached lists before any
       // refetch (the SQLite write above already happened synchronously).
       patchTaskStatusInCaches(queryClient, date, taskId, status);
-      invalidateTaskLists(queryClient);
+      scheduleTaskListRefresh(queryClient);
       void refreshAllWidgets();
-      mutation.mutate(
+      mutationMutate(
         { completionUuid },
         { onSuccess: () => options?.onSuccess?.({ status }), onError: options?.onError }
       );
     },
-    [mutation, queryClient]
+    [mutationMutate, queryClient]
   );
 
   return { ...mutation, mutate };
@@ -209,6 +207,7 @@ export function useAddTaskToMyTasks(date: string) {
       queryClient.invalidateQueries({ queryKey: queryKeys.categories });
     },
   });
+  const mutationMutate = mutation.mutate;
 
   const mutate = useCallback(
     (
@@ -220,7 +219,7 @@ export function useAddTaskToMyTasks(date: string) {
       }
     ) => {
       if (token) {
-        mutation.mutate(sourceTaskUuid, options);
+        mutationMutate(sourceTaskUuid, options);
         return;
       }
       // Guest: local copy, no network, no offline queue.
@@ -233,7 +232,7 @@ export function useAddTaskToMyTasks(date: string) {
           options?.onSettled?.();
         });
     },
-    [mutation, queryClient, token]
+    [mutationMutate, queryClient, token]
   );
 
   return { ...mutation, mutate };
@@ -248,14 +247,15 @@ export function useReorderTasks(date: string) {
     mutationFn: reorderTasksMutationFn,
     onSettled: () => invalidateTaskLists(queryClient),
   });
+  const mutationMutate = mutation.mutate;
 
   const mutate = useCallback(
     ({ categoryId, orderedIds }: { categoryId: string | null; orderedIds: string[] }) => {
       reorderTasksLocal(orderedIds);
       invalidateTaskLists(queryClient);
-      mutation.mutate({ categoryUuid: categoryId, orderedUuids: orderedIds });
+      mutationMutate({ categoryUuid: categoryId, orderedUuids: orderedIds });
     },
-    [mutation, queryClient]
+    [mutationMutate, queryClient]
   );
 
   return { ...mutation, mutate };
@@ -269,14 +269,15 @@ export function useReorderMyTasks() {
     mutationFn: reorderTasksMutationFn,
     onSettled: () => invalidateTaskLists(queryClient),
   });
+  const mutationMutate = mutation.mutate;
 
   const mutate = useCallback(
     ({ categoryId, orderedIds }: { categoryId: string | null; orderedIds: string[] }) => {
       reorderTasksLocal(orderedIds);
       invalidateTaskLists(queryClient);
-      mutation.mutate({ categoryUuid: categoryId, orderedUuids: orderedIds });
+      mutationMutate({ categoryUuid: categoryId, orderedUuids: orderedIds });
     },
-    [mutation, queryClient]
+    [mutationMutate, queryClient]
   );
 
   return { ...mutation, mutate };
@@ -292,14 +293,15 @@ export function useReorderMySubTasks() {
     mutationFn: updateTaskMutationFn,
     onSettled: () => invalidateTaskLists(queryClient),
   });
+  const mutationMutate = mutation.mutate;
 
   const mutate = useCallback(
     ({ id, input }: { id: string; input: TaskUpdateInput }) => {
       if (input.sub_tasks) replaceSubTasksForParentLocal(id, input.sub_tasks);
       invalidateTaskLists(queryClient);
-      mutation.mutate({ uuid: id });
+      mutationMutate({ uuid: id });
     },
-    [mutation, queryClient]
+    [mutationMutate, queryClient]
   );
 
   return { ...mutation, mutate };
@@ -326,8 +328,9 @@ export function useCompleteSubTask() {
   const mutation = useMutation({
     mutationKey: mutationKeys.tasks.completeSubTask,
     mutationFn: completeSubTaskMutationFn,
-    onSettled: () => invalidateTaskLists(queryClient),
+    onSettled: () => scheduleTaskListRefresh(queryClient),
   });
+  const mutationMutate = mutation.mutate;
 
   const mutate = useCallback(
     (
@@ -344,9 +347,9 @@ export function useCompleteSubTask() {
         subTaskId,
         status,
       });
-      invalidateTaskLists(queryClient);
+      scheduleTaskListRefresh(queryClient);
       void refreshAllWidgets();
-      mutation.mutate(
+      mutationMutate(
         { completionUuid },
         {
           onSuccess: () => {
@@ -356,7 +359,7 @@ export function useCompleteSubTask() {
         }
       );
     },
-    [mutation, queryClient]
+    [mutationMutate, queryClient]
   );
 
   return { ...mutation, mutate };
@@ -377,8 +380,9 @@ export function useIncrementSubTask() {
   const mutation = useMutation({
     mutationKey: mutationKeys.tasks.incrementSubTask,
     mutationFn: incrementSubTaskMutationFn,
-    onSettled: () => invalidateTaskLists(queryClient),
+    onSettled: () => scheduleTaskListRefresh(queryClient),
   });
+  const mutationMutate = mutation.mutate;
 
   const mutate = useCallback(
     (
@@ -413,9 +417,9 @@ export function useIncrementSubTask() {
         amount,
         targetCount: subTargetCount,
       });
-      invalidateTaskLists(queryClient);
+      scheduleTaskListRefresh(queryClient);
       void refreshAllWidgets();
-      mutation.mutate(
+      mutationMutate(
         { completionUuid, amount },
         {
           onSuccess: () => {
@@ -425,7 +429,7 @@ export function useIncrementSubTask() {
         }
       );
     },
-    [mutation, queryClient]
+    [mutationMutate, queryClient]
   );
 
   return { ...mutation, mutate };

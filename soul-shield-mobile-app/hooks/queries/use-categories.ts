@@ -4,6 +4,7 @@ import { getCategories } from '@/api/categories';
 import { useAuth } from '@/context/auth-context';
 import { deriveCategories } from '@/lib/db/categories-repo';
 import { getLocalDb } from '@/lib/db/client';
+import { localStaleTime } from '@/hooks/queries/use-tasks';
 import { queryKeys } from '@/lib/query-keys';
 
 /** Local-first read with a network fallback for when the local database
@@ -18,5 +19,7 @@ export function useCategoriesQuery() {
     // Local reads need no account (guest mode); the network fallback does.
     enabled: !!getLocalDb() || !!token,
     networkMode: getLocalDb() ? 'always' : 'online',
+    // See use-tasks.ts's localStaleTime.
+    staleTime: localStaleTime,
   });
 }

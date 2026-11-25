@@ -141,7 +141,7 @@ export function SubTaskList({ taskId, subTasks, date, disabled, onRewardEarned }
   const borderColor = useThemeColor({}, 'border');
   const successColor = useThemeColor({}, 'success');
   const completeSubTask = useCompleteSubTask();
-  const incrementSubTask = useIncrementSubTask();
+  const { mutate: incrementSubTaskMutate } = useIncrementSubTask();
 
   const [page, setPage] = useState(1);
   // Collapsed by default — the requirement spec for the Completed section.
@@ -193,7 +193,7 @@ export function SubTaskList({ taskId, subTasks, date, disabled, onRewardEarned }
     });
 
   const handleIncrement = (subTask: SubTask, amount: number) => {
-    incrementSubTask.mutate(
+    incrementSubTaskMutate(
       { taskId, subTaskId: subTask.sub_task_id, amount, date },
       {
         onSuccess: (data) => {

@@ -11,6 +11,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import 'react-native-reanimated';
 
 import { runForegroundSyncIfDue } from '@/lib/background-sync/sync';
+import { invalidateTaskListsIfDayChanged } from '@/lib/task-cache';
 // The background task definitions themselves load from index.ts (they must
 // exist on headless launches too); this only schedules the daily sync.
 import { registerBackgroundSync } from '@/lib/background-sync/task';
@@ -121,7 +122,9 @@ export default function RootLayout() {
     // a resume from background while already online is neither of those.
     runForegroundSyncIfDue(queryClient);
     const appStateSubscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') runForegroundSyncIfDue(queryClient);
+      if (state !== 'active') return;
+      invalidateTaskListsIfDayChanged(queryClient);
+      runForegroundSyncIfDue(queryClient);
     });
 
     // Tapping a Timer Task notification (running or completion) opens its

@@ -8,6 +8,7 @@ import { useSurface } from '@/hooks/use-ui-style';
 export function SkeletonCard() {
   const opacity = useRef(new Animated.Value(0.5)).current;
   const cardColor = useThemeColor({}, 'card');
+  const lineColor = useThemeColor({}, 'border');
   const surface = useSurface();
 
   useEffect(() => {
@@ -24,8 +25,8 @@ export function SkeletonCard() {
   return (
     <Animated.View style={[styles.card, { backgroundColor: cardColor, opacity }, surface('card')]}>
       <ThemeDecor kind="card" />
-      <Animated.View style={[styles.line, styles.title, { backgroundColor: cardColor }]} />
-      <Animated.View style={[styles.line, styles.subtitle, { backgroundColor: cardColor }]} />
+      <Animated.View style={[styles.line, styles.title, { backgroundColor: lineColor }]} />
+      <Animated.View style={[styles.line, styles.subtitle, { backgroundColor: lineColor }]} />
     </Animated.View>
   );
 }

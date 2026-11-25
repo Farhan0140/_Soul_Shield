@@ -34,15 +34,16 @@ export function useCreateCategory() {
     mutationFn: createCategoryMutationFn,
     onSettled: () => invalidateCategoryDependents(queryClient),
   });
+  const mutationMutate = mutation.mutate;
 
   const mutate = useCallback(
     (input: { name: string; color_hex?: string }, options?: MutateOptions) => {
       const uuid = newUuid();
       createCategoryLocal(uuid, { name: input.name, colorHex: input.color_hex ?? '#CCCCCC' });
       invalidateCategoryDependents(queryClient);
-      mutation.mutate({ uuid }, { onSuccess: options?.onSuccess, onError: options?.onError });
+      mutationMutate({ uuid }, { onSuccess: options?.onSuccess, onError: options?.onError });
     },
-    [mutation, queryClient]
+    [mutationMutate, queryClient]
   );
 
   return { ...mutation, mutate };
@@ -55,14 +56,15 @@ export function useUpdateCategory() {
     mutationFn: updateCategoryMutationFn,
     onSettled: () => invalidateCategoryDependents(queryClient),
   });
+  const mutationMutate = mutation.mutate;
 
   const mutate = useCallback(
     ({ id, input }: { id: string; input: { name?: string; color_hex?: string } }, options?: MutateOptions) => {
       updateCategoryLocal(id, { name: input.name, colorHex: input.color_hex });
       invalidateCategoryDependents(queryClient);
-      mutation.mutate({ uuid: id }, { onSuccess: options?.onSuccess, onError: options?.onError });
+      mutationMutate({ uuid: id }, { onSuccess: options?.onSuccess, onError: options?.onError });
     },
-    [mutation, queryClient]
+    [mutationMutate, queryClient]
   );
 
   return { ...mutation, mutate };
@@ -76,14 +78,15 @@ export function useReorderCategories() {
     mutationFn: reorderCategoriesMutationFn,
     onSettled: () => invalidateCategoryDependents(queryClient),
   });
+  const mutationMutate = mutation.mutate;
 
   const mutate = useCallback(
     (orderedIds: string[], options?: MutateOptions) => {
       reorderCategoriesLocal(orderedIds);
       invalidateCategoryDependents(queryClient);
-      mutation.mutate(orderedIds, { onError: options?.onError });
+      mutationMutate(orderedIds, { onError: options?.onError });
     },
-    [mutation, queryClient]
+    [mutationMutate, queryClient]
   );
 
   return { ...mutation, mutate };
@@ -96,14 +99,15 @@ export function useDeleteCategory() {
     mutationFn: deleteCategoryMutationFn,
     onSettled: () => invalidateCategoryDependents(queryClient),
   });
+  const mutationMutate = mutation.mutate;
 
   const mutate = useCallback(
     (id: string, options?: MutateOptions) => {
       softDeleteCategoryLocal(id);
       invalidateCategoryDependents(queryClient);
-      mutation.mutate({ uuid: id }, { onError: options?.onError });
+      mutationMutate({ uuid: id }, { onError: options?.onError });
     },
-    [mutation, queryClient]
+    [mutationMutate, queryClient]
   );
 
   return { ...mutation, mutate };

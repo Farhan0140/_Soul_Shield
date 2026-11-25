@@ -11,6 +11,7 @@ import { PrimaryButton } from '@/components/ui/primary-button';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { useLocale } from '@/context/locale-context';
 import { useTaskHistoryQuery } from '@/hooks/queries/use-tasks';
+import { useScreenReady } from '@/hooks/use-screen-ready';
 import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { useSurface } from '@/hooks/use-ui-style';
@@ -45,7 +46,10 @@ export default function InsightsScreen() {
 
   const today = todayISODate();
   const from = addDays(today, -(rangeDays - 1));
-  const { data: history, isPending, isError } = useTaskHistoryQuery(from, today);
+  // The 30/90-day read is the heavy part of this screen: it starts once the
+  // screen has slid in (skeleton until then) - see hooks/use-screen-ready.ts.
+  const screenReady = useScreenReady();
+  const { data: history, isPending, isError } = useTaskHistoryQuery(from, today, screenReady);
 
   const stats = useMemo(() => computeInsightStats(history ?? []), [history]);
 

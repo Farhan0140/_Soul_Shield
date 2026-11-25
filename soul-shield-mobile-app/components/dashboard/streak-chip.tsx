@@ -40,6 +40,8 @@ export function StreakChip() {
     queryKey: ['completedDates', from, today],
     queryFn: () => listOwnCompletedDatesInRange(from, today),
     networkMode: 'always',
+    // Local read - see hooks/queries/use-tasks.ts's localStaleTime.
+    staleTime: Infinity,
   });
 
   // Only read the shown-milestone list once per session; new milestones are

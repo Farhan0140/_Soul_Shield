@@ -7,6 +7,63 @@ import { todayISODate } from '@/lib/date';
 
 type TaskUpdater = (task: Task) => Task;
 
+/** Every query that reads the local SQLite store's tasks/completions. */
+export function invalidateTaskLists(queryClient: QueryClient): void {
+  queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  queryClient.invalidateQueries({ queryKey: ['taskHistory'] });
+  queryClient.invalidateQueries({ queryKey: ['myTasks'] });
+  // Streak chip's lightweight completed-dates windows (own key — NOT under
+  // taskHistory, so this never re-derives a 365-day window per tap).
+  queryClient.invalidateQueries({ queryKey: ['completedDates'] });
+}
+
+/** For create/edit/delete: the local write is already done; the lists re-read
+ * right after the current tap handler returns instead of inside it, so the
+ * screen that triggered it (e.g. "Save" then close) starts closing without
+ * first waiting for every open list to be re-read from SQLite. */
+export function invalidateTaskListsSoon(queryClient: QueryClient): void {
+  setTimeout(() => invalidateTaskLists(queryClient), 0);
+}
+
+let lastSeenDay = todayISODate();
+
+/** Local reads don't expire on a timer (see hooks/queries/use-tasks.ts's
+ * localStaleTime), but what they show depends on which day it is (an
+ * unfinished task from yesterday reads as "missed", not "pending"). Called
+ * when the app comes back to the foreground: on a new day, re-read. */
+export function invalidateTaskListsIfDayChanged(queryClient: QueryClient): void {
+  const today = todayISODate();
+  if (today === lastSeenDay) return;
+  lastSeenDay = today;
+  invalidateTaskLists(queryClient);
+}
+
+/** How long a tap's follow-up refresh waits. Long enough that a burst of
+ * taps (+1 +1 +1…) shares one refresh, short enough that the 7-day chart /
+ * streak / history catch up while the user is still looking. */
+const TAP_REFRESH_DELAY_MS = 250;
+const pendingTapRefresh = new WeakMap<QueryClient, ReturnType<typeof setTimeout>>();
+
+/** For tap actions (complete, +1) whose result is ALREADY on screen through
+ * an optimistic cache patch. Re-reading every open list (day list, 7-day
+ * chart, reminder window, history, streak) is synchronous SQLite work on
+ * the JS thread: doing it right in the tap handler held the patched value
+ * back from the screen until all of it finished - the "tap, wait, then it
+ * updates" lag. So it runs shortly after, once per burst of taps (the first
+ * tap schedules it, later taps ride along; never postponed indefinitely).
+ * The local SQLite write already happened synchronously, so whatever reads
+ * in the meantime still sees the new value. */
+export function scheduleTaskListRefresh(queryClient: QueryClient): void {
+  if (pendingTapRefresh.has(queryClient)) return;
+  pendingTapRefresh.set(
+    queryClient,
+    setTimeout(() => {
+      pendingTapRefresh.delete(queryClient);
+      invalidateTaskLists(queryClient);
+    }, TAP_REFRESH_DELAY_MS)
+  );
+}
+
 /** Snapshot of queryKeys.tasks(date) before an optimistic patch, so onError
  * can put back exactly what was there. */
 export function snapshotTaskCaches(queryClient: QueryClient, date: string): Task[] | undefined {

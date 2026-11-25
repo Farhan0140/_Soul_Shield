@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useTaskHistoryQuery } from '@/hooks/queries/use-tasks';
 import { addDays, todayISODate } from '@/lib/date';
@@ -13,12 +13,18 @@ import { syncAllTaskReminders } from '@/lib/notifications';
 export function useTaskRemindersSync() {
   const from = todayISODate();
   const to = addDays(from, 6);
-  const query = useTaskHistoryQuery(from, to);
+  // Reminders are synced once per mount, so the window is only read until
+  // then. Left enabled, this query stayed live on Home and re-derived a
+  // whole week from SQLite after every tap that refreshed task lists, for a
+  // result nothing used any more.
+  const [synced, setSynced] = useState(false);
+  const query = useTaskHistoryQuery(from, to, !synced);
   const syncedRef = useRef(false);
 
   useEffect(() => {
     if (syncedRef.current || !query.data) return;
     syncedRef.current = true;
     syncAllTaskReminders(query.data);
+    setSynced(true);
   }, [query.data]);
 }

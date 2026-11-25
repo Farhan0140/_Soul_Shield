@@ -2,9 +2,10 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 
 import type { TaskInput, TaskUpdateInput } from '@/api/types';
-import { TaskForm } from '@/components/task/task-form';
+import { TaskForm, TaskFormSkeleton } from '@/components/task/task-form';
 import { useAuth } from '@/context/auth-context';
 import { useCreateTask } from '@/hooks/queries/use-task-mutations';
+import { useScreenReady } from '@/hooks/use-screen-ready';
 import { getErrorMessage } from '@/lib/errors';
 import { scheduleTaskReminders } from '@/lib/notifications';
 
@@ -15,6 +16,7 @@ export default function NewTaskScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const isAdmin = user?.role === 'admin';
+  const screenReady = useScreenReady();
 
   // TaskForm always emits a fully-populated TaskInput in create mode. The
   // new task's uuid is known synchronously (the local SQLite write already
@@ -37,6 +39,8 @@ export default function NewTaskScreen() {
     });
     router.back();
   };
+
+  if (!screenReady) return <TaskFormSkeleton />;
 
   return (
     <TaskForm
