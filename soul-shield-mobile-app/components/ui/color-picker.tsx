@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { PanResponder, StyleSheet, TextInput, View, type GestureResponderEvent } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { useScrollToFocusedInput } from '@/components/ui/keyboard-avoiding-scroll-view';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { hexToHsv, hsvToHex, isValidHex, type HSV } from '@/lib/color';
 
@@ -27,7 +26,6 @@ interface ColorPickerProps {
  * picker library, since react-native-reanimated 4's worklets runtime broke
  * compatibility with most existing RN color-picker packages. */
 export function ColorPicker({ value, onChange, label = 'Color' }: ColorPickerProps) {
-  const scrollToFocusedInput = useScrollToFocusedInput();
   const borderColor = useThemeColor({}, 'border');
   const cardColor = useThemeColor({}, 'card');
   const textColor = useThemeColor({}, 'text');
@@ -126,7 +124,6 @@ export function ColorPicker({ value, onChange, label = 'Color' }: ColorPickerPro
         <TextInput
           value={hexInput}
           onChangeText={handleHexChange}
-          onFocus={scrollToFocusedInput}
           autoCapitalize="characters"
           autoCorrect={false}
           maxLength={7}

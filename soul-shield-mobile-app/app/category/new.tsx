@@ -1,4 +1,3 @@
-import { useHeaderHeight } from '@react-navigation/elements';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet } from 'react-native';
@@ -10,7 +9,6 @@ import { useNetworkStatus } from '@/hooks/use-network-status';
 import { getErrorMessage } from '@/lib/errors';
 
 export default function NewCategoryScreen() {
-  const headerHeight = useHeaderHeight();
   const { isOnline } = useNetworkStatus();
   const createCategory = useCreateCategory();
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +25,7 @@ export default function NewCategoryScreen() {
   };
 
   return (
-    <KeyboardAvoidingScrollView keyboardVerticalOffset={headerHeight} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingScrollView contentContainerStyle={styles.content}>
       <CategoryForm
         submitting={createCategory.isPending}
         error={error}

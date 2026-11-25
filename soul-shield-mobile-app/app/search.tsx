@@ -1,10 +1,11 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { KeyboardAvoidingScrollView } from '@/components/ui/keyboard-avoiding-scroll-view';
 import { TextField } from '@/components/ui/text-field';
 import { useLocale } from '@/context/locale-context';
 import { ThemeDecor } from '@/components/ui/theme-decor';
@@ -59,7 +60,7 @@ export default function SearchScreen() {
   };
 
   return (
-    <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
+    <KeyboardAvoidingScrollView contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <Pressable accessibilityLabel="Back" onPress={() => router.back()} hitSlop={8} accessibilityRole="button">
           <IconSymbol name="chevron.left" size={22} color={tint} />
@@ -107,7 +108,7 @@ export default function SearchScreen() {
           ))}
         </View>
       )}
-    </ScrollView>
+    </KeyboardAvoidingScrollView>
   );
 }
 

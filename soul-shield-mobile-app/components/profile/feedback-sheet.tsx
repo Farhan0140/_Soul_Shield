@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FeedbackCooldownError, MAX_FEEDBACK_LENGTH, formatWait, submitFeedback } from '@/api/feedback';
@@ -132,7 +133,9 @@ export function FeedbackSheet({ visible, initialRating, onClose, onSubmitted, on
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* Lifts the sheet above the keyboard. Both platforms: Android is
+          edge-to-edge, so it no longer resizes for the keyboard itself. */}
+      <KeyboardAvoidingView style={styles.avoider} behavior="padding">
         <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('feedback.close')}>
           {/* Swallow taps inside the sheet so they don't reach the backdrop's close handler. */}
           <Pressable
@@ -140,7 +143,10 @@ export function FeedbackSheet({ visible, initialRating, onClose, onSubmitted, on
             style={[styles.sheet, { backgroundColor: cardColor, paddingBottom: insets.bottom + 20 }, surface('sheet')]}>
             <ThemeDecor kind="sheet" />
             <View style={[styles.handle, { backgroundColor: borderColor }]} />
-            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body}>
+            <KeyboardAwareScrollView
+              bottomOffset={16}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.body}>
               {sent ? (
                 <View style={styles.thanks}>
                   <IconSymbol name="checkmark.circle.fill" size={48} color={successColor} />
@@ -185,7 +191,7 @@ export function FeedbackSheet({ visible, initialRating, onClose, onSubmitted, on
                   <PrimaryButton label={t('feedback.cancel')} variant="secondary" onPress={onClose} />
                 </>
               )}
-            </ScrollView>
+            </KeyboardAwareScrollView>
           </Pressable>
         </Pressable>
       </KeyboardAvoidingView>
@@ -194,8 +200,8 @@ export function FeedbackSheet({ visible, initialRating, onClose, onSubmitted, on
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)', justifyContent: 'flex-end' },
+  avoider: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)' },
+  backdrop: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,

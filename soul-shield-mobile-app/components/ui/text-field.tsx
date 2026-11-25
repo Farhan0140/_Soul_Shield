@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, type TextInputProps, type TextStyle, View } from 'react-native';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { useScrollToFocusedInput } from '@/components/ui/keyboard-avoiding-scroll-view';
 import { ThemeDecor } from '@/components/ui/theme-decor';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { hexToRgba } from '@/lib/color';
@@ -34,7 +33,6 @@ export function TextField({
   // U6: password fields get a show/hide toggle, so a typo can be checked.
   const [revealed, setRevealed] = useState(false);
   const isPassword = !!secureTextEntry;
-  const scrollToFocusedInput = useScrollToFocusedInput();
   const textColor = useThemeColor({}, 'text');
   const borderColor = useThemeColor({}, 'border');
   const mutedColor = useThemeColor({}, 'muted');
@@ -67,7 +65,6 @@ export function TextField({
           accessibilityLabel={label}
           onFocus={(e) => {
             setFocused(true);
-            scrollToFocusedInput?.(e);
             onFocus?.(e);
           }}
           onBlur={(e) => {

@@ -1,4 +1,3 @@
-import { useHeaderHeight } from '@react-navigation/elements';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
@@ -105,7 +104,6 @@ export function TaskForm({
   // draw their own outline, so the extra frame is dropped there.
   const typeOptionWrap = handDrawn ? styles.typeOptionPlain : styles.typeOptionFramed;
   const isEditMode = Boolean(initialTask);
-  const headerHeight = useHeaderHeight();
 
   const [title, setTitle] = useState(initialTask?.title ?? '');
   const [description, setDescription] = useState(initialTask?.description ?? '');
@@ -276,7 +274,7 @@ export function TaskForm({
   };
 
   return (
-    <KeyboardAvoidingScrollView keyboardVerticalOffset={headerHeight} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingScrollView contentContainerStyle={styles.content}>
       <TextField
         label="Title"
         value={title}

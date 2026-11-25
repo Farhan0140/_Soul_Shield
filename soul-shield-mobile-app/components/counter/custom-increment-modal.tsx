@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, TextInput, View, type TextStyle } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -52,66 +53,69 @@ export function CustomIncrementModal({ visible, onClose, onConfirm }: CustomIncr
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <Pressable style={styles.backdrop} onPress={handleClose}>
-        <Pressable
-          onPress={(e) => e.stopPropagation()}
-          style={[styles.card, { backgroundColor: cardColor }, surface('modal')]}>
-          <ThemeDecor kind="modal" />
-          <View style={styles.headerRow}>
-            <ThemedText type="subtitle" style={styles.headerTitle}>
-              Add Custom Amount
-            </ThemedText>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={handleClose} hitSlop={10}>
-              <IconSymbol name="xmark" size={20} color={mutedColor} />
-            </Pressable>
-          </View>
-
-          <View>
-          <ThemeDecor kind="input" stroke={isInvalid ? dangerColor : undefined} />
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            keyboardType="number-pad"
-            inputMode="numeric"
-            placeholder="Enter amount"
-            placeholderTextColor={mutedColor}
-            autoFocus
-            style={[
-              styles.input,
-              { borderColor: isInvalid ? dangerColor : borderColor, color: textColor },
-              surface('input') as TextStyle | undefined,
-              surface('input') && isInvalid ? { borderColor: dangerColor } : null,
-              handFont.body,
-            ]}
-          />
-          </View>
-          {isInvalid ? (
-            <ThemedText style={[styles.error, { color: dangerColor }]}>
-              Enter a whole number greater than 0.
-            </ThemedText>
-          ) : null}
-
+      {/* Keeps the card (and its input) above the keyboard. */}
+      <KeyboardAvoidingView behavior="padding" style={styles.avoider}>
+        <Pressable style={styles.backdrop} onPress={handleClose}>
           <Pressable
-            disabled={amount === null}
-            onPress={handleConfirm}
-            style={({ pressed }) => [
-              styles.confirmButton,
-              { backgroundColor: tintColor, opacity: amount === null ? 0.4 : pressed ? 0.85 : 1 },
-              surface('button'),
-            ]}>
-            <ThemeDecor kind="button" hatch={tintColor} />
-            <ThemedText style={[styles.confirmLabel, { color: onAccent }]}>{amount !== null ? `Add ${amount}` : 'Add'}</ThemedText>
+            onPress={(e) => e.stopPropagation()}
+            style={[styles.card, { backgroundColor: cardColor }, surface('modal')]}>
+            <ThemeDecor kind="modal" />
+            <View style={styles.headerRow}>
+              <ThemedText type="subtitle" style={styles.headerTitle}>
+                Add Custom Amount
+              </ThemedText>
+              <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={handleClose} hitSlop={10}>
+                <IconSymbol name="xmark" size={20} color={mutedColor} />
+              </Pressable>
+            </View>
+
+            <View>
+            <ThemeDecor kind="input" stroke={isInvalid ? dangerColor : undefined} />
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              keyboardType="number-pad"
+              inputMode="numeric"
+              placeholder="Enter amount"
+              placeholderTextColor={mutedColor}
+              autoFocus
+              style={[
+                styles.input,
+                { borderColor: isInvalid ? dangerColor : borderColor, color: textColor },
+                surface('input') as TextStyle | undefined,
+                surface('input') && isInvalid ? { borderColor: dangerColor } : null,
+                handFont.body,
+              ]}
+            />
+            </View>
+            {isInvalid ? (
+              <ThemedText style={[styles.error, { color: dangerColor }]}>
+                Enter a whole number greater than 0.
+              </ThemedText>
+            ) : null}
+
+            <Pressable
+              disabled={amount === null}
+              onPress={handleConfirm}
+              style={({ pressed }) => [
+                styles.confirmButton,
+                { backgroundColor: tintColor, opacity: amount === null ? 0.4 : pressed ? 0.85 : 1 },
+                surface('button'),
+              ]}>
+              <ThemeDecor kind="button" hatch={tintColor} />
+              <ThemedText style={[styles.confirmLabel, { color: onAccent }]}>{amount !== null ? `Add ${amount}` : 'Add'}</ThemedText>
+            </Pressable>
           </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  avoider: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)' },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,

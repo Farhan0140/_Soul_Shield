@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, TextInput, View, type TextStyle } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -90,119 +91,122 @@ export function DurationInput({ selection, onChange, disabled }: DurationInputPr
       </TapShadowButton>
 
       <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-        <Pressable style={styles.backdrop} onPress={handleClose}>
-          <Pressable onPress={(e) => e.stopPropagation()} style={[styles.card, { backgroundColor: cardColor }, surface('modal')]}>
-            <ThemeDecor kind="modal" />
-            <View style={styles.headerRow}>
-              <ThemedText type="subtitle" style={styles.headerTitle}>
-                Set Duration
+        {/* Keeps the card (and its input) above the keyboard. */}
+        <KeyboardAvoidingView behavior="padding" style={styles.avoider}>
+          <Pressable style={styles.backdrop} onPress={handleClose}>
+            <Pressable onPress={(e) => e.stopPropagation()} style={[styles.card, { backgroundColor: cardColor }, surface('modal')]}>
+              <ThemeDecor kind="modal" />
+              <View style={styles.headerRow}>
+                <ThemedText type="subtitle" style={styles.headerTitle}>
+                  Set Duration
+                </ThemedText>
+                {/* TODO this button is for closing the duration picker modal without saving */}
+                <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={handleClose} hitSlop={10}>
+                  <IconSymbol name="xmark" size={20} color={mutedColor} />
+                </Pressable>
+              </View>
+
+              <ThemedText style={[styles.preview, { color: textColor }]}>
+                {pad(draft.hours)} : {pad(draft.minutes)} : {pad(draft.seconds)}
               </ThemedText>
-              {/* TODO this button is for closing the duration picker modal without saving */}
-              <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={handleClose} hitSlop={10}>
-                <IconSymbol name="xmark" size={20} color={mutedColor} />
+
+              <View style={styles.fieldsRow}>
+                <View style={styles.field}>
+                  <View>
+                  <ThemeDecor kind="input" />
+                  <TextInput
+                    value={draft.hours > 0 ? String(draft.hours) : ''}
+                    onChangeText={(text) => setDraft((d) => ({ ...d, hours: clamp(text, 23) }))}
+                    keyboardType="number-pad"
+                    placeholder="0"
+                    placeholderTextColor={mutedColor}
+                    selectTextOnFocus
+                    style={[styles.fieldInput, { borderColor, color: textColor }, fieldSurface, handFont.body]}
+                  />
+                  </View>
+                  <ThemedText style={[styles.fieldLabel, { color: mutedColor }]}>h</ThemedText>
+                </View>
+                <View style={styles.field}>
+                  <View>
+                  <ThemeDecor kind="input" />
+                  <TextInput
+                    value={draft.minutes > 0 ? String(draft.minutes) : ''}
+                    onChangeText={(text) => setDraft((d) => ({ ...d, minutes: clamp(text, 59) }))}
+                    keyboardType="number-pad"
+                    placeholder="0"
+                    placeholderTextColor={mutedColor}
+                    selectTextOnFocus
+                    style={[styles.fieldInput, { borderColor, color: textColor }, fieldSurface, handFont.body]}
+                  />
+                  </View>
+                  <ThemedText style={[styles.fieldLabel, { color: mutedColor }]}>m</ThemedText>
+                </View>
+                <View style={styles.field}>
+                  <View>
+                  <ThemeDecor kind="input" />
+                  <TextInput
+                    value={draft.seconds > 0 ? String(draft.seconds) : ''}
+                    onChangeText={(text) => setDraft((d) => ({ ...d, seconds: clamp(text, 59) }))}
+                    keyboardType="number-pad"
+                    placeholder="0"
+                    placeholderTextColor={mutedColor}
+                    selectTextOnFocus
+                    style={[styles.fieldInput, { borderColor, color: textColor }, fieldSurface, handFont.body]}
+                  />
+                  </View>
+                  <ThemedText style={[styles.fieldLabel, { color: mutedColor }]}>s</ThemedText>
+                </View>
+              </View>
+
+              <View style={styles.presetRow}>
+                {PRESET_MINUTES.map((minutes) => {
+                  const active = activePresetMinutes === minutes;
+                  const label = minutes < 60 ? `${minutes} min` : `${minutes / 60} hr`;
+                  return (
+                    // TODO this chip is for quickly setting the duration to a common preset value
+                    <Pressable
+                      key={minutes}
+                      onPress={() => applyPresetMinutes(minutes)}
+                      style={[
+                        styles.chip,
+                        {
+                          borderColor: active ? tintColor : borderColor,
+                          backgroundColor: active ? tintColor : 'transparent',
+                        },
+                        surface('chip'),
+                        surface('chip') && { borderColor: active ? tintColor : borderColor },
+                      ]}>
+                      <ThemeDecor kind="chip" hatch={active ? tintColor : undefined} />
+                      <ThemedText style={[styles.chipLabel, { color: active ? onAccent : textColor }]}>{label}</ThemedText>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* TODO this button is for confirming the selected duration and closing the modal */}
+              <Pressable
+                disabled={isZero}
+                onPress={handleConfirm}
+                style={({ pressed }) => [
+                  styles.confirmButton,
+                  { backgroundColor: tintColor, opacity: isZero ? 0.4 : pressed ? 0.85 : 1 },
+                  surface('button'),
+                ]}>
+                <ThemeDecor kind="button" hatch={tintColor} />
+                <ThemedText style={[styles.confirmLabel, { color: onAccent }]}>Done</ThemedText>
               </Pressable>
-            </View>
-
-            <ThemedText style={[styles.preview, { color: textColor }]}>
-              {pad(draft.hours)} : {pad(draft.minutes)} : {pad(draft.seconds)}
-            </ThemedText>
-
-            <View style={styles.fieldsRow}>
-              <View style={styles.field}>
-                <View>
-                <ThemeDecor kind="input" />
-                <TextInput
-                  value={draft.hours > 0 ? String(draft.hours) : ''}
-                  onChangeText={(text) => setDraft((d) => ({ ...d, hours: clamp(text, 23) }))}
-                  keyboardType="number-pad"
-                  placeholder="0"
-                  placeholderTextColor={mutedColor}
-                  selectTextOnFocus
-                  style={[styles.fieldInput, { borderColor, color: textColor }, fieldSurface, handFont.body]}
-                />
-                </View>
-                <ThemedText style={[styles.fieldLabel, { color: mutedColor }]}>h</ThemedText>
-              </View>
-              <View style={styles.field}>
-                <View>
-                <ThemeDecor kind="input" />
-                <TextInput
-                  value={draft.minutes > 0 ? String(draft.minutes) : ''}
-                  onChangeText={(text) => setDraft((d) => ({ ...d, minutes: clamp(text, 59) }))}
-                  keyboardType="number-pad"
-                  placeholder="0"
-                  placeholderTextColor={mutedColor}
-                  selectTextOnFocus
-                  style={[styles.fieldInput, { borderColor, color: textColor }, fieldSurface, handFont.body]}
-                />
-                </View>
-                <ThemedText style={[styles.fieldLabel, { color: mutedColor }]}>m</ThemedText>
-              </View>
-              <View style={styles.field}>
-                <View>
-                <ThemeDecor kind="input" />
-                <TextInput
-                  value={draft.seconds > 0 ? String(draft.seconds) : ''}
-                  onChangeText={(text) => setDraft((d) => ({ ...d, seconds: clamp(text, 59) }))}
-                  keyboardType="number-pad"
-                  placeholder="0"
-                  placeholderTextColor={mutedColor}
-                  selectTextOnFocus
-                  style={[styles.fieldInput, { borderColor, color: textColor }, fieldSurface, handFont.body]}
-                />
-                </View>
-                <ThemedText style={[styles.fieldLabel, { color: mutedColor }]}>s</ThemedText>
-              </View>
-            </View>
-
-            <View style={styles.presetRow}>
-              {PRESET_MINUTES.map((minutes) => {
-                const active = activePresetMinutes === minutes;
-                const label = minutes < 60 ? `${minutes} min` : `${minutes / 60} hr`;
-                return (
-                  // TODO this chip is for quickly setting the duration to a common preset value
-                  <Pressable
-                    key={minutes}
-                    onPress={() => applyPresetMinutes(minutes)}
-                    style={[
-                      styles.chip,
-                      {
-                        borderColor: active ? tintColor : borderColor,
-                        backgroundColor: active ? tintColor : 'transparent',
-                      },
-                      surface('chip'),
-                      surface('chip') && { borderColor: active ? tintColor : borderColor },
-                    ]}>
-                    <ThemeDecor kind="chip" hatch={active ? tintColor : undefined} />
-                    <ThemedText style={[styles.chipLabel, { color: active ? onAccent : textColor }]}>{label}</ThemedText>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {/* TODO this button is for confirming the selected duration and closing the modal */}
-            <Pressable
-              disabled={isZero}
-              onPress={handleConfirm}
-              style={({ pressed }) => [
-                styles.confirmButton,
-                { backgroundColor: tintColor, opacity: isZero ? 0.4 : pressed ? 0.85 : 1 },
-                surface('button'),
-              ]}>
-              <ThemeDecor kind="button" hatch={tintColor} />
-              <ThemedText style={[styles.confirmLabel, { color: onAccent }]}>Done</ThemedText>
             </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );
 }
 
 const styles = StyleSheet.create({
+  avoider: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)' },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,

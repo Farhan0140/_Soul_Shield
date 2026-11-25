@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo } from 'react';
 import { ActivityIndicator, AppState, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import 'react-native-reanimated';
 
 import { runForegroundSyncIfDue } from '@/lib/background-sync/sync';
@@ -166,6 +167,10 @@ export default function RootLayout() {
     // for its own gesture-driven screen transitions, so it goes at the very
     // root here.
     <GestureHandlerRootView style={{ flex: 1 }}>
+      {/* Tracks the on-screen keyboard so focused inputs stay visible above
+          it on every screen and sheet (see components/ui/
+          keyboard-avoiding-scroll-view.tsx for why it's needed). */}
+      <KeyboardProvider>
       <PersistQueryClientProvider
         client={queryClient}
         persistOptions={persistOptions}
@@ -182,6 +187,7 @@ export default function RootLayout() {
           </AppThemeProvider>
         </ArabicFontProvider>
       </PersistQueryClientProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }
